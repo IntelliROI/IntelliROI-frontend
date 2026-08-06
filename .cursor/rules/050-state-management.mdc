@@ -1,0 +1,21 @@
+---
+description: When to use Zustand vs React state vs URL state vs TanStack Query
+globs: src/stores/**/*.ts
+alwaysApply: false
+---
+
+# State Management Rules
+
+Decision order — pick the first that fits:
+
+1. **Server data** (anything from the database/API) → TanStack Query. Never mirror it
+   into Zustand or useState "for convenience."
+2. **Shareable/bookmarkable UI state** (active tab, table filters, selected date range)
+   → URL search params (`useSearchParams` / `nuqs`), not client state.
+3. **Cross-page client-only state** (sidebar collapsed, theme, in-flight streaming chat
+   buffer) → Zustand, one store per concern in `src/stores/`.
+4. **Local, single-component state** (form input before submit, dialog open/closed)
+   → `useState`/`useReducer` inside the component.
+
+Zustand stores must be small and named for their concern (`ui-store.ts`, `chat-store.ts`),
+never a single monolithic `app-store.ts`.

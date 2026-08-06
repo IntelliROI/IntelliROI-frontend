@@ -1,0 +1,25 @@
+---
+description: File, component, hook, and route naming conventions
+alwaysApply: true
+---
+
+# Naming Conventions
+
+| Thing | Convention | Example |
+|---|---|---|
+| Route folder | kebab-case | `ai-workspace/`, `task-benchmarks/` |
+| Component file | PascalCase.tsx | `RecommendationCard.tsx` |
+| Hook file | camelCase, `use` prefix | `useRoiSummary.ts` |
+| API module | `{domain}.api.ts` | `roi.api.ts` |
+| Type file | `{domain}.types.ts` | `roi.types.ts` |
+| Zustand store | `{domain}-store.ts` | `chat-store.ts` |
+| Zod schema | `{entity}.schema.ts` | `department.schema.ts` |
+| Server action | `{verb}-{noun}.action.ts` | `approve-benchmark.action.ts` |
+| Constant enums | SCREAMING_SNAKE values, camelCase file | `roles.ts` → `SUPER_ADMIN` |
+
+- Component names must match their domain noun exactly as it appears in the backend
+  schema docs (e.g. `TaskBenchmark`, not `Benchmark` or `TaskBenchmarkItem`) — this keeps
+  frontend/backend/database vocabulary identical and greppable.
+- Boolean props/vars: `is/has/can/should` prefix (`isLoading`, `canApprove`).
+- Never abbreviate domain nouns (`department` not `dept`, `employee` not `emp`) in code —
+  abbreviations are fine in UI copy/labels only.

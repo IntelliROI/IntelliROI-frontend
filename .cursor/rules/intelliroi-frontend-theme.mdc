@@ -1,0 +1,46 @@
+---
+description: Enforce IntelliROI dark terminal theme — fonts, colors, layout, motion — on all frontend work
+globs: app/src/**/*.{jsx,js,tsx,ts,css}, app/tailwind.config.js, app/index.html, app/src/index.css
+alwaysApply: false
+---
+
+# IntelliROI Frontend Theme
+
+Keep every UI change inside the IntelliROI design system. Full tokens: `docs/DESIGN_SYSTEM.md`. Workflow skill: `.cursor/skills/intelliroi-theme/SKILL.md`.
+
+## Tokens (required)
+
+- **bg** `ink` `#09090B` · **surface** `#111827` · **hairline** `#2A2A2A`
+- **text** `text-primary` `#F8FAFC` · `text-secondary` `#CBD5E1`
+- **accent** mint `#00E5A8` only (not purple). Secondary data: `#4F8CFF`
+- **fonts** Inter (`font-sans`) prose; JetBrains Mono (`font-mono`) labels/CTAs/metrics/logo
+- **radius** sharp (no soft cards). Status dots may be `rounded-full`
+
+## Patterns
+
+- Sections: `SectionShell` + `Chapter` + one headline + short body
+- Primary CTA: filled mint → transparent + accent text on hover; optional mint glow
+- Secondary CTA: hairline border → accent border/text on hover
+- Layouts: hairline `gap-px` mosaics, 4/8 editorial, 2-col splits — not floating soft cards
+- Icons: Lucide `strokeWidth={1.5}` only
+
+## Motion
+
+- Reuse `Reveal` / `CountUp` from `shared.jsx`
+- Ease `[0.22, 1, 0.36, 1]`; live status → `animate-pulse-dot`
+- Lenis owns smooth scroll (`duration: 1.15`)
+
+## Forbidden
+
+```jsx
+// ❌ Light backgrounds, purple accents, rounded-2xl card stacks, Inter-only chrome
+<div className="rounded-2xl bg-white shadow-xl text-purple-600">…
+
+// ✅
+<div className="border border-hairline bg-ink p-6">
+  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">01</span>
+  <h3 className="mt-4 font-medium tracking-tight text-text-primary">…</h3>
+</div>
+```
+
+No light mode, no cream/terracotta defaults, no hero photography/pill clusters/emoji.

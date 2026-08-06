@@ -1,0 +1,24 @@
+---
+description: TanStack Query conventions, cache keys, and Pipeline 1 vs Pipeline 2 fetching rules
+globs: src/features/**/{api,hooks}/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Data Fetching Rules
+
+- All server data fetching goes through TanStack Query. Query keys MUST include tenant
+  scope first: `['company', companySlug, 'roi', 'summary', {department_id}]` — never omit
+  `companySlug` from a key, even if the API route already scopes by session, so that a
+  company switch never serves stale cached data from another tenant.
+- **Pipeline 1 (ai-workspace only):** use streaming fetch (SSE or fetch + ReadableStream),
+  not TanStack Query, for the chat response itself. Optimistic message append, no retry-
+  with-cache semantics.
+- **Pipeline 2 (usage, cost, business-context, analytics, roi, notifications):** standard
+  TanStack Query with `staleTime` >= 60s minimum (this data is computed by background
+  workers on a delay — do not poll aggressively or treat it as real-time).
+- Mutations (create department, approve benchmark, connect provider) use
+  `useMutation` + `queryClient.invalidateQueries` scoped to the narrowest key possible —
+  never blanket-invalidate the whole cache.
+- Every `features/{domain}/api/{domain}.api.ts` exports typed functions only
+  (`getRoiSummary(scope, id): Promise<RoiSummary>`) — no fetch calls directly inside
+  components or hooks' bodies beyond calling these.

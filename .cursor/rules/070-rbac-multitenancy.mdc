@@ -1,0 +1,25 @@
+---
+description: RBAC enforcement patterns and tenant isolation rules
+globs: src/lib/rbac/**/*.ts,src/middleware.ts,src/app/**/*.tsx
+alwaysApply: false
+---
+
+# RBAC & Multi-Tenancy Rules
+
+- Roles: `SUPER_ADMIN`, `COMPANY_OWNER`, `DEPARTMENT_HEAD`, `TEAM_LEAD`, `EMPLOYEE`.
+  Single source of truth for permissions: `lib/rbac/role-matrix.ts`.
+- Every gated UI element wraps in `<Can action="..." resource="...">` — never an inline
+  `if (role === 'COMPANY_OWNER')` scattered through JSX. If a new permission check is
+  needed, add it to `role-matrix.ts` first.
+- `middleware.ts` validates on every request: (a) session exists, (b) for company-scoped
+  routes, the `[companySlug]` param matches the session's `company_id`, (c) for
+  super-admin routes, role is `SUPER_ADMIN`. A 403 page, not a redirect loop, on failure.
+- Never rely on hiding a nav item as the only protection for a route — every route under
+  `(platform-admin)` and role-restricted sub-routes under `(company)` must also be
+  server-guarded (page-level session check or middleware matcher).
+- API calls never take `company_id`/`department_id`/`team_id` from client-controlled state
+  as the sole authorization signal — they're passed for *filtering* convenience only; the
+  server re-derives allowed scope from the session token.
+
+Role dashboards and capability matrix: skill `intelliroi-architecture` and
+`.cursor/skills/03-ROLE-HIERARCHY-AND-DASHBOARDS.md`.
