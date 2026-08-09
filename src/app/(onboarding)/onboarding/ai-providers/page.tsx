@@ -10,9 +10,9 @@ export default function OnboardingProvidersPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Step 03"
+        eyebrow="Step 05"
         title="Connect AI providers"
-        description="Employees never see raw keys — IntelliROI gateway holds them."
+        description="Config entity: store credential references only — never raw keys in plain UI storage."
       />
       <div className="grid gap-px bg-hairline md:grid-cols-3">
         {["openai", "anthropic", "google"].map((provider) => (
@@ -39,10 +39,10 @@ export default function OnboardingProvidersPage() {
       </div>
       <div className="mt-8 flex justify-between">
         <Button asChild variant="secondary">
-          <Link href="/onboarding/departments">Back</Link>
+          <Link href="/onboarding/teams">Back</Link>
         </Button>
         <Button asChild>
-          <Link href="/onboarding/invite-team">Continue</Link>
+          <Link href="/onboarding/employees">Continue</Link>
         </Button>
       </div>
     </div>

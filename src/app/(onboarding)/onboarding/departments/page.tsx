@@ -1,59 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/feedback/States";
+import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { CreateDepartmentForm } from "@/features/organization/components/CreateDepartmentForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
 
 export default function OnboardingDepartmentsPage() {
-  const [name, setName] = useState("Engineering");
-  const [created, setCreated] = useState<string[]>([]);
-
-  async function addDepartment() {
-    if (!name.trim()) return;
-    await organizationApi.createDepartment({ department_name: name.trim() });
-    setCreated((c) => [...c, name.trim()]);
-    toast.success(`Created ${name.trim()}`);
-    setName("");
-  }
+  const departments = useQuery({
+    queryKey: ["onboarding", "departments"],
+    queryFn: () => organizationApi.listDepartments(),
+  });
+  const employees = useQuery({
+    queryKey: ["onboarding", "employees"],
+    queryFn: () => organizationApi.listEmployees(),
+  });
 
   return (
     <div>
       <PageHeader
-        eyebrow="Step 02"
-        title="Seed departments"
-        description="Create the first structural units for budgets and analytics."
+        eyebrow="Step 03"
+        title="Departments"
+        description="Create structural units (e.g. Engineering) that own teams and budgets."
       />
-      <div className="flex gap-3">
-        <div className="flex-1 space-y-2">
-          <Label>Department name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <Button className="self-end" type="button" onClick={addDepartment}>
-          Add
-        </Button>
+      <CreateDepartmentForm
+        managers={employees.data ?? []}
+        onSubmit={async (values) => {
+          await organizationApi.createDepartment(values);
+          toast.success(`Created ${values.department_name}`);
+          departments.refetch();
+        }}
+      />
+      <div className="mt-8">
+        {departments.isLoading ? (
+          <LoadingBlock className="h-40" />
+        ) : (
+          <DataTable
+            columns={[
+              { key: "code", label: "Code" },
+              { key: "name", label: "Department" },
+              { key: "status", label: "Status" },
+            ]}
+            rows={(departments.data ?? []).map((d) => ({
+              code: d.department_code,
+              name: d.department_name,
+              status: d.status,
+            }))}
+          />
+        )}
       </div>
-      {created.length > 0 && (
-        <ul className="mt-6 space-y-2">
-          {created.map((d) => (
-            <li
-              key={d}
-              className="border border-hairline px-3 py-2 font-mono text-xs uppercase tracking-[0.15em] text-accent"
-            >
-              {d}
-            </li>
-          ))}
-        </ul>
-      )}
       <div className="mt-8 flex justify-between">
         <Button asChild variant="secondary">
-          <Link href="/onboarding/company-profile">Back</Link>
+          <Link href="/onboarding/job-roles">Back</Link>
         </Button>
         <Button asChild>
-          <Link href="/onboarding/ai-providers">Continue</Link>
+          <Link href="/onboarding/teams">Continue</Link>
         </Button>
       </div>
     </div>

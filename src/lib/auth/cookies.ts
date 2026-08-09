@@ -2,16 +2,29 @@ import { AUTH_COOKIE } from "@/lib/auth/cookie-names";
 
 export { AUTH_COOKIE };
 
-function setCookie(name: string, value: string, maxAgeSeconds = 60 * 60 * 24 * 7) {
+const IS_PROD = process.env.NODE_ENV === "production";
+
+function setCookie(
+  name: string,
+  value: string,
+  maxAgeSeconds = 60 * 60 * 24 * 7,
+) {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+  const secure = IS_PROD ? "; Secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax${secure}`;
 }
 
 function clearCookie(name: string) {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+  const secure = IS_PROD ? "; Secure" : "";
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${secure}`;
 }
 
+/**
+ * Sync lightweight session hints for middleware (role / slug / onboarding).
+ * Access token also lives in memory + localStorage via auth-store for API calls.
+ * Prefer httpOnly cookies from the auth service when backend supports it.
+ */
 export function syncAuthCookies(payload: {
   accessToken: string;
   role: string;

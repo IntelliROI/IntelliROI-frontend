@@ -12,6 +12,10 @@ export const queryKeys = {
       ["company", companySlug, "teams", departmentId ?? "all"] as const,
     employees: (companySlug: string) =>
       ["company", companySlug, "employees"] as const,
+    jobRoles: (companySlug: string) =>
+      ["company", companySlug, "job-roles"] as const,
+    settings: (companySlug: string) =>
+      ["company", companySlug, "settings"] as const,
     projects: (companySlug: string) =>
       ["company", companySlug, "projects"] as const,
     roi: {

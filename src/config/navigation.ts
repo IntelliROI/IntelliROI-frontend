@@ -16,6 +16,7 @@ import {
   Sparkles,
   Users,
   Wallet,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { type Role, ROLES } from "@/constants/roles";
@@ -29,6 +30,8 @@ export type NavItem = {
   resource?: Resource;
   action?: Action;
   roles?: Role[];
+  /** Optional sidebar section heading */
+  section?: string;
 };
 
 const platformNav: NavItem[] = [
@@ -38,14 +41,16 @@ const platformNav: NavItem[] = [
     href: "/super-admin/dashboard",
     icon: LayoutDashboard,
     roles: [ROLES.SUPER_ADMIN],
+    section: "Platform",
   },
   {
     id: "companies",
-    label: "Companies",
+    label: "Organizations",
     href: "/super-admin/companies",
     icon: Building2,
     resource: "companies",
     action: "view",
+    section: "Platform",
   },
   {
     id: "providers",
@@ -54,6 +59,7 @@ const platformNav: NavItem[] = [
     icon: CircuitBoard,
     resource: "providers_global",
     action: "view",
+    section: "Platform",
   },
   {
     id: "analytics",
@@ -62,6 +68,7 @@ const platformNav: NavItem[] = [
     icon: ChartColumn,
     resource: "analytics",
     action: "view",
+    section: "Intelligence",
   },
   {
     id: "health",
@@ -70,6 +77,7 @@ const platformNav: NavItem[] = [
     icon: Activity,
     resource: "system_health",
     action: "view",
+    section: "Intelligence",
   },
   {
     id: "flags",
@@ -78,6 +86,7 @@ const platformNav: NavItem[] = [
     icon: Flag,
     resource: "feature_flags",
     action: "view",
+    section: "Ops",
   },
   {
     id: "audit",
@@ -86,6 +95,7 @@ const platformNav: NavItem[] = [
     icon: Shield,
     resource: "audit",
     action: "view",
+    section: "Ops",
   },
   {
     id: "settings",
@@ -94,6 +104,7 @@ const platformNav: NavItem[] = [
     icon: Settings,
     resource: "settings",
     action: "view",
+    section: "Ops",
   },
 ];
 
@@ -105,14 +116,221 @@ export function getPlatformNav(role: Role): NavItem[] {
   });
 }
 
+/**
+ * Role experiences from architecture doc — not one mega-menu filtered poorly.
+ */
 export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
   const base = `/${companySlug}`;
-  const items: NavItem[] = [
+
+  if (role === ROLES.EMPLOYEE) {
+    return [
+      {
+        id: "workspace",
+        label: "AI Workspace",
+        href: `${base}/ai-workspace`,
+        icon: MessageSquare,
+        section: "Workspace",
+      },
+      {
+        id: "my-workspace",
+        label: "My Usage & ROI",
+        href: `${base}/my-workspace`,
+        icon: Sparkles,
+        section: "Workspace",
+      },
+      {
+        id: "projects",
+        label: "My Projects",
+        href: `${base}/organization/projects`,
+        icon: FolderKanban,
+        section: "Workspace",
+      },
+      {
+        id: "notifications",
+        label: "Notifications",
+        href: `${base}/notifications`,
+        icon: Bell,
+        section: "Account",
+      },
+    ];
+  }
+
+  if (role === ROLES.TEAM_LEAD) {
+    return filterNav([
+      {
+        id: "dashboard",
+        label: "Team Dashboard",
+        href: `${base}/dashboard`,
+        icon: LayoutDashboard,
+        section: "Team",
+      },
+      {
+        id: "employees",
+        label: "Team Members",
+        href: `${base}/organization/employees`,
+        icon: Users,
+        resource: "employees",
+        action: "view",
+        section: "Team",
+      },
+      {
+        id: "projects",
+        label: "Projects",
+        href: `${base}/organization/projects`,
+        icon: FolderKanban,
+        resource: "projects",
+        action: "view",
+        section: "Team",
+      },
+      {
+        id: "usage",
+        label: "AI Usage",
+        href: `${base}/usage`,
+        icon: Activity,
+        resource: "usage",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "analytics",
+        label: "Analytics",
+        href: `${base}/analytics`,
+        icon: ChartColumn,
+        resource: "analytics",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "roi",
+        label: "Estimated ROI",
+        href: `${base}/roi`,
+        icon: Coins,
+        resource: "roi",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "workspace",
+        label: "AI Workspace",
+        href: `${base}/ai-workspace`,
+        icon: MessageSquare,
+        resource: "workspace",
+        action: "use",
+        section: "Workspace",
+      },
+      {
+        id: "notifications",
+        label: "Notifications",
+        href: `${base}/notifications`,
+        icon: Bell,
+        resource: "notifications",
+        action: "view",
+        section: "Account",
+      },
+    ], role);
+  }
+
+  if (role === ROLES.DEPARTMENT_HEAD) {
+    return filterNav([
+      {
+        id: "dashboard",
+        label: "Dept Dashboard",
+        href: `${base}/dashboard`,
+        icon: LayoutDashboard,
+        section: "Department",
+      },
+      {
+        id: "teams",
+        label: "Teams",
+        href: `${base}/organization/teams`,
+        icon: Users,
+        resource: "teams",
+        action: "view",
+        section: "Department",
+      },
+      {
+        id: "employees",
+        label: "Employees",
+        href: `${base}/organization/employees`,
+        icon: UserRound,
+        resource: "employees",
+        action: "view",
+        section: "Department",
+      },
+      {
+        id: "projects",
+        label: "Projects",
+        href: `${base}/organization/projects`,
+        icon: FolderKanban,
+        resource: "projects",
+        action: "view",
+        section: "Department",
+      },
+      {
+        id: "usage",
+        label: "AI Usage",
+        href: `${base}/usage`,
+        icon: Activity,
+        resource: "usage",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "analytics",
+        label: "Analytics",
+        href: `${base}/analytics`,
+        icon: ChartColumn,
+        resource: "analytics",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "roi",
+        label: "Estimated ROI",
+        href: `${base}/roi`,
+        icon: Coins,
+        resource: "roi",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "budgets",
+        label: "Budgets",
+        href: `${base}/budgets`,
+        icon: Wallet,
+        resource: "budgets",
+        action: "view",
+        section: "Intelligence",
+      },
+      {
+        id: "workspace",
+        label: "AI Workspace",
+        href: `${base}/ai-workspace`,
+        icon: MessageSquare,
+        resource: "workspace",
+        action: "use",
+        section: "Workspace",
+      },
+      {
+        id: "notifications",
+        label: "Notifications",
+        href: `${base}/notifications`,
+        icon: Bell,
+        resource: "notifications",
+        action: "view",
+        section: "Account",
+      },
+    ], role);
+  }
+
+  // CEO / Company Owner — executive control center
+  return filterNav([
     {
       id: "dashboard",
-      label: "Dashboard",
+      label: "Executive Dashboard",
       href: `${base}/dashboard`,
       icon: LayoutDashboard,
+      section: "Executive",
     },
     {
       id: "departments",
@@ -121,6 +339,7 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       icon: Building2,
       resource: "departments",
       action: "view",
+      section: "Organization",
     },
     {
       id: "teams",
@@ -129,14 +348,25 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       icon: Users,
       resource: "teams",
       action: "view",
+      section: "Organization",
     },
     {
       id: "employees",
       label: "Employees",
       href: `${base}/organization/employees`,
-      icon: Users,
+      icon: UserRound,
       resource: "employees",
       action: "view",
+      section: "Organization",
+    },
+    {
+      id: "job-roles",
+      label: "Job Roles",
+      href: `${base}/organization/job-roles`,
+      icon: ClipboardList,
+      resource: "job_roles",
+      action: "view",
+      section: "Organization",
     },
     {
       id: "projects",
@@ -145,54 +375,16 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       icon: FolderKanban,
       resource: "projects",
       action: "view",
-    },
-    {
-      id: "providers",
-      label: "AI Providers",
-      href: `${base}/ai-providers`,
-      icon: CircuitBoard,
-      resource: "providers_company",
-      action: "view",
-    },
-    {
-      id: "workspace",
-      label: "AI Workspace",
-      href: `${base}/ai-workspace`,
-      icon: MessageSquare,
-      resource: "workspace",
-      action: "use",
-    },
-    {
-      id: "notifications",
-      label: "Notifications",
-      href: `${base}/notifications`,
-      icon: Bell,
-      resource: "notifications",
-      action: "view",
+      section: "Organization",
     },
     {
       id: "usage",
-      label: "Usage",
+      label: "AI Usage",
       href: `${base}/usage`,
       icon: Activity,
       resource: "usage",
       action: "view",
-    },
-    {
-      id: "budgets",
-      label: "Budgets",
-      href: `${base}/budgets`,
-      icon: Wallet,
-      resource: "budgets",
-      action: "view",
-    },
-    {
-      id: "business-context",
-      label: "Business Context",
-      href: `${base}/business-context/task-benchmarks`,
-      icon: ClipboardList,
-      resource: "benchmarks",
-      action: "view",
+      section: "AI Intelligence",
     },
     {
       id: "analytics",
@@ -201,14 +393,43 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       icon: ChartColumn,
       resource: "analytics",
       action: "view",
+      section: "AI Intelligence",
     },
     {
       id: "roi",
-      label: "ROI",
+      label: "Estimated ROI",
       href: `${base}/roi`,
       icon: Coins,
       resource: "roi",
       action: "view",
+      section: "AI Intelligence",
+    },
+    {
+      id: "providers",
+      label: "AI Providers",
+      href: `${base}/ai-providers`,
+      icon: CircuitBoard,
+      resource: "providers_company",
+      action: "view",
+      section: "AI Intelligence",
+    },
+    {
+      id: "budgets",
+      label: "Budgets",
+      href: `${base}/budgets`,
+      icon: Wallet,
+      resource: "budgets",
+      action: "view",
+      section: "Governance",
+    },
+    {
+      id: "business-context",
+      label: "Task Benchmarks",
+      href: `${base}/business-context/task-benchmarks`,
+      icon: ClipboardList,
+      resource: "benchmarks",
+      action: "view",
+      section: "Governance",
     },
     {
       id: "reports",
@@ -217,21 +438,34 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       icon: FileText,
       resource: "reports",
       action: "view",
+      section: "Governance",
     },
     {
-      id: "my-workspace",
-      label: "My Workspace",
-      href: `${base}/my-workspace`,
-      icon: Sparkles,
-      roles: [ROLES.EMPLOYEE],
+      id: "workspace",
+      label: "AI Workspace",
+      href: `${base}/ai-workspace`,
+      icon: MessageSquare,
+      resource: "workspace",
+      action: "use",
+      section: "Workspace",
+    },
+    {
+      id: "notifications",
+      label: "Notifications",
+      href: `${base}/notifications`,
+      icon: Bell,
+      resource: "notifications",
+      action: "view",
+      section: "Account",
     },
     {
       id: "settings",
-      label: "Settings",
+      label: "Company Settings",
       href: `${base}/settings/company`,
       icon: Settings,
       resource: "settings",
       action: "view",
+      section: "Account",
     },
     {
       id: "audit",
@@ -240,12 +474,14 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       icon: Shield,
       resource: "audit",
       action: "view",
+      section: "Account",
     },
-  ];
+  ], role);
+}
 
+function filterNav(items: NavItem[], role: Role): NavItem[] {
   return items.filter((item) => {
     if (item.roles && !item.roles.includes(role)) return false;
-    if (item.id === "my-workspace" && role !== ROLES.EMPLOYEE) return false;
     if (item.resource && item.action) return can(role, item.resource, item.action);
     return true;
   });

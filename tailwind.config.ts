@@ -17,7 +17,8 @@ const config: Config = {
         "text-primary": "#F8FAFC",
         "text-secondary": "#CBD5E1",
         hairline: "#2A2A2A",
-        accent: "#00E5A8",
+        brand: "var(--brand-accent)",
+        accent: "var(--role-accent)",
         "accent-blue": "#4F8CFF",
         warning: "#F59E0B",
         danger: "#EF4444",
@@ -63,9 +64,12 @@ const config: Config = {
         full: "9999px",
       },
       boxShadow: {
-        "glow-sm": "0 0 40px rgba(0,229,168,0.25)",
-        "glow-md": "0 0 50px rgba(0,229,168,0.3)",
-        "glow-lg": "0 0 80px rgba(0,229,168,0.1)",
+        "glow-sm": "var(--role-glow)",
+        "glow-md":
+          "0 0 50px color-mix(in srgb, var(--role-accent) 30%, transparent)",
+        "glow-lg":
+          "0 0 80px color-mix(in srgb, var(--role-accent) 10%, transparent)",
+        "glow-brand": "0 0 40px rgba(0,229,168,0.25)",
       },
       keyframes: {
         "pulse-dot": {
@@ -80,11 +84,16 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "pulse-dot": "pulse-dot 2s ease-in-out infinite",
         marquee: "marquee 48s linear infinite",
         blink: "blink-cursor 1.1s step-end infinite",
+        shimmer: "shimmer 1.5s ease-in-out infinite",
       },
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.22, 1, 0.36, 1)",

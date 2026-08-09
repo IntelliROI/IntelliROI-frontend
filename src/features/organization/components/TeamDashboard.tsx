@@ -46,7 +46,7 @@ export function TeamDashboard({
 
       <Mosaic cols={4}>
         <KpiTile label="Spend" value={r.total_spend} format="currency" />
-        <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
+        <KpiTile label="Estimated ROI" value={r.roi_pct} format="percent" accent />
         <KpiTile label="Requests / week" value={186} format="number" />
         <KpiTile label="Members" value={team?.member_count ?? 0} format="number" />
       </Mosaic>
@@ -58,13 +58,13 @@ export function TeamDashboard({
             { key: "name", label: "Employee" },
             { key: "requests", label: "Requests", align: "right" },
             { key: "spend", label: "Spend", align: "right" },
-            { key: "roi", label: "ROI", align: "right" },
+            { key: "roi", label: "Est. ROI", align: "right" },
             { key: "action", label: "" },
           ]}
           rows={(employees.data ?? [])
-            .filter((e) => e.team === team?.team_name || teamId === 1)
+            .filter((e) => e.team_id === teamId)
             .map((e) => ({
-              name: e.name,
+              name: e.display_name,
               requests: e.requests,
               spend: formatCurrency(e.spend, "USD", true),
               roi: <span className="text-accent">{e.roi_pct}%</span>,

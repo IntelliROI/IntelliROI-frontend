@@ -8,10 +8,13 @@ export type LoginInput = { email: string; password: string };
 
 export type RegisterInput = {
   company_name: string;
+  company_code: string;
   industry: string;
   company_size: string;
+  country: string;
   timezone: string;
   currency: string;
+  website?: string;
   email: string;
   first_name: string;
   last_name: string;
@@ -53,8 +56,11 @@ export const authApi = {
         id: Date.now(),
         name: input.company_name,
         slug: slugify(input.company_name),
+        company_code: input.company_code.toUpperCase(),
         industry: input.industry,
         company_size: input.company_size,
+        country: input.country,
+        website: input.website || undefined,
         timezone: input.timezone,
         currency: input.currency,
         status: "active" as const,

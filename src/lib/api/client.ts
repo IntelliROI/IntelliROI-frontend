@@ -1,4 +1,5 @@
 import { services, type ServiceKey, useMocks } from "@/config/site";
+import { withTimeout } from "@/lib/performance";
 
 export class ApiError extends Error {
   status: number;
@@ -18,6 +19,8 @@ type RequestOptions = {
   token?: string | null;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /** Default 30s — prevents hung requests from freezing UI */
+  timeoutMs?: number;
 };
 
 function getToken(): string | null {
@@ -30,20 +33,39 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { method = "GET", body, token, headers = {}, signal } = options;
+  const {
+    method = "GET",
+    body,
+    token,
+    headers = {},
+    signal,
+    timeoutMs = 30_000,
+  } = options;
   const base = services[service];
   const accessToken = token === undefined ? getToken() : token;
+  const abortSignal = withTimeout(timeoutMs, signal);
 
-  const res = await fetch(`${base}${path}`, {
-    method,
-    signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      method,
+      signal: abortSignal,
+      credentials: "omit",
+      cache: method === "GET" ? "no-store" : "default",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError("Request timed out", 408);
+    }
+    throw err;
+  }
 
   const text = await res.text();
   let json: unknown = null;

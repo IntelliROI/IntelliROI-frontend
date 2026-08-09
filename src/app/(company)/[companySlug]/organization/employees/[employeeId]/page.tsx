@@ -12,33 +12,55 @@ export default function EmployeeDetailPage({
 }: {
   params: { companySlug: string; employeeId: string };
 }) {
-  const employees = useQuery({
-    queryKey: ["company", params.companySlug, "employees"],
-    queryFn: () => organizationApi.listEmployees(),
+  const employeeQ = useQuery({
+    queryKey: ["company", params.companySlug, "employee", params.employeeId],
+    queryFn: () => organizationApi.getEmployee(params.employeeId),
   });
   const roi = useQuery({
-    queryKey: ["company", params.companySlug, "roi", "employee", params.employeeId],
+    queryKey: [
+      "company",
+      params.companySlug,
+      "roi",
+      "employee",
+      params.employeeId,
+    ],
     queryFn: () => roiApi.employee(params.employeeId),
   });
 
-  const employee = employees.data?.find((e) => e.uuid === params.employeeId);
+  const employee = employeeQ.data;
 
-  if (employees.isLoading || roi.isLoading) {
+  if (employeeQ.isLoading || roi.isLoading) {
     return <LoadingBlock className="h-64" />;
   }
 
   return (
     <div>
       <PageHeader
-        eyebrow="Employee"
-        title={employee?.name ?? params.employeeId}
-        description={`${employee?.department ?? ""} · ${employee?.team ?? ""}`}
+        eyebrow={employee?.employee_code ?? "Employee"}
+        title={employee?.display_name ?? params.employeeId}
+        description={`${employee?.department_name ?? ""} · ${employee?.team_name ?? ""} · ${employee?.job_role_name ?? ""} ($${employee?.hourly_cost ?? 0}/hr)`}
       />
       <Mosaic cols={4}>
-        <KpiTile label="Requests" value={employee?.requests ?? 0} format="number" />
-        <KpiTile label="Spend" value={roi.data?.total_spend ?? 0} format="currency" />
-        <KpiTile label="Time saved" value={`${roi.data?.time_saved_hours ?? 0}h`} />
-        <KpiTile label="ROI" value={roi.data?.roi_pct ?? 0} format="percent" accent />
+        <KpiTile
+          label="Requests"
+          value={employee?.requests ?? 0}
+          format="number"
+        />
+        <KpiTile
+          label="Spend"
+          value={roi.data?.total_spend ?? employee?.spend ?? 0}
+          format="currency"
+        />
+        <KpiTile
+          label="Time saved"
+          value={`${roi.data?.time_saved_hours ?? 0}h`}
+        />
+        <KpiTile
+          label="Estimated ROI"
+          value={roi.data?.roi_pct ?? employee?.roi_pct ?? 0}
+          format="percent"
+          accent
+        />
       </Mosaic>
     </div>
   );

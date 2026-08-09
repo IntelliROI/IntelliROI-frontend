@@ -1,0 +1,31 @@
+---
+description: Naming and folder conventions for IntelliROI Next.js frontend.
+globs: src/**/*.{ts,tsx}, app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Naming & Structure
+
+## Folders
+
+- `src/app/(group)/...` — Next.js App Router route groups
+- `src/features/<domain>/` — `api/`, `components/`, `hooks/`, `schemas/`
+- `src/components/` — shared UI (ui, layout, charts, feedback)
+- `src/lib/` — api client, rbac, auth, utils
+- `src/stores/` — client state (auth, ui, chat)
+- `src/types/` — shared types
+- `src/config/` — navigation, site config
+- `src/constants/` — roles, enums
+
+## Naming
+
+- Components: `PascalCase.tsx`
+- Hooks: `useThing.ts`
+- API modules: `<domain>.api.ts`
+- Schemas: `<domain>.schema.ts`
+- Stores: `<name>-store.ts`
+- Query keys: centralize in `lib/api/query-keys.ts`
+
+## Features map to product domains
+
+`auth`, `organization`, `ai-workspace`, `ai-providers`, `ai-gateway`, `usage`, `cost`, `roi`, `analytics`, `audit`, `notifications`, `business-context`, `system-config`

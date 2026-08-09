@@ -1,115 +1,77 @@
 ---
 name: intelliroi-architecture
-description: >-
-  Enterprise AI Intelligence Platform frontend architecture for IntelliROI —
-  multi-tenant SaaS for monitoring, governing, analyzing, and measuring AI
-  adoption. Covers product hierarchy, RBAC roles, feature modules, Next.js App
-  Router structure, dashboards, design philosophy, and MVP scope. Use when
-  building, scaffolding, designing, or reviewing IntelliROI frontend features,
-  routes, layouts, dashboards, AI workspace, analytics, governance, or
-  organization management.
+description: IntelliROI platform architecture — hierarchy, one RBAC-driven shell, route groups, dashboards by scope, and AI intelligence flow. Use when building pages, layouts, navigation, features, dashboards, analytics, or deciding how company/department/team/employee experiences work. Read before any IntelliROI feature work.
 ---
 
-# IntelliROI — Enterprise Frontend Architecture
+# IntelliROI Architecture
 
-This is **not** a consumer AI chat app. It is a multi-tenant enterprise SaaS that sits between companies and AI providers (OpenAI, Claude, Gemini, Azure OpenAI, Amazon Bedrock). Every AI interaction is enriched with business context for observability, governance, analytics, and ROI.
+## What we build
 
-**Product goal:** The operating system for Enterprise AI Intelligence.
+Multi-tenant SaaS that observes every AI request and rolls intelligence upward:
 
-When this skill applies, also consult `intelliroi-theme` for visual tokens and `ui-ux-pro-max` for design-system generation (enterprise dark SaaS, not consumer chat UI).
+**Platform → Company → Department → Team → Employee → AI Request → Usage → Cost → Business Value → Estimated ROI**
 
-## Non-Negotiables
+## Mental model
 
-1. **Hierarchy-aware** — Every screen respects Platform → Company → Department → Team → Employee → AI Workspace.
-2. **Role-based** — Navigation, dashboards, and data scopes are RBAC-driven. Never leak cross-role data.
-3. **Enterprise aesthetic** — Dark-first, premium, minimal, high information density, large whitespace, executive-friendly. Avoid consumer chat aesthetics (bubbles, playful gradients, emoji-as-UI).
-4. **Feature-based architecture** — Scalable, modular, strongly typed, maintainable over short-term speed.
-5. **Future-proof** — Integrations (Jira, GitHub, Slack, Salesforce, HRMS, Copilot, etc.) are modules — do not restructure core for them.
-
-## Tech Stack
-
-| Layer | Choice |
-|-------|--------|
-| Framework | Next.js (App Router) |
-| Language | TypeScript (strict) |
-| Styling | TailwindCSS + shadcn/ui + Radix UI |
-| Server state | React Query (TanStack Query) |
-| Client state | Zustand |
-| Forms | React Hook Form + Zod |
-| Motion | Framer Motion |
-| Backend | Golang API |
-| Database | PostgreSQL |
-
-## Product Hierarchy
+Do **not** build five separate apps. Build:
 
 ```
-Platform
-└── Super Admin
-└── Companies
-    └── CEO
-    └── Departments
-        └── Teams
-            └── Team Leads
-                └── Employees
-                    └── AI Workspace
+Application Shell
+  ├── Authorization (role + permission + scope)
+  ├── Dynamic sidebar (filtered nav config)
+  └── Scoped content (same modules, different aggregation)
 ```
 
-## Roles & Capabilities
+## Hierarchy
 
-| Role | Can manage / access |
-|------|---------------------|
-| **Super Admin** | Companies, plans, billing, AI providers, platform analytics/health, support, audit logs |
-| **Company CEO** | Departments, managers, AI providers, company analytics/policies, AI budgets |
-| **Department Manager** | Teams, team leads, department analytics, benchmarks, AI adoption |
-| **Team Lead** | Employees, projects, team usage/analytics |
-| **Employee** | Login, AI Workspace, conversations, personal analytics, estimated ROI |
+```
+Super Admin (platform)
+└── Company (CEO / Owner)
+    ├── Departments → Department Manager
+    │     └── Teams → Team Lead → Employees
+    ├── Projects (company / dept / team owned)
+    ├── AI Providers + Policies
+    ├── ROI Configuration
+    └── Company Analytics
+```
 
-Each role gets its **own dashboard** exposing only relevant metrics.
+## Five experiences
 
-## Core Modules (MVP)
+| Experience | Primary question |
+|------------|------------------|
+| Super Admin | How is the SaaS platform performing? |
+| CEO | Is our AI investment producing value? |
+| Dept Manager | How is my department using AI? |
+| Team Lead | How is my team using AI? |
+| Employee | ChatGPT-like workspace + my usage/ROI |
 
-Organization Management · AI Workspace · Provider Selection · Prompt Chat · Conversation History · Usage / Token / Department / Team / Employee Analytics · Estimated ROI · Executive Dashboard · Audit Logs
+## Frontend checklist
 
-**Also in product surface:** Auth, Projects, Prompt Library, Reports, Settings, Notifications, Billing, Support
+When adding a feature:
 
-**Future modules (design for extension, do not build yet):** Jira, GitHub, Azure DevOps, Slack, Teams, Notion, Confluence, Salesforce, HubSpot, HRMS, ERP, Microsoft Copilot, Google Workspace
+1. Identify **permission** + **scope** (PLATFORM | COMPANY | DEPARTMENT | TEAM | SELF)
+2. Add nav item via config — not hardcoded role switches
+3. Reuse analytics components; pass scope filters
+4. Mirror scope in breadcrumbs and drill-down links
+5. Keep Super Admin out of customer prompt-level data by default
 
-## Navigation (Role-Filtered)
+## Route layers
 
-Dashboard · Organization · Companies · Departments · Teams · Employees · Projects · AI Workspace · Conversations · Analytics · ROI · Reports · Audit Logs · Settings
+- **Platform layer:** Super Admin
+- **Customer management:** CEO / Manager / Lead org tools
+- **AI Workspace:** Employee (and optional for managers)
 
-Show only items the current role is allowed to see.
+## Intelligence flow
 
-## Design Philosophy
+```
+Employee → Project → Task Category → AI Gateway → Provider
+  → Usage Event (tokens, cost, org context)
+  → Analytics → ROI Engine → Scoped Dashboards
+```
 
-- Dark first, premium enterprise, modern SaaS
-- Minimal, professional typography, executive-friendly
-- High information density **with** large whitespace (clarity over clutter)
-- Dashboards over chat chrome; charts, tables, filters, KPIs as primary UI
-- Prefer Linear / Stripe / Vercel / Atlassian density patterns over consumer AI UIs
+## Reference docs
 
-## Agent Workflow
-
-When implementing or designing frontend work:
-
-1. **Identify role + hierarchy scope** — Whose screen is this? What org level does data belong to?
-2. **Place code in the correct feature module** — See [architecture.md](architecture.md).
-3. **Wire RBAC** — Route guards, nav visibility, query scopes, empty/forbidden states.
-4. **Match design system** — Use IntelliROI theme tokens; dark enterprise shell.
-5. **Prefer shared primitives** — Layout shells, data tables, KPI cards, filters, charts, empty/error states.
-6. **Type everything** — Zod schemas at API boundaries; shared domain types for org hierarchy entities.
-7. **Do not** invent consumer chat UX or flatten the org hierarchy into a generic admin CRUD.
-
-## Deep References
-
-- [architecture.md](architecture.md) — Folder/route structure, layouts, RBAC, state, API layer, components, hooks, providers
-- [standards.md](standards.md) — Naming, coding standards, utilities, responsive strategy, implementation roadmap
-
-## Anti-Patterns
-
-- Treating the product as “ChatGPT with a sidebar”
-- Single shared dashboard for all roles
-- Ignoring department/team scope in analytics queries
-- Hard-coding integration UI into core modules
-- Purple AI gradients, emoji icons, bubbly chat-first landing inside the app shell
-- Giant god-components or `pages/`-style dumping grounds instead of feature modules
+- `.cursor/docs/Platform_Hirarchy.md`
+- `.cursor/docs/Restructure frontend architecture.md`
+- For domain entities: read [../intelliroi-domain/SKILL.md](../intelliroi-domain/SKILL.md)
+- For role UIs: read [../intelliroi-rbac/SKILL.md](../intelliroi-rbac/SKILL.md)

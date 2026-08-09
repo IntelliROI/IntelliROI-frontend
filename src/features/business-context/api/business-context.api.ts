@@ -1,20 +1,16 @@
 import { apiRequest, useMocks } from "@/lib/api/client";
 import { delay, mockBenchmarks } from "@/lib/mocks/data";
+import { mockJobRoles, nextMockId } from "@/lib/mocks/org-store";
+import type { JobRole } from "@/features/organization/types";
 
 export type Benchmark = (typeof mockBenchmarks)[number];
 
-export type JobRole = { id: number; role_name: string; hourly_cost: number };
+export type { JobRole };
 export type TaskCategory = { id: number; name: string };
 
 export const businessContextApi = {
   async listJobRoles(): Promise<JobRole[]> {
-    if (useMocks) {
-      return delay([
-        { id: 1, role_name: "Software Engineer", hourly_cost: 65 },
-        { id: 2, role_name: "Sales AE", hourly_cost: 55 },
-        { id: 3, role_name: "Product Manager", hourly_cost: 70 },
-      ]);
-    }
+    if (useMocks) return delay([...mockJobRoles]);
     return apiRequest<JobRole[]>("bc", "/job-roles");
   },
 
@@ -22,7 +18,18 @@ export const businessContextApi = {
     role_name: string;
     hourly_cost: number;
   }): Promise<JobRole> {
-    if (useMocks) return delay({ id: Date.now(), ...input });
+    if (useMocks) {
+      const row: JobRole = {
+        id: nextMockId(),
+        company_id: 1,
+        role_name: input.role_name,
+        hourly_cost: input.hourly_cost,
+        currency: "USD",
+        status: "active",
+      };
+      mockJobRoles.push(row);
+      return delay(row);
+    }
     return apiRequest<JobRole>("bc", "/job-roles", { method: "POST", body: input });
   },
 
@@ -33,6 +40,8 @@ export const businessContextApi = {
         { id: 2, name: "Documentation" },
         { id: 3, name: "Testing" },
         { id: 4, name: "Customer Email" },
+        { id: 5, name: "Debugging" },
+        { id: 6, name: "Research" },
       ]);
     }
     return apiRequest<TaskCategory[]>("bc", "/task-categories");
@@ -81,20 +90,22 @@ export const businessContextApi = {
   async approveBenchmark(id: number): Promise<Benchmark> {
     if (useMocks) {
       const found = mockBenchmarks.find((b) => b.id === id);
-      return delay({ ...found!, status: "approved" });
+      if (!found) throw new Error("Not found");
+      return delay({ ...found, status: "approved" });
     }
-    return apiRequest<Benchmark>("bc", `/task-benchmarks/${id}/approve`, {
-      method: "PATCH",
+    return apiRequest("bc", `/task-benchmarks/${id}/approve`, {
+      method: "POST",
     });
   },
 
   async rejectBenchmark(id: number): Promise<Benchmark> {
     if (useMocks) {
       const found = mockBenchmarks.find((b) => b.id === id);
-      return delay({ ...found!, status: "rejected" });
+      if (!found) throw new Error("Not found");
+      return delay({ ...found, status: "rejected" });
     }
-    return apiRequest<Benchmark>("bc", `/task-benchmarks/${id}/reject`, {
-      method: "PATCH",
+    return apiRequest("bc", `/task-benchmarks/${id}/reject`, {
+      method: "POST",
     });
   },
 };

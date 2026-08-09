@@ -11,6 +11,7 @@ import { loginSchema } from "@/features/auth/schemas/auth.schema";
 import { useAuthStore } from "@/stores/auth-store";
 import { ROLES } from "@/constants/roles";
 import { Chapter } from "@/components/ui/panel";
+import { getHomePath } from "@/lib/rbac/route-access";
 
 const DEMO_ACCOUNTS = [
   { email: "super@intelliroi.com", label: "Super Admin" },
@@ -54,11 +55,7 @@ export function LoginForm() {
       } else {
         const slug =
           session.company?.slug ?? session.user.company?.slug ?? "acme";
-        if (session.user.role === ROLES.EMPLOYEE) {
-          router.replace(`/${slug}/my-workspace`);
-        } else {
-          router.replace(`/${slug}/dashboard`);
-        }
+        router.replace(getHomePath(session.user.role, slug));
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Login failed");

@@ -1,5 +1,11 @@
 import { ROLES } from "@/constants/roles";
 import { type Company, type User } from "@/types/auth.types";
+import {
+  mockDepartmentsStore,
+  mockEmployeesStore,
+  mockProjectsStore,
+  mockTeamsStore,
+} from "@/lib/mocks/org-store";
 
 export const mockCompany: Company = {
   uuid: "cmp-acme-001",
@@ -67,64 +73,27 @@ export const mockUsers: Record<string, User & { password: string }> = {
   },
 };
 
-export const mockDepartments = [
-  {
-    id: 1,
-    department_name: "Engineering",
-    manager_user_uuid: "usr-dept-001",
-    employee_count: 42,
-    monthly_spend: 18420,
-    roi_pct: 312,
-    budget_limit: 25000,
-  },
-  {
-    id: 2,
-    department_name: "Sales",
-    manager_user_uuid: null,
-    employee_count: 28,
-    monthly_spend: 9200,
-    roi_pct: 248,
-    budget_limit: 12000,
-  },
-  {
-    id: 3,
-    department_name: "Marketing",
-    manager_user_uuid: null,
-    employee_count: 18,
-    monthly_spend: 6400,
-    roi_pct: 189,
-    budget_limit: 8000,
-  },
-  {
-    id: 4,
-    department_name: "Customer Success",
-    manager_user_uuid: null,
-    employee_count: 22,
-    monthly_spend: 5100,
-    roi_pct: 221,
-    budget_limit: 7000,
-  },
-];
+export const mockDepartments = mockDepartmentsStore;
+export const mockTeams = mockTeamsStore;
+export const mockProjects = mockProjectsStore;
 
-export const mockTeams = [
-  { id: 1, team_name: "Platform", department_id: 1, lead_user_uuid: "usr-lead-001", member_count: 8, monthly_spend: 6200, roi_pct: 340 },
-  { id: 2, team_name: "Frontend", department_id: 1, lead_user_uuid: null, member_count: 6, monthly_spend: 4100, roi_pct: 290 },
-  { id: 3, team_name: "QA", department_id: 1, lead_user_uuid: null, member_count: 5, monthly_spend: 2800, roi_pct: 260 },
-  { id: 4, team_name: "Enterprise Sales", department_id: 2, lead_user_uuid: null, member_count: 10, monthly_spend: 5200, roi_pct: 255 },
-];
+/** Snapshot helper for legacy consumers — prefer organizationApi.listEmployees() */
+export function getMockEmployeeRows() {
+  return mockEmployeesStore.map((e) => ({
+    uuid: e.uuid,
+    name: e.display_name,
+    email: e.email,
+    role: e.app_role,
+    department: e.department_name,
+    team: e.team_name,
+    spend: e.spend,
+    roi_pct: e.roi_pct,
+    requests: e.requests,
+  }));
+}
 
-export const mockProjects = [
-  { id: 1, project_name: "Invoice Builder", department_id: 1, team_id: 1, status: "active" },
-  { id: 2, project_name: "ROI Console", department_id: 1, team_id: 2, status: "active" },
-  { id: 3, project_name: "Outbound Copilot", department_id: 2, team_id: 4, status: "active" },
-];
-
-export const mockEmployees = [
-  { uuid: "usr-emp-001", name: "Riley Maker", email: "emp@acme.test", role: "EMPLOYEE", department: "Engineering", team: "Platform", spend: 420, roi_pct: 380, requests: 146 },
-  { uuid: "usr-emp-002", name: "Casey Chen", email: "casey@acme.test", role: "EMPLOYEE", department: "Engineering", team: "Frontend", spend: 380, roi_pct: 310, requests: 121 },
-  { uuid: "usr-emp-003", name: "Morgan Lee", email: "morgan@acme.test", role: "EMPLOYEE", department: "Sales", team: "Enterprise Sales", spend: 510, roi_pct: 265, requests: 98 },
-  { uuid: "usr-emp-004", name: "Avery Patel", email: "avery@acme.test", role: "EMPLOYEE", department: "Marketing", team: "—", spend: 290, roi_pct: 198, requests: 74 },
-];
+/** @deprecated use getMockEmployeeRows() or organizationApi */
+export const mockEmployees = getMockEmployeeRows();
 
 export const mockCompanies = [
   mockCompany,

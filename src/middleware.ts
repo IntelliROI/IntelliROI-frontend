@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_COOKIE } from "@/lib/auth/cookie-names";
-import { ROLES } from "@/constants/roles";
+import { ROLES, type Role } from "@/constants/roles";
+import {
+  canAccessCompanyPath,
+  getHomePath,
+} from "@/lib/rbac/route-access";
 
 const PUBLIC_PREFIXES = [
   "/",
@@ -36,7 +40,7 @@ export function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get(AUTH_COOKIE.access)?.value;
-  const role = request.cookies.get(AUTH_COOKIE.role)?.value;
+  const role = request.cookies.get(AUTH_COOKIE.role)?.value as Role | undefined;
   const slug = request.cookies.get(AUTH_COOKIE.slug)?.value;
   const onboarding =
     request.cookies.get(AUTH_COOKIE.onboarding)?.value ?? "1";
@@ -56,12 +60,13 @@ export function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/onboarding")) {
     if (role === ROLES.SUPER_ADMIN) {
-      return NextResponse.redirect(new URL("/super-admin/dashboard", request.url));
+      return NextResponse.redirect(
+        new URL("/super-admin/dashboard", request.url),
+      );
     }
     return NextResponse.next();
   }
 
-  // Tenant routes: /{companySlug}/...
   const segments = pathname.split("/").filter(Boolean);
   const companySlug = segments[0];
   const reserved = new Set([
@@ -78,7 +83,9 @@ export function middleware(request: NextRequest) {
 
   if (companySlug && !reserved.has(companySlug)) {
     if (role === ROLES.SUPER_ADMIN) {
-      return NextResponse.redirect(new URL("/super-admin/dashboard", request.url));
+      return NextResponse.redirect(
+        new URL("/super-admin/dashboard", request.url),
+      );
     }
     if (slug && companySlug !== slug) {
       return NextResponse.redirect(new URL("/forbidden", request.url));
@@ -86,6 +93,13 @@ export function middleware(request: NextRequest) {
     if (onboarding === "0" && !pathname.startsWith("/onboarding")) {
       return NextResponse.redirect(
         new URL("/onboarding/company-profile", request.url),
+      );
+    }
+
+    // Role path ACL — employees cannot open CEO/manager routes
+    if (role && !canAccessCompanyPath(role, companySlug, pathname)) {
+      return NextResponse.redirect(
+        new URL(getHomePath(role, companySlug), request.url),
       );
     }
   }

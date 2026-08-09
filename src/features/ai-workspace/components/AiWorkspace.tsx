@@ -1,19 +1,68 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
-import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { useRouter } from "next/navigation";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { useChatStore } from "@/stores/chat-store";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
 import { queryKeys } from "@/lib/api/query-keys";
+import {
+  ChatMessageBubble,
+  type ChatMessageView,
+} from "@/features/ai-workspace/components/ChatMessage";
+import { ChatComposer } from "@/features/ai-workspace/components/ChatComposer";
+import { ChatSidebar } from "@/features/ai-workspace/components/ChatSidebar";
+import { AiChatLoader, AiMark } from "@/features/ai-workspace/components/AiMark";
+import { organizationApi } from "@/features/organization/api/organization.api";
+import { businessContextApi } from "@/features/business-context/api/business-context.api";
 
-type Message = { id: string; role: "user" | "assistant"; content: string };
+const SUGGESTIONS = [
+  "Draft an API design for Invoice Builder with auth middleware",
+  "Explain our Estimated ROI formula for a CEO one-pager",
+  "Write SQL to roll up AI cost by department and team",
+  "Refactor this auth flow for clearer error handling",
+];
 
+const MODELS: Record<
+  string,
+  { label: string; models: { id: string; label: string }[] }
+> = {
+  openai: {
+    label: "OpenAI",
+    models: [
+      { id: "gpt-4o-mini", label: "GPT-4o mini" },
+      { id: "gpt-4o", label: "GPT-4o" },
+    ],
+  },
+  anthropic: {
+    label: "Anthropic",
+    models: [{ id: "claude-sonnet-4-20250514", label: "Claude Sonnet" }],
+  },
+  google: {
+    label: "Google",
+    models: [{ id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }],
+  },
+};
+
+const PROVIDERS = Object.entries(MODELS).map(([id, meta]) => ({
+  id,
+  label: meta.label,
+  models: meta.models,
+}));
+
+function pinnedStorageKey(slug: string) {
+  return `intelliroi.pinned-chats.${slug}`;
+}
+
+/**
+ * OpenAI / Claude-class enterprise chat workspace.
+ * Pipeline 1 only — never blocked by cost/ROI.
+ */
 export function AiWorkspace({
   companySlug,
   conversationId,
@@ -21,14 +70,50 @@ export function AiWorkspace({
   companySlug: string;
   conversationId?: string;
 }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const { draft, setDraft, appendStreamingBuffer, clearStreaming } =
+  const { draft, setDraft, clearStreaming, appendStreamingBuffer } =
     useChatStore();
-  const [messages, setMessages] = useState<Message[]>([]);
+
+  const [messages, setMessages] = useState<ChatMessageView[]>([]);
   const [provider, setProvider] = useState("openai");
   const [model, setModel] = useState("gpt-4o-mini");
+  const [projectId, setProjectId] = useState("");
+  const [taskId, setTaskId] = useState("");
   const [busy, setBusy] = useState(false);
   const [activeId, setActiveId] = useState(conversationId);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const stopStreamRef = useRef(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(pinnedStorageKey(companySlug));
+      if (raw) setPinnedIds(JSON.parse(raw) as string[]);
+    } catch {
+      /* ignore */
+    }
+  }, [companySlug]);
+
+  function persistPins(next: string[]) {
+    setPinnedIds(next);
+    try {
+      localStorage.setItem(pinnedStorageKey(companySlug), JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function togglePin(uuid: string) {
+    persistPins(
+      pinnedIds.includes(uuid)
+        ? pinnedIds.filter((id) => id !== uuid)
+        : [...pinnedIds, uuid],
+    );
+  }
 
   const conversations = useQuery({
     queryKey: queryKeys.company.conversations(companySlug),
@@ -38,200 +123,283 @@ export function AiWorkspace({
   const conversation = useQuery({
     queryKey: queryKeys.company.conversation(companySlug, activeId ?? ""),
     queryFn: () => aiGatewayApi.getConversation(activeId!),
-    enabled: Boolean(activeId),
+    enabled: Boolean(activeId) && messages.length === 0,
   });
 
-  const displayMessages: Message[] =
+  const projects = useQuery({
+    queryKey: queryKeys.company.projects(companySlug),
+    queryFn: () => organizationApi.listProjects(),
+  });
+
+  const tasks = useQuery({
+    queryKey: ["company", companySlug, "task-categories"],
+    queryFn: () => businessContextApi.listTaskCategories(),
+  });
+
+  useEffect(() => {
+    setActiveId(conversationId);
+    setMessages([]);
+  }, [conversationId]);
+
+  // Prefill draft from templates (?prompt=)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const prompt = params.get("prompt");
+    if (prompt) {
+      setDraft(prompt);
+      router.replace(`/${companySlug}/ai-workspace`, { scroll: false });
+    }
+  }, [companySlug, router, setDraft]);
+
+  const displayMessages: ChatMessageView[] =
     messages.length > 0
       ? messages
-      : ((conversation.data?.messages as Message[] | undefined) ?? []);
+      : ((conversation.data?.messages as ChatMessageView[] | undefined) ?? []);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!draft.trim() || busy) return;
-    const prompt = draft.trim();
-    setDraft("");
-    setBusy(true);
-    setMessages((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, role: "user", content: prompt },
-    ]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [displayMessages, busy]);
 
-    const assistantId = `a-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
-      { id: assistantId, role: "assistant", content: "" },
-    ]);
+  const stop = useCallback(() => {
+    stopStreamRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.isStreaming ? { ...m, isStreaming: false, stopped: true } : m,
+      ),
+    );
     clearStreaming();
+  }, [clearStreaming]);
 
-    try {
-      const res = await aiGatewayApi.chat({
-        provider,
-        model,
-        prompt,
-        conversation_uuid: activeId || "",
-      });
-      setActiveId(res.conversation_uuid);
+  const send = useCallback(
+    async (promptOverride?: string) => {
+      const prompt = (promptOverride ?? draft).trim();
+      if (!prompt || busy) return;
 
-      // Pipeline 1: simulate token streaming into chat buffer (never blocks on ROI)
-      const chunks = res.content.match(/.{1,12}/g) ?? [res.content];
-      let assembled = "";
-      for (const chunk of chunks) {
-        assembled += chunk;
-        appendStreamingBuffer(chunk);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId ? { ...m, content: assembled } : m,
-          ),
-        );
-        await new Promise((r) => setTimeout(r, 18));
-      }
+      setDraft("");
+      setBusy(true);
+      stopStreamRef.current = false;
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const userMsg: ChatMessageView = {
+        id: `u-${Date.now()}`,
+        role: "user",
+        content: prompt,
+      };
+      const assistantId = `a-${Date.now()}`;
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        { id: assistantId, role: "assistant", content: "", isStreaming: true },
+      ]);
       clearStreaming();
 
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.company.conversations(companySlug),
-      });
-    } finally {
-      setBusy(false);
-    }
+      try {
+        const res = await aiGatewayApi.chat(
+          {
+            provider,
+            model,
+            prompt,
+            conversation_uuid: activeId || "",
+            project_id: projectId ? Number(projectId) : null,
+            task_category_id: taskId ? Number(taskId) : null,
+          },
+          { signal: controller.signal },
+        );
+
+        if (stopStreamRef.current) return;
+
+        setActiveId(res.conversation_uuid);
+        if (!conversationId || conversationId !== res.conversation_uuid) {
+          router.replace(
+            `/${companySlug}/ai-workspace/${res.conversation_uuid}`,
+          );
+        }
+
+        const chunks = res.content.match(/.{1,10}/g) ?? [res.content];
+        let assembled = "";
+        for (const chunk of chunks) {
+          if (stopStreamRef.current || controller.signal.aborted) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: assembled || m.content,
+                      isStreaming: false,
+                      stopped: true,
+                    }
+                  : m,
+              ),
+            );
+            return;
+          }
+          assembled += chunk;
+          appendStreamingBuffer(chunk);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: assembled, isStreaming: true }
+                : m,
+            ),
+          );
+          await new Promise((r) => setTimeout(r, 12));
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: assembled, isStreaming: false }
+              : m,
+          ),
+        );
+        clearStreaming();
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.company.conversations(companySlug),
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content:
+                    m.content ||
+                    "Something went wrong reaching the gateway. Try again.",
+                  isStreaming: false,
+                }
+              : m,
+          ),
+        );
+      } finally {
+        setBusy(false);
+        abortRef.current = null;
+      }
+    },
+    [
+      draft,
+      busy,
+      setDraft,
+      clearStreaming,
+      provider,
+      model,
+      activeId,
+      projectId,
+      taskId,
+      conversationId,
+      router,
+      companySlug,
+      appendStreamingBuffer,
+      queryClient,
+    ],
+  );
+
+  function newChat() {
+    stop();
+    setMessages([]);
+    setActiveId(undefined);
+    setDraft("");
+    router.push(`/${companySlug}/ai-workspace`);
   }
 
+  const modelLabel = `${MODELS[provider]?.label ?? provider} · ${
+    MODELS[provider]?.models.find((m) => m.id === model)?.label ?? model
+  }`;
+
+  const empty = displayMessages.length === 0;
+
   return (
-    <div className="flex h-[calc(100vh-140px)] min-h-[560px] gap-px bg-hairline">
-      <aside className="hidden w-72 flex-col bg-ink md:flex">
-        <div className="border-b border-hairline p-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            Pipeline 1
-          </p>
-          <h2 className="mt-2 text-sm font-medium text-text-primary">
-            Conversations
-          </h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2">
-          {conversations.isLoading ? (
-            <LoadingBlock className="h-24" />
-          ) : (
-            <ul className="space-y-1">
-              {(conversations.data ?? []).map((c) => (
-                <li key={c.uuid}>
-                  <Link
-                    href={`/${companySlug}/ai-workspace/${c.uuid}`}
-                    className={cn(
-                      "block border px-3 py-2 transition-colors",
-                      activeId === c.uuid
-                        ? "border-accent/40 bg-accent/10"
-                        : "border-transparent hover:border-hairline",
-                    )}
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 w-full bg-ink">
+      <ChatSidebar
+        companySlug={companySlug}
+        conversations={conversations.data ?? []}
+        loading={conversations.isLoading}
+        activeId={activeId}
+        pinnedIds={pinnedIds}
+        onTogglePin={togglePin}
+        onNewChat={newChat}
+        expanded={sidebarOpen}
+        onExpandedChange={setSidebarOpen}
+      />
+
+      <section className="flex min-w-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {conversation.isLoading && activeId && messages.length === 0 ? (
+            <AiChatLoader label="Loading conversation…" />
+          ) : empty ? (
+            <div className="flex h-full flex-col items-center justify-center px-4 pb-8 pt-12">
+              <div className="mb-4">
+                <AiMark size="lg" />
+              </div>
+              <h1 className="text-center text-[1.75rem] font-medium tracking-tight text-text-primary md:text-[2rem]">
+                How can I help you today?
+              </h1>
+              <p className="mt-2 max-w-md text-center text-[13px] text-text-secondary">
+                Enterprise chat through IntelliROI Gateway. Use + to pick model,
+                project, and task attribution.
+              </p>
+              <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => send(s)}
+                    className="rounded-[16px] border border-hairline bg-surface/25 px-4 py-3.5 text-left text-[13px] leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:bg-accent/5 hover:text-text-primary"
                   >
-                    <p className="truncate text-sm text-text-primary">{c.title}</p>
-                    <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.15em] text-text-secondary">
-                      {c.model}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </aside>
-
-      <section className="flex min-w-0 flex-1 flex-col bg-ink">
-        <div className="border-b border-hairline px-4 py-4 md:px-6">
-          <PageHeader
-            eyebrow="AI Gateway"
-            title="Workspace"
-            description="Real-time chat through IntelliROI — cost & ROI land asynchronously in Pipeline 2."
-          />
-          <div className="mt-[-1rem] flex flex-wrap gap-3">
-            <Link
-              href={`/${companySlug}/ai-workspace/templates`}
-              className="border border-hairline px-3 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-text-secondary transition-colors hover:border-accent/50 hover:text-accent"
-            >
-              Templates
-            </Link>
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="border border-hairline bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-text-primary"
-            >
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="google">Google</option>
-            </select>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="border border-hairline bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-text-primary"
-            >
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
-              <option value="gpt-4o">gpt-4o</option>
-              <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-6 md:px-6">
-          {displayMessages.length === 0 && (
-            <div className="flex h-full items-center justify-center">
-              <div className="max-w-md text-center">
-                <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-                  Ready
-                </p>
-                <p className="mt-3 text-lg font-medium text-text-primary">
-                  Ask anything. Every token is metered.
-                </p>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Responses stream from the gateway. ROI calculations never block this pane.
-                </p>
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
-          {displayMessages.map((m) => (
-            <div
-              key={m.id}
-              className={cn(
-                "max-w-3xl border border-hairline px-4 py-3",
-                m.role === "user" ? "ml-auto bg-surface/40" : "bg-ink",
-              )}
-            >
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-                {m.role === "user" ? "You" : "Assistant"}
-              </p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-primary">
-                {m.content}
-              </p>
+          ) : (
+            <div className="pb-6 pt-2">
+              {displayMessages.map((m) => (
+                <ChatMessageBubble
+                  key={m.id}
+                  message={m}
+                  modelLabel={m.role === "assistant" ? modelLabel : undefined}
+                />
+              ))}
+              <div ref={bottomRef} />
             </div>
-          ))}
-          {busy && (
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent animate-pulse">
-              Gateway responding…
-            </p>
           )}
         </div>
 
-        <form
-          onSubmit={onSubmit}
-          className="border-t border-hairline p-4 md:p-6"
-        >
-          <div className="flex gap-3">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Prompt the enterprise gateway…"
-              className="min-h-[72px] flex-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  onSubmit(e);
-                }
-              }}
-            />
-            <Button type="submit" disabled={busy || !draft.trim()} className="self-end">
-              <Send className="h-4 w-4" strokeWidth={1.5} />
-              Send
-            </Button>
-          </div>
-        </form>
+        <ChatComposer
+          value={draft}
+          onChange={setDraft}
+          onSubmit={() => send()}
+          onStop={stop}
+          busy={busy}
+          companySlug={companySlug}
+          providers={PROVIDERS}
+          provider={provider}
+          model={model}
+          onProviderChange={(p) => {
+            setProvider(p);
+            setModel(MODELS[p]?.models[0]?.id ?? model);
+          }}
+          onModelChange={setModel}
+          projects={(projects.data ?? []).map((p) => ({
+            id: p.id,
+            name: p.project_name,
+          }))}
+          tasks={(tasks.data ?? []).map((t) => ({
+            id: t.id,
+            name: t.name,
+          }))}
+          projectId={projectId}
+          taskId={taskId}
+          onProjectChange={setProjectId}
+          onTaskChange={setTaskId}
+        />
       </section>
     </div>
   );

@@ -3,25 +3,42 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * Enterprise button language — outline-first, accent-bordered, no background.
+ * Default state: transparent bg, accent border + text.
+ * Hover state: subtle accent fill (accent/10 bg).
+ * Matches the IntelliROI enterprise design system.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-mono text-xs font-semibold uppercase tracking-[0.2em] transition-all duration-300 disabled:pointer-events-none disabled:opacity-50",
+  [
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap",
+    "font-mono text-[11px] font-semibold uppercase tracking-[0.16em]",
+    "transition-colors duration-200 ease-out-expo",
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+    "disabled:pointer-events-none disabled:opacity-40",
+    "active:translate-y-px",
+  ].join(" "),
   {
     variants: {
       variant: {
+        /** Accent border + text, no fill. Hover: subtle accent bg fill. */
         primary:
-          "border border-accent bg-accent text-ink shadow-glow-sm hover:bg-transparent hover:text-accent",
+          "border border-accent bg-transparent text-accent hover:bg-accent/10",
+        /** Hairline border, muted text. Hover: accent border + accent text tint. */
         secondary:
-          "border border-hairline bg-transparent text-text-primary hover:border-accent/50 hover:text-accent",
+          "border border-hairline bg-transparent text-text-primary hover:border-accent/50 hover:bg-accent/5 hover:text-accent",
+        /** No border, no bg. Hover: surface bg. */
         ghost:
-          "border border-transparent text-text-secondary hover:border-hairline hover:text-accent",
+          "border border-transparent text-text-secondary hover:bg-surface hover:text-text-primary",
+        /** Danger: red border + tinted text. Hover: red fill. */
         danger:
-          "border border-danger bg-danger/10 text-danger hover:bg-danger hover:text-ink",
+          "border border-danger/60 bg-transparent text-danger hover:bg-danger/10 hover:border-danger",
       },
       size: {
-        default: "px-7 py-3.5",
-        sm: "px-4 py-2 text-[11px]",
-        lg: "px-8 py-4",
-        icon: "h-10 w-10",
+        default: "h-10 px-5",
+        sm: "h-8 px-3.5 text-[10px] tracking-[0.14em]",
+        lg: "h-11 px-6 text-xs",
+        icon: "h-9 w-9 p-0",
       },
     },
     defaultVariants: {

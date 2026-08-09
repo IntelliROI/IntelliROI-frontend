@@ -18,10 +18,13 @@ export function RegisterForm() {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [form, setForm] = useState({
     company_name: "",
-    industry: "software",
-    company_size: "11-50",
+    company_code: "",
+    industry: "Software / Technology",
+    company_size: "1-50",
+    country: "India",
     timezone: "Asia/Kolkata",
     currency: "USD",
+    website: "",
     email: "",
     first_name: "",
     last_name: "",
@@ -66,17 +69,21 @@ export function RegisterForm() {
         Register your company
       </h1>
       <p className="mt-3 text-sm text-text-secondary">
-        Create a tenant, then finish the onboarding wizard before the dashboard.
+        Creates the tenant and Company Owner (CEO). Next: settings → job roles →
+        departments → teams → providers → employees.
       </p>
 
       <form onSubmit={onSubmit} className="mt-10 grid gap-4 sm:grid-cols-2">
         {(
           [
             ["company_name", "Company name"],
+            ["company_code", "Company code"],
             ["industry", "Industry"],
             ["company_size", "Company size"],
+            ["country", "Country"],
             ["timezone", "Timezone"],
             ["currency", "Currency"],
+            ["website", "Website"],
             ["email", "Admin email"],
             ["first_name", "First name"],
             ["last_name", "Last name"],
@@ -85,7 +92,14 @@ export function RegisterForm() {
         ).map(([key, label]) => (
           <div
             key={key}
-            className={`space-y-2 ${key === "company_name" || key === "email" || key === "password" ? "sm:col-span-2" : ""}`}
+            className={`space-y-2 ${
+              key === "company_name" ||
+              key === "email" ||
+              key === "password" ||
+              key === "website"
+                ? "sm:col-span-2"
+                : ""
+            }`}
           >
             <Label htmlFor={key}>{label}</Label>
             <Input
@@ -95,11 +109,20 @@ export function RegisterForm() {
                   ? "password"
                   : key === "email"
                     ? "email"
-                    : "text"
+                    : key === "website"
+                      ? "url"
+                      : "text"
               }
               value={form[key]}
               onChange={(e) => update(key, e.target.value)}
-              required
+              required={key !== "website"}
+              placeholder={
+                key === "company_code"
+                  ? "PENGWIN"
+                  : key === "website"
+                    ? "https://"
+                    : undefined
+              }
             />
           </div>
         ))}

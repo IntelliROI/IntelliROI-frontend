@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAuth } from "@/features/auth/components/RequireAuth";
+import { RouteGuard } from "@/features/auth/components/RouteGuard";
 import { getCompanyNav } from "@/config/navigation";
 import { ROLES } from "@/constants/roles";
 import { useAuthStore } from "@/stores/auth-store";
@@ -31,9 +32,9 @@ export default function CompanyLayout({
       <AppShell
         nav={nav}
         companySlug={params.companySlug}
-        contextLabel={`${company?.name ?? params.companySlug} · ${role.replace(/_/g, " ")}`}
+        contextLabel={`${company?.name ?? params.companySlug}`}
       >
-        {children}
+        <RouteGuard companySlug={params.companySlug}>{children}</RouteGuard>
       </AppShell>
     </RequireAuth>
   );

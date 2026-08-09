@@ -67,23 +67,42 @@ export const aiGatewayApi = {
     await apiRequest("ai", `/providers/keys/${id}`, { method: "DELETE" });
   },
 
-  async chat(input: ChatInput): Promise<ChatResponse> {
+  async chat(
+    input: ChatInput,
+    options?: { signal?: AbortSignal },
+  ): Promise<ChatResponse> {
     if (useMocks) {
       const conversationUuid = input.conversation_uuid || `conv-${Date.now()}`;
-      return delay(
-        {
-          request_uuid: `req-${Date.now()}`,
-          conversation_uuid: conversationUuid,
-          content: `Understood. Here's a concise enterprise response for: "${input.prompt.slice(0, 120)}".\n\nIntelliROI gateway metered this call on ${input.provider}/${input.model}. Cost & ROI will appear in Pipeline 2 shortly.`,
-          provider: input.provider,
-          model: input.model,
-          tokens_in: 120 + input.prompt.length,
-          tokens_out: 180,
-        },
-        600,
-      );
+      // Respect abort during mock latency
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, 600);
+        options?.signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(t);
+            reject(new DOMException("Aborted", "AbortError"));
+          },
+          { once: true },
+        );
+      });
+      if (options?.signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+      return {
+        request_uuid: `req-${Date.now()}`,
+        conversation_uuid: conversationUuid,
+        content: `Understood. Here's a concise enterprise response for: "${input.prompt.slice(0, 120)}".\n\nIntelliROI gateway metered this call on ${input.provider}/${input.model}. Cost & Estimated ROI land asynchronously in Pipeline 2 — this pane never waits on them.\n\nNext steps you can take:\n1. Attach a project + task category for accurate ROI attribution\n2. Continue refining the prompt\n3. Review usage on your personal dashboard`,
+        provider: input.provider,
+        model: input.model,
+        tokens_in: 120 + input.prompt.length,
+        tokens_out: 180,
+      };
     }
-    return apiRequest<ChatResponse>("ai", "/chat", { method: "POST", body: input });
+    return apiRequest<ChatResponse>("ai", "/chat", {
+      method: "POST",
+      body: input,
+      signal: options?.signal,
+    });
   },
 
   async listConversations(): Promise<Conversation[]> {

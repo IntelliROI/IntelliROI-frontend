@@ -8,11 +8,17 @@ import { ROLES } from "@/constants/roles";
 import { cn } from "@/lib/utils";
 import { LiveDot } from "@/components/ui/panel";
 
+/**
+ * Onboarding order matches domain journey:
+ * Company settings → Job roles → Departments → Teams → Providers → Employees
+ */
 const STEPS = [
   { href: "/onboarding/company-profile", label: "Company" },
+  { href: "/onboarding/job-roles", label: "Job roles" },
   { href: "/onboarding/departments", label: "Departments" },
+  { href: "/onboarding/teams", label: "Teams" },
   { href: "/onboarding/ai-providers", label: "Providers" },
-  { href: "/onboarding/invite-team", label: "Invite" },
+  { href: "/onboarding/employees", label: "Employees" },
 ];
 
 export default function OnboardingLayout({
@@ -35,8 +41,8 @@ export default function OnboardingLayout({
         <div className="mx-auto max-w-3xl">
           <div className="mb-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-7 w-7 items-center justify-center border border-accent/60 bg-accent/10">
-                <span className="h-2 w-2 bg-accent" />
+              <div className="flex h-7 w-7 items-center justify-center border border-brand/60 bg-brand/10">
+                <span className="h-2 w-2 bg-brand" />
               </div>
               <span className="font-mono text-sm font-semibold tracking-[0.2em]">
                 INTELLIROI
@@ -45,7 +51,7 @@ export default function OnboardingLayout({
             <LiveDot label="Onboarding" />
           </div>
 
-          <nav className="mb-10 grid grid-cols-2 gap-px bg-hairline md:grid-cols-4">
+          <nav className="mb-10 grid grid-cols-2 gap-px bg-hairline md:grid-cols-3 lg:grid-cols-6">
             {STEPS.map((step, i) => {
               const active = pathname === step.href;
               return (
@@ -53,7 +59,7 @@ export default function OnboardingLayout({
                   key={step.href}
                   href={step.href}
                   className={cn(
-                    "bg-ink px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors",
+                    "bg-ink px-3 py-3 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors",
                     active
                       ? "text-accent"
                       : "text-text-secondary hover:text-text-primary",

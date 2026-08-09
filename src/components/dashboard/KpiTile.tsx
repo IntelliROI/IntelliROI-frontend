@@ -1,63 +1,88 @@
-import { cn, formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
-import { type ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+"use client";
 
-type KpiTileProps = {
+import { type ReactNode } from "react";
+import { motion } from "framer-motion";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { cn, formatPercent } from "@/lib/utils";
+import { CountUp } from "@/components/dashboard/CountUp";
+import { Sparkline } from "@/components/dashboard/Sparkline";
+import { revealTransition } from "@/lib/motion";
+
+type Format = "currency" | "number" | "percent" | "raw";
+
+type MetricTileProps = {
   label: string;
-  value: string | number;
+  value: number | string;
+  format?: Format;
   delta?: number;
   hint?: string;
+  spark?: number[];
+  /** Hero = dominant figure (Ruixen/Advanced Stats pattern) */
+  variant?: "hero" | "default" | "compact";
+  /** Legacy: accent left border + accent value color */
   accent?: boolean;
-  format?: "currency" | "number" | "percent" | "raw";
   className?: string;
   footer?: ReactNode;
+  delay?: number;
 };
 
-export function KpiTile({
+export function MetricTile({
   label,
   value,
+  format = "raw",
   delta,
   hint,
+  spark,
+  variant = "default",
   accent,
-  format = "raw",
   className,
   footer,
-}: KpiTileProps) {
-  const display =
-    typeof value === "number"
-      ? format === "currency"
-        ? formatCurrency(value, "USD", true)
-        : format === "percent"
-          ? `${value.toFixed(1)}%`
-          : format === "number"
-            ? formatNumber(value, true)
-            : String(value)
-      : value;
+  delay = 0,
+}: MetricTileProps) {
+  const isHero = variant === "hero";
+  const isCompact = variant === "compact";
+  const numeric = typeof value === "number" ? value : null;
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...revealTransition, delay }}
       className={cn(
-        "bg-ink p-6 transition-colors duration-500 hover:bg-surface",
-        accent && "border-l-2 border-l-accent",
+        "relative overflow-hidden bg-ink transition-colors duration-300 hover:bg-surface/70",
+        isHero &&
+          "bg-[radial-gradient(ellipse_at_top_right,color-mix(in_srgb,var(--role-accent)_12%,transparent),transparent_55%)]",
+        accent && !isHero && "border-l-2 border-l-accent",
+        isHero
+          ? "px-6 py-7 md:px-8 md:py-8"
+          : isCompact
+            ? "px-4 py-4"
+            : "px-5 py-5",
         className,
       )}
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-4 font-mono text-3xl font-light tracking-tight text-text-primary md:text-4xl",
-          accent && "text-accent",
-        )}
-      >
-        {display}
-      </p>
-      <div className="mt-3 flex items-center gap-3">
+      {isHero && (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent"
+          aria-hidden
+        />
+      )}
+
+      <div className="flex items-start justify-between gap-4">
+        <p
+          className={cn(
+            "font-mono font-medium uppercase text-text-secondary",
+            isHero
+              ? "text-[10px] tracking-[0.22em]"
+              : "text-[10px] tracking-[0.16em]",
+          )}
+        >
+          {label}
+        </p>
         {typeof delta === "number" && (
           <span
             className={cn(
-              "inline-flex items-center gap-1 font-mono text-[11px]",
+              "inline-flex items-center gap-0.5 font-mono text-[11px]",
               delta >= 0 ? "text-accent" : "text-danger",
             )}
           >
@@ -69,13 +94,55 @@ export function KpiTile({
             {formatPercent(delta)}
           </span>
         )}
-        {hint && (
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-secondary/70">
-            {hint}
-          </span>
-        )}
       </div>
-      {footer}
-    </div>
+
+      <p
+        className={cn(
+          "mt-3 font-mono font-light leading-none tracking-tight text-text-primary",
+          isHero
+            ? "text-[2.75rem] text-accent md:text-[3.5rem]"
+            : isCompact
+              ? "text-xl"
+              : "text-[1.75rem] md:text-[2rem]",
+          accent && !isHero && "text-accent",
+        )}
+      >
+        {numeric != null ? (
+          <CountUp
+            value={numeric}
+            format={format === "raw" ? "number" : format}
+          />
+        ) : (
+          value
+        )}
+      </p>
+
+      {(hint || spark) && (
+        <div
+          className={cn(
+            "mt-4 flex items-end justify-between gap-4",
+            isHero && "mt-6",
+          )}
+        >
+          {hint ? (
+            <p className="max-w-[14rem] font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/75">
+              {hint}
+            </p>
+          ) : (
+            <span />
+          )}
+          {spark && spark.length > 1 && (
+            <div className={cn("shrink-0", isHero ? "w-36" : "w-24")}>
+              <Sparkline data={spark} height={isHero ? 40 : 32} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {footer && <div className="mt-4">{footer}</div>}
+    </motion.div>
   );
 }
+
+/** Back-compat alias used across older screens */
+export { MetricTile as KpiTile };

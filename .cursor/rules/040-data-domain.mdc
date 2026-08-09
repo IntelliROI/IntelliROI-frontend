@@ -1,0 +1,30 @@
+---
+description: Company domain model — org vs config entities and AI usage attribution.
+globs: src/features/**/*.{ts,tsx}, src/types/**/*.ts, src/lib/api/**/*
+alwaysApply: false
+---
+
+# Data Domain
+
+## Org vs config
+
+| Organization | Configuration |
+|--------------|---------------|
+| Company, Department, Team, Employee, Project | Job Role, AI Provider/Model, AI Policy, ROI / task benchmarks |
+
+`users` (auth) ≠ `employees` (business). Link via `user_id`.
+
+## Attribution (required on AI events)
+
+`company_id`, `department_id`, `team_id`, `employee_id`, `project_id`, `task_category`, `provider`, `model`, tokens, cost.
+
+## ROI (MVP)
+
+`business_value ≈ (benchmark_hours) × (job_role.hourly_cost)`  
+`estimated_roi = (value - ai_cost) / ai_cost`
+
+Company defines working hours, role rates, and task benchmarks — employees do not.
+
+## Secrets
+
+Never store raw provider API keys in plain columns; use encrypted/secret references.

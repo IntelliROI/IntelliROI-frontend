@@ -1,14 +1,13 @@
 # IntelliROI Frontend — Folder Structure KT Guide
 
-> Knowledge-transfer document for engineers joining the codebase.  
-> Read this before changing routes, features, RBAC, or API wiring.  
-> Companion sources: `.cursor/skills/02-FRONTEND-FOLDER-STRUCTURE.md`, `intelliroi-architecture`, `docs/DESIGN_SYSTEM.md`.
+> Knowledge-transfer for engineers joining the codebase.  
+> Start here → then `src/README.md` → `AGENTS.md` → `.cursor/skills/intelliroi-*`.
 
 ---
 
 ## 1. Product mental model (teach this first)
 
-IntelliROI is **not** a consumer chat app. It is a multi-tenant B2B OS that sits between companies and AI providers:
+IntelliROI is **not** a consumer chat app. It is a multi-tenant B2B OS between companies and AI providers:
 
 ```
 Employee → IntelliROI Gateway → OpenAI / Claude / Gemini / …
@@ -21,23 +20,22 @@ Employee → IntelliROI Gateway → OpenAI / Claude / Gemini / …
 
 **Roles:** `SUPER_ADMIN` · `COMPANY_OWNER` · `DEPARTMENT_HEAD` · `TEAM_LEAD` · `EMPLOYEE`.
 
+**Visual:** Shared chassis (fonts/surfaces) + unique `--role-accent` per role. See `.cursor/docs/ROLE_COLOR_IDENTITY.md`.
+
 ---
 
 ## 2. Top-level repo map
 
 ```
 IntelliROI-frontend/
-├── .cursor/                 # Rules & skills (architecture, theme, RBAC docs)
+├── AGENTS.md                # Agent / product non-negotiables
+├── .cursor/                 # Rules, skills, architecture docs
 ├── docs/                    # DESIGN_SYSTEM.md, this KT guide
-├── InteliROI.postman_collection.json
-├── InteliROI.local.postman_environment.json
-├── .env.local / .env.example
+├── .env.example
 ├── package.json
-├── next.config.mjs
-├── tailwind.config.ts       # Brand tokens: ink, accent, fonts
-├── tsconfig.json
-├── global.d.ts              # Ambient CSS module types
-└── src/                     # ALL application code lives here
+├── next.config.mjs          # Security headers + perf flags
+├── tailwind.config.ts       # Chassis tokens + role accent CSS vars
+└── src/                     # ALL application code (see src/README.md)
 ```
 
 ---

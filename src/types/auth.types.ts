@@ -5,8 +5,11 @@ export type Company = {
   id?: number;
   name: string;
   slug: string;
+  company_code?: string;
   industry?: string;
   company_size?: string;
+  country?: string;
+  website?: string;
   timezone?: string;
   currency?: string;
   status?: "active" | "suspended" | "trial";

@@ -9,10 +9,17 @@ export type LoginSchema = z.infer<typeof loginSchema>;
 
 export const registerSchema = z.object({
   company_name: z.string().min(2),
+  company_code: z
+    .string()
+    .min(2)
+    .max(16)
+    .transform((v) => v.toUpperCase()),
   industry: z.string().min(2),
   company_size: z.string().min(1),
+  country: z.string().min(2),
   timezone: z.string().min(1),
   currency: z.string().min(3).max(3),
+  website: z.string().url().optional().or(z.literal("")),
   email: z.string().email(),
   first_name: z.string().min(1),
   last_name: z.string().min(1),
