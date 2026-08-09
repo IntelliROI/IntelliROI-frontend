@@ -1,0 +1,36 @@
+---
+description: RBAC and tenant scope rules for IntelliROI roles and permissions.
+globs: src/**/*.{ts,tsx}, **/rbac/**/*, **/middleware.ts
+alwaysApply: false
+---
+
+# RBAC & Multitenancy
+
+## Roles (scope-aware)
+
+| Role | Scope | Responsibility |
+|------|-------|----------------|
+| Super Admin | Platform | Manage SaaS |
+| CEO / Owner | Entire company | Org, providers, policies, ROI config |
+| Department Manager | Own department | Teams, employees, dept analytics |
+| Team Lead | Own team | Members, team usage/ROI |
+| Employee | Self | AI Workspace + personal metrics |
+
+## Hard rules
+
+1. **Tenant isolation:** always filter by `company_id` (and dept/team/employee as scoped).
+2. Managers never see other departments unless granted.
+3. Team Leads never manage the whole company.
+4. Employees cannot configure providers, company ROI, or other people’s analytics.
+5. Conversation/prompt visibility for leads is a **separate privacy permission**, not automatic.
+6. Super Admin does **not** manage customer employee AI by default.
+
+## Frontend enforcement
+
+- Use `<Can>` / permission helpers for actions and nav.
+- Scope drives which IDs appear in lists and dashboard queries.
+- Never rely on UI alone — APIs must enforce the same matrix.
+
+## Permission examples
+
+`employee.view` + `scope: COMPANY|DEPARTMENT|TEAM|SELF` — same feature, different data window.

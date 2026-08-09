@@ -1,0 +1,47 @@
+---
+description: Frontend architecture — one shell, RBAC routes, dynamic nav. Apply when building UI/routes.
+globs: src/**/*.{ts,tsx}, app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend Architecture
+
+## Principle
+
+Users should **only see** nav, dashboards, records, and actions they are authorized for. Hide unauthorized UI; backend still enforces.
+
+## Shell model
+
+```
+Application Shell → Auth (role + permission + scope) → Sidebar + Header + Content → Allowed features
+```
+
+Context required: who am I, company, role, department, team, permissions, scope.
+
+## Route groups (conceptual)
+
+- `(platform)` → `/platform|super-admin/*` — Super Admin
+- `(organization)` / `(company)` → `/[companySlug]/*` — company management
+- `(workspace)` → employee AI Workspace (`chat`, `conversations`, `usage`, `roi`)
+- `(auth)`, `(onboarding)` — unauthenticated / setup flows
+
+Routes are not security. Middleware + API scopes must match RBAC.
+
+## Navigation
+
+Config-driven items: `{ label, path, permission, scope }`. Filter by role + permission + scope. Do not scatter `if (role === 'CEO')` everywhere.
+
+## Dashboards = same engine, different scope
+
+| Role | Aggregation scope |
+|------|-------------------|
+| CEO | Company |
+| Dept Manager | Department |
+| Team Lead | Team |
+| Employee | Self |
+
+Drill-down: Company → Department → Team → Employee → AI Request → Conversation. Breadcrumbs reflect **viewer scope only**.
+
+## Features by concern
+
+Colocate under `src/features/<domain>/` (`api/`, `components/`, `hooks/`, `schemas/`). Shared UI in `src/components/`. Config in `src/config/`. RBAC in `src/lib/rbac/`.
