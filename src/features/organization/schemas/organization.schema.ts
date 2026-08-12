@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { ROLES } from "@/constants/roles";
 
+/** Company owner is created only at registration */
 const appRoleEnum = z.enum([
-  ROLES.COMPANY_OWNER,
   ROLES.DEPARTMENT_HEAD,
   ROLES.TEAM_LEAD,
   ROLES.EMPLOYEE,
