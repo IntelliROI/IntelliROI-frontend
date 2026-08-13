@@ -24,11 +24,11 @@ type Props = {
   submitLabel?: string;
 };
 
+/** Company owner is created at registration — cannot be invited. */
 const APP_ROLES = [
   ROLES.EMPLOYEE,
   ROLES.TEAM_LEAD,
   ROLES.DEPARTMENT_HEAD,
-  ROLES.COMPANY_OWNER,
 ] as const;
 
 /**

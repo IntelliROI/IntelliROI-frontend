@@ -47,7 +47,10 @@ export function useLogoutMutation() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => authApi.logout(),
+    mutationFn: () => {
+      const refreshToken = useAuthStore.getState().refreshToken;
+      return authApi.logout(refreshToken);
+    },
     onSettled: () => {
       clearSession();
       queryClient.clear();

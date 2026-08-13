@@ -18,13 +18,22 @@ export type Company = {
 
 export type User = {
   uuid: string;
+  id?: number;
   email: string;
   first_name: string;
   last_name: string;
   role: Role;
+  roles?: string[];
+  permissions?: string[];
+  status?: "active" | "invited" | "suspended" | "deactivated";
   company?: Company;
   department_id?: number | null;
   team_id?: number | null;
+  manager_user_id?: number | null;
+  employee_code?: string;
+  phone?: string;
+  designation?: string;
+  joining_date?: string;
   job_role?: string | null;
 };
 

@@ -332,6 +332,7 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
   const clearSession = useAuthStore((s) => s.clearSession);
   const roleTheme = useMemo(
     () => roleThemeFromRole(user?.role),
@@ -345,7 +346,7 @@ export function AppShell({
 
   async function handleLogout() {
     try {
-      await authApi.logout();
+      await authApi.logout(refreshToken);
     } finally {
       clearSession();
       router.replace("/login");

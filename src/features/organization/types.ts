@@ -1,16 +1,8 @@
-/**
- * Organization + configuration domain types.
- * Matches `.cursor/docs/restructure design for IntelliRoi.md`
- *
- * Org entities: Company, Department, Team, Employee, Project
- * Config entities: JobRole, CompanySettings, AI Provider, ROI benchmarks
- * Auth: users ≠ employees (linked by user_id)
- */
-
 import { type Role } from "@/constants/roles";
 
 export type CompanySettings = {
-  company_id: number;
+  /** Scoped by the logged-in company token — not always returned by the API. */
+  company_id?: number;
   working_hours_per_day: number;
   working_days_per_month: number;
   default_currency: string;
@@ -21,7 +13,7 @@ export type CompanySettings = {
 
 export type JobRole = {
   id: number;
-  company_id: number;
+  company_id?: number;
   role_name: string;
   hourly_cost: number;
   currency: string;
@@ -30,13 +22,14 @@ export type JobRole = {
 
 export type Department = {
   id: number;
-  company_id: number;
+  company_id?: number;
   department_name: string;
   department_code: string;
   description?: string;
   manager_employee_id?: number | null;
   manager_user_uuid?: string | null;
   status: "active" | "inactive";
+  created_at?: string;
   employee_count: number;
   monthly_spend: number;
   roi_pct: number;
@@ -45,7 +38,7 @@ export type Department = {
 
 export type Team = {
   id: number;
-  company_id: number;
+  company_id?: number;
   department_id: number;
   team_name: string;
   team_code: string;
@@ -53,6 +46,8 @@ export type Team = {
   team_lead_employee_id?: number | null;
   lead_user_uuid?: string | null;
   status: "active" | "inactive";
+  created_at?: string;
+  /** Rollup metrics — default 0 until usage/cost/ROI APIs are wired. */
   member_count: number;
   monthly_spend: number;
   roi_pct: number;
@@ -60,20 +55,21 @@ export type Team = {
 
 export type Project = {
   id: number;
-  company_id: number;
+  company_id?: number;
   department_id: number;
   team_id: number | null;
   project_name: string;
   project_code?: string;
   description?: string;
   status: "active" | "archived" | "completed";
+  created_at?: string;
 };
 
-/** Business employee record (not the auth user). */
+/** Employee record built from the auth user + org/job-role lookups. */
 export type Employee = {
   id: number;
   uuid: string;
-  company_id: number;
+  company_id?: number;
   user_id?: string | null;
   employee_code: string;
   first_name: string;
@@ -88,7 +84,7 @@ export type Employee = {
   designation?: string;
   joining_date?: string;
   employment_status: "active" | "inactive" | "on_leave";
-  /** Application RBAC role (CEO / manager / lead / employee). */
+  /** App role (CEO / manager / lead / employee). */
   app_role: Role;
   status: "active" | "invited";
   /** Denormalized for lists / dashboards */
@@ -96,6 +92,7 @@ export type Employee = {
   team_name: string;
   job_role_name: string;
   hourly_cost: number;
+  /** Rollup metrics — default 0 until usage/cost/ROI APIs are wired. */
   spend: number;
   roi_pct: number;
   requests: number;
