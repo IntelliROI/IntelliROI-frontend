@@ -40,8 +40,16 @@ export function DepartmentDashboard({
     return <LoadingBlock className="h-80" />;
   }
 
-  const d = department.data!;
-  const r = roi.data!;
+  if (!department.data || !roi.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load department data from the live service.
+      </p>
+    );
+  }
+
+  const d = department.data;
+  const r = roi.data;
 
   return (
     <div>

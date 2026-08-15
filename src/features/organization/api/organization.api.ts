@@ -358,8 +358,8 @@ async function getEmployee(uuid: string): Promise<Employee> {
 
 async function createEmployee(
   input: CreateEmployeeInput,
-): Promise<{ employee: Employee; temporary_password?: string }> {
-  const { user, temporary_password } = await authApi.invite({
+): Promise<{ employee: Employee; emailSent: boolean; inviteUrl?: string }> {
+  const { user, emailSent, inviteUrl } = await authApi.invite({
     email: input.email,
     first_name: input.first_name,
     last_name: input.last_name,
@@ -400,7 +400,7 @@ async function createEmployee(
     },
     maps,
   );
-  return { employee, temporary_password };
+  return { employee, emailSent, inviteUrl };
 }
 
 async function getSettings(): Promise<CompanySettings> {

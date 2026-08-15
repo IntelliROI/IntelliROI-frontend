@@ -88,9 +88,16 @@ function toApiError(err: unknown): ApiError {
 
 const clients = new Map<ServiceKey, AxiosInstance>();
 
+/**
+ * Fail fast: a hung/unreachable Go service should not freeze the UI for
+ * 30-60s. 10s is generous for localhost but still bounded.
+ */
+const REQUEST_TIMEOUT_MS = 10_000;
+
 function createClient(service: ServiceKey, baseURL: string): AxiosInstance {
   const instance = axios.create({
     baseURL,
+    timeout: REQUEST_TIMEOUT_MS,
     headers: {
       Accept: "application/json",
     },
@@ -112,15 +119,11 @@ function createClient(service: ServiceKey, baseURL: string): AxiosInstance {
       }
     }
 
-    if (service === "bc") {
-      const company = getStoredCompany();
-      if (company?.uuid) {
-        config.headers.set("X-Company-UUID", company.uuid);
-      }
-      if (company?.id != null) {
-        config.headers.set("X-Company-Id", String(company.id));
-      }
-    }
+    // Tenant context (company_id/company_uuid) is derived server-side from the
+    // JWT's company_id claim on every service — never from client-supplied
+    // headers or body fields. Custom headers here would also fail CORS
+    // (services only allow Content-Type/Authorization/Accept), turning every
+    // request into a blocked preflight instead of a clean 403/200.
     return config;
   });
 

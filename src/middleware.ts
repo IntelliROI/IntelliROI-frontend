@@ -14,6 +14,7 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  "/accept-invite",
   "/forbidden",
 ];
 
@@ -64,6 +65,7 @@ export function middleware(request: NextRequest) {
     "forgot-password",
     "reset-password",
     "verify-email",
+    "accept-invite",
     "forbidden",
     "super-admin",
   ]);

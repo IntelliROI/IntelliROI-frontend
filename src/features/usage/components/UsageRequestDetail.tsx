@@ -15,7 +15,16 @@ export function UsageRequestDetail({
   const detail = useUsageRequest(companySlug, requestId);
 
   if (detail.isLoading) return <LoadingBlock className="h-64" />;
-  const r = detail.data!;
+
+  if (!detail.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load this usage request from the live service.
+      </p>
+    );
+  }
+
+  const r = detail.data;
 
   return (
     <div>

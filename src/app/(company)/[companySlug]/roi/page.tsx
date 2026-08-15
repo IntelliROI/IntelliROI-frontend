@@ -28,7 +28,16 @@ export default function RoiPage({
   });
 
   if (roi.isLoading) return <LoadingBlock className="h-80" />;
-  const r = roi.data!;
+
+  if (!roi.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load Estimated ROI from the live service.
+      </p>
+    );
+  }
+
+  const r = roi.data;
 
   return (
     <div>

@@ -25,7 +25,7 @@ export function ForgotPasswordForm() {
     try {
       await authApi.forgotPassword(parsed.data.email);
       setSent(true);
-      toast.success("Reset instructions sent (check email / mock inbox)");
+      toast.success("Reset instructions sent — check your email");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Request failed");
     } finally {
@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
         Forgot password
       </h1>
       <p className="mt-3 text-sm text-text-secondary">
-        We will email a reset link. In mock mode this always succeeds.
+        We will email a link to reset your password.
       </p>
       {sent ? (
         <p className="mt-8 border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">

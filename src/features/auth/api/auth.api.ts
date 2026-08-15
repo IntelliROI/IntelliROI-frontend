@@ -122,6 +122,22 @@ type EmployeeProfileDto = {
   job_role?: JobRoleDto;
 };
 
+type InviteResponseDto = {
+  user: UserDto;
+  email_sent: boolean;
+  message: string;
+  invite_expires_at?: string;
+  invite_token?: string; 
+  invite_url?: string;
+};
+
+export type InviteResult = {
+  user: User;
+  emailSent: boolean;
+  message: string;
+  inviteUrl?: string;
+};
+
 export type CompanySettingsDto = {
   working_hours_per_day: number;
   working_days_per_month: number;
@@ -241,31 +257,51 @@ export const authApi = {
     });
   },
 
-  /** Invite an employee — creates the user + returns a temporary password. */
-  async invite(
-    input: InviteEmployeeInput,
-  ): Promise<{ user: User; temporary_password: string }> {
-    const res = await apiRequest<{ user: UserDto; temporary_password: string }>(
-      "auth",
-      "/auth/invite",
-      {
-        method: "POST",
-        body: {
-          email: input.email,
-          first_name: input.first_name,
-          last_name: input.last_name,
-          role_name: toInviteRole(input.role),
-          employee_code: input.employee_code,
-          phone: input.phone,
-          designation: input.designation,
-          department_id: input.department_id ?? undefined,
-          team_id: input.team_id ?? undefined,
-          manager_user_id: input.manager_user_id ?? undefined,
-          joining_date: input.joining_date,
-        },
+  /**
+   * Invite an employee. The backend never issues a temporary password —
+   * the invited user is created with status "invited" and must set their
+   * own password from the emailed accept-invite link (same mechanism as
+   * forgot/reset password). In development, `invite_url` is echoed back so
+   * the inviter can share it without a mail provider configured.
+   */
+  async invite(input: InviteEmployeeInput): Promise<InviteResult> {
+    const res = await apiRequest<InviteResponseDto>("auth", "/auth/invite", {
+      method: "POST",
+      body: {
+        email: input.email,
+        first_name: input.first_name,
+        last_name: input.last_name,
+        role_name: toInviteRole(input.role),
+        employee_code: input.employee_code,
+        phone: input.phone,
+        designation: input.designation,
+        department_id: input.department_id ?? undefined,
+        team_id: input.team_id ?? undefined,
+        manager_user_id: input.manager_user_id ?? undefined,
+        joining_date: input.joining_date,
       },
+    });
+    return {
+      user: toUser(res.user),
+      emailSent: res.email_sent,
+      message: res.message,
+      inviteUrl: res.invite_url,
+    };
+  },
+
+  /** Resend an invite (new token + email) for a user still pending activation. */
+  async resendInvite(email: string): Promise<InviteResult> {
+    const res = await apiRequest<InviteResponseDto>(
+      "auth",
+      "/auth/invite/resend",
+      { method: "POST", body: { email } },
     );
-    return { user: toUser(res.user), temporary_password: res.temporary_password };
+    return {
+      user: toUser(res.user),
+      emailSent: res.email_sent,
+      message: res.message,
+      inviteUrl: res.invite_url,
+    };
   },
 
   async listEmployees(): Promise<{ user: User; job_role?: JobRoleDto }[]> {

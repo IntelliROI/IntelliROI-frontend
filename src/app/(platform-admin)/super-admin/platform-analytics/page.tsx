@@ -13,7 +13,16 @@ export default function PlatformAnalyticsPage() {
   });
 
   if (metrics.isLoading) return <LoadingBlock className="h-64" />;
-  const m = metrics.data!;
+
+  if (!metrics.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load platform analytics from the live service.
+      </p>
+    );
+  }
+
+  const m = metrics.data;
 
   return (
     <div>

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { PageHeader } from "@/components/feedback/States";
 import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { Can } from "@/lib/rbac/Can";
@@ -31,12 +31,6 @@ export default function NewEmployeePage({
     queryFn: () => organizationApi.listEmployees(),
   });
 
-  const loading =
-    departments.isLoading ||
-    teams.isLoading ||
-    jobRoles.isLoading ||
-    employees.isLoading;
-
   return (
     <div>
       <PageHeader
@@ -53,29 +47,46 @@ export default function NewEmployeePage({
           </p>
         }
       >
-        {loading ? (
-          <LoadingBlock className="h-64" />
-        ) : (
-          <CreateEmployeeForm
-            departments={departments.data ?? []}
-            teams={teams.data ?? []}
-            jobRoles={jobRoles.data ?? []}
-            managers={employees.data ?? []}
-            onSubmit={async (values) => {
-              const { employee, temporary_password } =
-                await organizationApi.createEmployee(values);
+        {/*
+         * Every dropdown here is optional (org.schema.ts), so the form
+         * renders immediately instead of blocking on all four queries —
+         * a single slow/unreachable service (e.g. job-roles on :8083)
+         * no longer freezes the whole invite screen.
+         */}
+        <CreateEmployeeForm
+          departments={departments.data ?? []}
+          teams={teams.data ?? []}
+          jobRoles={jobRoles.data ?? []}
+          managers={employees.data ?? []}
+          onSubmit={async (values) => {
+            const { employee, emailSent, inviteUrl } =
+              await organizationApi.createEmployee(values);
+            if (emailSent) {
+              toast.success(`Invited ${employee.display_name}`, {
+                description: `An email was sent to ${employee.email} to set their password.`,
+              });
+            } else if (inviteUrl) {
+              // Development only — no mail provider configured, so the
+              // accept-invite link is surfaced here instead of an inbox.
+              toast.success(`Invited ${employee.display_name}`, {
+                description: "No mail provider configured — share this link to activate the account.",
+                action: {
+                  label: "Copy link",
+                  onClick: () => {
+                    navigator.clipboard?.writeText(inviteUrl);
+                    toast.message("Invite link copied");
+                  },
+                },
+                duration: 15000,
+              });
+            } else {
               toast.success(`Invited ${employee.display_name}`);
-              if (temporary_password) {
-                toast.message(`Temporary password for ${employee.email}`, {
-                  description: temporary_password,
-                });
-              }
-              router.push(
-                `/${params.companySlug}/organization/employees/${employee.uuid}`,
-              );
-            }}
-          />
-        )}
+            }
+            router.push(
+              `/${params.companySlug}/organization/employees/${employee.uuid}`,
+            );
+          }}
+        />
       </Can>
     </div>
   );

@@ -29,6 +29,11 @@ export default function EmployeesPage({
     queryFn: () => organizationApi.listEmployees(),
   });
 
+  const errorMessage =
+    employees.error instanceof Error
+      ? employees.error.message
+      : "Could not reach the auth service.";
+
   const rows = (employees.data ?? []).map((e) => ({
     code: (
       <span className="font-mono text-[11px] font-medium text-text-secondary/70">
@@ -110,6 +115,18 @@ export default function EmployeesPage({
 
       {employees.isLoading ? (
         <LoadingBlock className="h-64" />
+      ) : employees.isError ? (
+        <div className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+          <p>Could not load employees. {errorMessage}</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="mt-4"
+            onClick={() => employees.refetch()}
+          >
+            Retry
+          </Button>
+        </div>
       ) : view === "table" ? (
         <DataTable
           columns={[

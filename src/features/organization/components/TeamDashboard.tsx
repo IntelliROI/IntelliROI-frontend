@@ -33,8 +33,16 @@ export function TeamDashboard({
 
   if (teams.isLoading || roi.isLoading) return <LoadingBlock className="h-80" />;
 
+  if (!roi.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load team Estimated ROI from the live service.
+      </p>
+    );
+  }
+
   const team = teams.data?.find((t) => t.id === teamId);
-  const r = roi.data!;
+  const r = roi.data;
 
   return (
     <div>
