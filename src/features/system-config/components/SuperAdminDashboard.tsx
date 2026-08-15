@@ -106,7 +106,7 @@ export function SuperAdminDashboard() {
         <Panel className="border-0 bg-ink p-6 lg:col-span-2">
           <h2 className="mb-4 font-medium text-text-primary">Plan mix</h2>
           <ProviderDonut
-            data={m.plan_distribution.map((p) => ({
+            data={(m.plan_distribution ?? []).map((p) => ({
               name: p.plan,
               value: p.count,
             }))}

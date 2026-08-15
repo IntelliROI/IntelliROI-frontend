@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import {
@@ -20,19 +20,22 @@ export function CreateJobRoleForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    role_name: "Frontend Developer",
-    hourly_cost: "30",
+    role_name: "",
+    hourly_cost: "",
     currency: "USD",
   });
+  const submitting = useRef(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
     const parsed = jobRoleSchema.safeParse(form);
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Invalid job role");
       return;
     }
     setError(null);
+    submitting.current = true;
     setLoading(true);
     try {
       await onSubmit(parsed.data);
@@ -40,6 +43,7 @@ export function CreateJobRoleForm({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save job role");
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   }

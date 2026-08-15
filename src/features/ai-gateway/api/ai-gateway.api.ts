@@ -1,14 +1,28 @@
-import { apiRequest, useMocks } from "@/lib/api/client";
-import {
-  delay,
-  mockConfiguredProviders,
-  mockConversations,
-  mockProviders,
-} from "@/lib/mocks/data";
+import { apiRequest } from "@/lib/api/client";
 
-export type Provider = (typeof mockProviders)[number];
-export type ConfiguredProvider = (typeof mockConfiguredProviders)[number];
-export type Conversation = (typeof mockConversations)[number];
+export type Provider = {
+  name: string;
+  display_name: string;
+  models: string[];
+  status: string;
+  latency_ms: number;
+};
+
+export type ConfiguredProvider = {
+  id: number;
+  provider: string;
+  key_alias: string;
+  created_at: string;
+};
+
+export type Conversation = {
+  uuid: string;
+  title: string;
+  provider: string;
+  model: string;
+  updated_at: string;
+  message_count: number;
+};
 
 export type ChatInput = {
   provider: string;
@@ -35,12 +49,10 @@ export type ConversationDetail = Conversation & {
 
 export const aiGatewayApi = {
   async listProviders(): Promise<Provider[]> {
-    if (useMocks) return delay(mockProviders);
     return apiRequest<Provider[]>("ai", "/providers");
   },
 
   async listConfigured(): Promise<ConfiguredProvider[]> {
-    if (useMocks) return delay(mockConfiguredProviders);
     return apiRequest<ConfiguredProvider[]>("ai", "/providers/configured");
   },
 
@@ -48,14 +60,6 @@ export const aiGatewayApi = {
     providerName: string,
     input: { api_key: string; key_alias: string },
   ): Promise<ConfiguredProvider> {
-    if (useMocks) {
-      return delay({
-        id: Date.now(),
-        provider: providerName,
-        key_alias: input.key_alias,
-        created_at: new Date().toISOString(),
-      });
-    }
     return apiRequest<ConfiguredProvider>("ai", `/providers/${providerName}/keys`, {
       method: "POST",
       body: input,
@@ -63,7 +67,6 @@ export const aiGatewayApi = {
   },
 
   async deleteKey(id: number): Promise<void> {
-    if (useMocks) return delay(undefined);
     await apiRequest("ai", `/providers/keys/${id}`, { method: "DELETE" });
   },
 
@@ -71,33 +74,6 @@ export const aiGatewayApi = {
     input: ChatInput,
     options?: { signal?: AbortSignal },
   ): Promise<ChatResponse> {
-    if (useMocks) {
-      const conversationUuid = input.conversation_uuid || `conv-${Date.now()}`;
-      // Respect abort during mock latency
-      await new Promise<void>((resolve, reject) => {
-        const t = setTimeout(resolve, 600);
-        options?.signal?.addEventListener(
-          "abort",
-          () => {
-            clearTimeout(t);
-            reject(new DOMException("Aborted", "AbortError"));
-          },
-          { once: true },
-        );
-      });
-      if (options?.signal?.aborted) {
-        throw new DOMException("Aborted", "AbortError");
-      }
-      return {
-        request_uuid: `req-${Date.now()}`,
-        conversation_uuid: conversationUuid,
-        content: `Understood. Here's a concise enterprise response for: "${input.prompt.slice(0, 120)}".\n\nIntelliROI gateway metered this call on ${input.provider}/${input.model}. Cost & Estimated ROI land asynchronously in Pipeline 2 — this pane never waits on them.\n\nNext steps you can take:\n1. Attach a project + task category for accurate ROI attribution\n2. Continue refining the prompt\n3. Review usage on your personal dashboard`,
-        provider: input.provider,
-        model: input.model,
-        tokens_in: 120 + input.prompt.length,
-        tokens_out: 180,
-      };
-    }
     return apiRequest<ChatResponse>("ai", "/chat", {
       method: "POST",
       body: input,
@@ -106,30 +82,10 @@ export const aiGatewayApi = {
   },
 
   async listConversations(): Promise<Conversation[]> {
-    if (useMocks) return delay(mockConversations);
     return apiRequest<Conversation[]>("ai", "/conversations");
   },
 
   async getConversation(uuid: string): Promise<ConversationDetail> {
-    if (useMocks) {
-      const found = mockConversations.find((c) => c.uuid === uuid);
-      return delay({
-        ...(found ?? mockConversations[0]),
-        messages: [
-          {
-            id: "m1",
-            role: "user",
-            content: "Help me design a department ROI comparison table.",
-          },
-          {
-            id: "m2",
-            role: "assistant",
-            content:
-              "Use spend, business value, ROI %, and adoption as columns. Sort by ROI descending for executive review.",
-          },
-        ],
-      });
-    }
     return apiRequest<ConversationDetail>("ai", `/conversations/${uuid}`);
   },
 };

@@ -61,7 +61,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
 
   const series = useMemo(
     () =>
-      analytics.data?.series.map((p) => ({
+      analytics.data?.series?.map((p) => ({
         date: p.date.slice(5),
         value: p.roi_pct,
         secondary: p.cost / 100,
@@ -88,7 +88,15 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
     );
   }
 
-  const roiData = roi.data!;
+  if (!roi.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load Estimated ROI from the live service.
+      </p>
+    );
+  }
+
+  const roiData = roi.data;
   const rawSeries = analytics.data?.series ?? [];
 
   return (

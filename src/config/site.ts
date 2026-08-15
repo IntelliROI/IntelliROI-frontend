@@ -12,8 +12,6 @@ export const services = {
 
 export type ServiceKey = keyof typeof services;
 
-export const useMocks = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
-
 export const site = {
   name: "IntelliROI",
   tagline: "Enterprise AI Intelligence OS",

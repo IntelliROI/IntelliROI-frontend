@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-import { services, type ServiceKey, useMocks } from "@/config/site";
+import { services, type ServiceKey } from "@/config/site";
 
 declare module "axios" {
   interface AxiosRequestConfig {
@@ -33,6 +33,20 @@ function getToken(): string | null {
   return localStorage.getItem("intelliroi_access_token");
 }
 
+export function getStoredCompany(): { id?: number; uuid?: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("intelliroi-auth");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      state?: { company?: { id?: number; uuid?: string } };
+    };
+    return parsed.state?.company ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function unwrapData<T>(payload: unknown): T {
   if (
     typeof payload === "object" &&
@@ -58,9 +72,11 @@ function toApiError(err: unknown): ApiError {
       "message" in body &&
       typeof (body as { message: unknown }).message === "string"
         ? (body as { message: string }).message
-        : err.code === "ECONNABORTED"
-          ? "Request timed out"
-          : (err.message ?? `Request failed (${err.response?.status ?? 0})`);
+        : err.response?.status === 403
+          ? "Not allowed (403). Your role may not have permission for this action."
+          : err.code === "ECONNABORTED"
+            ? "Request timed out"
+            : (err.message ?? `Request failed (${err.response?.status ?? 0})`);
     return new ApiError(
       message,
       err.response?.status ?? (err.code === "ECONNABORTED" ? 408 : 0),
@@ -72,21 +88,38 @@ function toApiError(err: unknown): ApiError {
 
 const clients = new Map<ServiceKey, AxiosInstance>();
 
-function createClient(baseURL: string): AxiosInstance {
+function createClient(service: ServiceKey, baseURL: string): AxiosInstance {
   const instance = axios.create({
     baseURL,
     headers: {
-      "Content-Type": "application/json",
       Accept: "application/json",
     },
   });
 
   instance.interceptors.request.use((config) => {
-    if (config.skipAuth) return config;
-    const token =
-      config.accessToken !== undefined ? config.accessToken : getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const method = (config.method ?? "get").toLowerCase();
+    const hasBody =
+      config.data !== undefined && config.data !== null && config.data !== "";
+    if (hasBody && method !== "get" && method !== "head") {
+      config.headers.set("Content-Type", "application/json");
+    }
+
+    if (!config.skipAuth) {
+      const token =
+        config.accessToken !== undefined ? config.accessToken : getToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+
+    if (service === "bc") {
+      const company = getStoredCompany();
+      if (company?.uuid) {
+        config.headers.set("X-Company-UUID", company.uuid);
+      }
+      if (company?.id != null) {
+        config.headers.set("X-Company-Id", String(company.id));
+      }
     }
     return config;
   });
@@ -106,7 +139,7 @@ function createClient(baseURL: string): AxiosInstance {
 export function http(service: ServiceKey): AxiosInstance {
   let client = clients.get(service);
   if (!client) {
-    client = createClient(services[service]);
+    client = createClient(service, services[service]);
     clients.set(service, client);
   }
   return client;
@@ -141,5 +174,4 @@ export async function apiRequest<T>(
   }
 }
 
-export { useMocks };
 export type { ServiceKey };

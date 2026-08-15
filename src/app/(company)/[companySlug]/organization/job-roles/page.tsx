@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   PageHeader,
@@ -25,10 +25,22 @@ export default function JobRolesPage({
   params: { companySlug: string };
 }) {
   const [view, setView] = useState<ViewMode>("table");
+  const queryClient = useQueryClient();
 
   const roles = useQuery({
     queryKey: ["company", params.companySlug, "job-roles"],
     queryFn: () => organizationApi.listJobRoles(),
+  });
+
+  const createRole = useMutation({
+    mutationFn: (values: { role_name: string; hourly_cost: number; currency?: string }) =>
+      organizationApi.createJobRole(values),
+    onSuccess: (row) => {
+      toast.success(`Added ${row.role_name}`);
+      void queryClient.invalidateQueries({
+        queryKey: ["company", params.companySlug, "job-roles"],
+      });
+    },
   });
 
   const statusColor = (s: string) =>
@@ -88,9 +100,7 @@ export default function JobRolesPage({
         <div className="mb-8 border border-hairline p-6">
           <CreateJobRoleForm
             onSubmit={async (values) => {
-              await organizationApi.createJobRole(values);
-              toast.success(`Added ${values.role_name}`);
-              roles.refetch();
+              await createRole.mutateAsync(values);
             }}
           />
         </div>

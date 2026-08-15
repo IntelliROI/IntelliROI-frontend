@@ -136,6 +136,8 @@ export type CreateJobRoleInput = {
   role_name: string;
   hourly_cost: number;
   currency?: string;
+  company_id?: number;
+  company_uuid?: string;
 };
 
 export type UpdateCompanySettingsInput = Partial<

@@ -21,7 +21,14 @@ export function ScopedAnalyticsView({
   const analytics = useScopedAnalytics(companySlug, scope, scopeId);
 
   if (analytics.isLoading) return <LoadingBlock className="h-80" />;
-  const a = analytics.data!;
+  const a = analytics.data;
+  if (!a) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load analytics from the live service.
+      </p>
+    );
+  }
 
   return (
     <div>
@@ -42,7 +49,7 @@ export function ScopedAnalyticsView({
           <Provenance computedAt={new Date().toISOString()} />
         </div>
         <TrendAreaChart
-          data={a.series.map((p) => ({
+          data={(a.series ?? []).map((p) => ({
             date: p.date.slice(5),
             value: p.requests,
           }))}
