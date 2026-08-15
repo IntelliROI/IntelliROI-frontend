@@ -2,7 +2,12 @@
  * Auth API client (:8081) — live HTTP only, no mocks.
  */
 import { apiRequest } from "@/lib/api/client";
-import { type AuthSession, type Company, type User } from "@/types/auth.types";
+import {
+  type AuthScope,
+  type AuthSession,
+  type Company,
+  type User,
+} from "@/types/auth.types";
 import { resolveRole, toInviteRole, type Role } from "@/constants/roles";
 import { slugify } from "@/lib/utils";
 
@@ -86,12 +91,12 @@ type CompanyDto = {
 };
 
 type ScopeDto = {
-  level: "company" | "department" | "team" | "self";
-  experience: string;
-  department_id?: number;
-  team_id?: number;
-  user_id: number;
-  company_id: number;
+  level: "company" | "department" | "team" | "self" | "platform";
+  experience?: string;
+  department_id?: number | null;
+  team_id?: number | null;
+  user_id?: number;
+  company_id?: number;
 };
 
 type TokenResponse = {
@@ -167,19 +172,38 @@ function toCompany(c: CompanyDto): Company {
   };
 }
 
-function toUser(u: UserDto, company?: Company): User {
+function toScope(s: ScopeDto): AuthScope {
+  return {
+    level: s.level,
+    experience: s.experience,
+    department_id: s.department_id ?? null,
+    team_id: s.team_id ?? null,
+    user_id: s.user_id,
+    company_id: s.company_id,
+  };
+}
+
+function toUser(
+  u: UserDto,
+  company?: Company,
+  scope?: ScopeDto,
+  permissions?: string[],
+): User {
+  const mappedScope = scope ? toScope(scope) : undefined;
   return {
     uuid: u.uuid,
-    id: u.id,
+    id: u.id ?? mappedScope?.user_id,
     email: u.email,
     first_name: u.first_name,
     last_name: u.last_name,
     role: resolveRole(u.roles),
     roles: u.roles,
+    permissions,
+    scope: mappedScope,
     status: u.status as User["status"],
     company,
-    department_id: u.department_id ?? null,
-    team_id: u.team_id ?? null,
+    department_id: u.department_id ?? mappedScope?.department_id ?? null,
+    team_id: u.team_id ?? mappedScope?.team_id ?? null,
     manager_user_id: u.manager_user_id ?? null,
     employee_code: u.employee_code,
     phone: u.phone,
@@ -198,6 +222,23 @@ function toSession(res: TokenResponse): AuthSession {
   };
 }
 
+/** Login/refresh tokens omit scope — /auth/me is the session source of truth. */
+async function enrichWithMe(session: AuthSession): Promise<AuthSession> {
+  try {
+    const res = await apiRequest<MeResponse>("auth", "/auth/me", {
+      token: session.access_token,
+    });
+    const company = toCompany(res.company);
+    return {
+      ...session,
+      company,
+      user: toUser(res.user, company, res.scope, res.permissions),
+    };
+  } catch {
+    return session;
+  }
+}
+
 export const authApi = {
   async login(input: LoginInput): Promise<AuthSession> {
     const res = await apiRequest<TokenResponse>("auth", "/auth/login", {
@@ -205,7 +246,7 @@ export const authApi = {
       body: input,
       token: null,
     });
-    return toSession(res);
+    return enrichWithMe(toSession(res));
   },
 
   async register(input: RegisterInput): Promise<AuthSession> {
@@ -214,15 +255,13 @@ export const authApi = {
       body: input,
       token: null,
     });
-    return toSession(res);
+    return enrichWithMe(toSession(res));
   },
 
   async me(): Promise<User> {
     const res = await apiRequest<MeResponse>("auth", "/auth/me");
     const company = toCompany(res.company);
-    const user = toUser(res.user, company);
-    user.permissions = res.permissions;
-    return user;
+    return toUser(res.user, company, res.scope, res.permissions);
   },
 
   async refresh(refreshToken: string): Promise<AuthSession> {
@@ -231,7 +270,7 @@ export const authApi = {
       body: { refresh_token: refreshToken },
       token: null,
     });
-    return toSession(res);
+    return enrichWithMe(toSession(res));
   },
 
   async logout(refreshToken?: string | null, revokeAll = false): Promise<void> {

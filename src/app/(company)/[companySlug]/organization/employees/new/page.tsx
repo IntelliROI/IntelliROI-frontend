@@ -59,7 +59,7 @@ export default function NewEmployeePage({
           jobRoles={jobRoles.data ?? []}
           managers={employees.data ?? []}
           onSubmit={async (values) => {
-            const { employee, emailSent, inviteUrl } =
+            const { employee, emailSent, inviteUrl, warnings } =
               await organizationApi.createEmployee(values);
             if (emailSent) {
               toast.success(`Invited ${employee.display_name}`, {
@@ -81,6 +81,9 @@ export default function NewEmployeePage({
               });
             } else {
               toast.success(`Invited ${employee.display_name}`);
+            }
+            for (const warning of warnings) {
+              toast.warning(warning);
             }
             router.push(
               `/${params.companySlug}/organization/employees/${employee.uuid}`,

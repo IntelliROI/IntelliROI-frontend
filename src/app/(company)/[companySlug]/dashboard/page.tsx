@@ -39,26 +39,28 @@ export default function CompanyDashboardPage({
 }) {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
+  const departmentId = user?.scope?.department_id ?? user?.department_id ?? null;
+  const teamId = user?.scope?.team_id ?? user?.team_id ?? null;
 
   if (role === ROLES.EMPLOYEE) {
     return <EmployeeDashboard companySlug={params.companySlug} />;
   }
 
-  if (role === ROLES.TEAM_LEAD && user?.team_id && user.department_id) {
+  if (role === ROLES.TEAM_LEAD && teamId) {
     return (
       <TeamDashboard
         companySlug={params.companySlug}
-        departmentId={user.department_id}
-        teamId={user.team_id}
+        departmentId={departmentId ?? 0}
+        teamId={teamId}
       />
     );
   }
 
-  if (role === ROLES.DEPARTMENT_HEAD && user?.department_id) {
+  if (role === ROLES.DEPARTMENT_HEAD && departmentId) {
     return (
       <DepartmentDashboard
         companySlug={params.companySlug}
-        departmentId={user.department_id}
+        departmentId={departmentId}
       />
     );
   }

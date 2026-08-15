@@ -1,4 +1,4 @@
-import { apiRequest, getStoredCompany } from "@/lib/api/client";
+import { apiRequest, getStoredCompany, ApiError } from "@/lib/api/client";
 import { authApi } from "@/features/auth/api/auth.api";
 import type {
   CompanySettings,
@@ -358,7 +358,12 @@ async function getEmployee(uuid: string): Promise<Employee> {
 
 async function createEmployee(
   input: CreateEmployeeInput,
-): Promise<{ employee: Employee; emailSent: boolean; inviteUrl?: string }> {
+): Promise<{
+  employee: Employee;
+  emailSent: boolean;
+  inviteUrl?: string;
+  warnings: string[];
+}> {
   const { user, emailSent, inviteUrl } = await authApi.invite({
     email: input.email,
     first_name: input.first_name,
@@ -373,11 +378,50 @@ async function createEmployee(
     joining_date: input.joining_date,
   });
 
+  const warnings: string[] = [];
+  const departmentId = input.department_id || undefined;
+  const teamId = input.team_id || undefined;
+
+  if (user.uuid && (departmentId || teamId != null)) {
+    try {
+      await assignUser(user.uuid, {
+        department_id: departmentId ?? null,
+        team_id: teamId ?? null,
+      });
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Org assignment: ${err.message}`
+          : "Org assignment failed",
+      );
+    }
+  }
+
+  if (user.uuid && teamId) {
+    try {
+      await addTeamMember(teamId, user.uuid);
+    } catch (err) {
+      const alreadyMember =
+        err instanceof ApiError && (err.status === 409 || err.status === 422);
+      if (!alreadyMember) {
+        warnings.push(
+          err instanceof Error
+            ? `Team membership: ${err.message}`
+            : "Could not add team member",
+        );
+      }
+    }
+  }
+
   if (input.job_role_id) {
     try {
       await assignEmployeeJobRole(user.uuid, input.job_role_id);
-    } catch {
-      // Invite still succeeded; job role can be assigned later.
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Job role: ${err.message}`
+          : "Job role could not be assigned",
+      );
     }
   }
 
@@ -400,7 +444,7 @@ async function createEmployee(
     },
     maps,
   );
-  return { employee, emailSent, inviteUrl };
+  return { employee, emailSent, inviteUrl, warnings };
 }
 
 async function getSettings(): Promise<CompanySettings> {

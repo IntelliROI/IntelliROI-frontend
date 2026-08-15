@@ -19,10 +19,16 @@ export function useSession() {
   };
 }
 
+/** Live /auth/me — writes scope + permissions into the persisted session. */
 export function useMeQuery(enabled = true) {
+  const setUser = useAuthStore((s) => s.setUser);
   return useQuery({
     queryKey: queryKeys.auth.me(),
-    queryFn: () => authApi.me(),
+    queryFn: async () => {
+      const me = await authApi.me();
+      setUser(me);
+      return me;
+    },
     enabled,
     staleTime: 60_000,
   });

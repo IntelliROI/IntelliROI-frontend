@@ -61,7 +61,11 @@ export const useAuthStore = create<AuthState>()(
           onboardingComplete: complete,
         });
       },
-      setUser: (user) => set({ user }),
+      setUser: (user) =>
+        set({
+          user,
+          company: user?.company ?? get().company,
+        }),
       setOnboardingComplete: (value) => {
         const state = get();
         if (state.accessToken && state.user) {

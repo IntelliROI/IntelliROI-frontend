@@ -24,14 +24,23 @@ import { cn } from "@/lib/utils";
  */
 export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
+  const employeeId = user?.id ?? user?.scope?.user_id ?? user?.uuid;
 
   const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "employee", "self"],
-    queryFn: () => roiApi.employee(1),
+    queryKey: ["company", companySlug, "roi", "employee", employeeId ?? "self"],
+    queryFn: () => roiApi.employee(employeeId!),
+    enabled: Boolean(employeeId),
   });
   const analytics = useQuery({
-    queryKey: ["company", companySlug, "analytics", "employee", "self"],
-    queryFn: () => analyticsApi.employee(1),
+    queryKey: [
+      "company",
+      companySlug,
+      "analytics",
+      "employee",
+      employeeId ?? "self",
+    ],
+    queryFn: () => analyticsApi.employee(employeeId!),
+    enabled: Boolean(employeeId),
   });
   const conversations = useQuery({
     queryKey: ["company", companySlug, "conversations"],
