@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAuth } from "@/features/auth/components/RequireAuth";
 import { RouteGuard } from "@/features/auth/components/RouteGuard";
@@ -18,7 +18,10 @@ export default function CompanyLayout({
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
   const role = user?.role ?? ROLES.EMPLOYEE;
-  const nav = getCompanyNav(role, params.companySlug);
+  const nav = useMemo(
+    () => getCompanyNav(role, params.companySlug),
+    [role, params.companySlug],
+  );
 
   return (
     <RequireAuth

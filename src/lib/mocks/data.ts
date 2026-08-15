@@ -287,6 +287,6 @@ export const mockPlatformMetrics = {
   ],
 };
 
-export function delay<T>(value: T, ms = 350): Promise<T> {
+export function delay<T>(value: T, ms = 0): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }

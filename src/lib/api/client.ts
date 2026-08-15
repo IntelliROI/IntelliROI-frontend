@@ -1,5 +1,12 @@
+import axios, { AxiosError, type AxiosInstance } from "axios";
 import { services, type ServiceKey, useMocks } from "@/config/site";
-import { withTimeout } from "@/lib/performance";
+
+declare module "axios" {
+  interface AxiosRequestConfig {
+    skipAuth?: boolean;
+    accessToken?: string | null;
+  }
+}
 
 export class ApiError extends Error {
   status: number;
@@ -19,13 +26,90 @@ type RequestOptions = {
   token?: string | null;
   headers?: Record<string, string>;
   signal?: AbortSignal;
-  /** Default 30s — prevents hung requests from freezing UI */
-  timeoutMs?: number;
 };
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("intelliroi_access_token");
+}
+
+function unwrapData<T>(payload: unknown): T {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "data" in payload &&
+    (payload as { data: unknown }).data !== undefined
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
+function toApiError(err: unknown): ApiError {
+  if (err instanceof ApiError) return err;
+  if (axios.isCancel(err)) {
+    return new ApiError("Request cancelled", 408);
+  }
+  if (err instanceof AxiosError) {
+    const body = err.response?.data;
+    const message =
+      typeof body === "object" &&
+      body !== null &&
+      "message" in body &&
+      typeof (body as { message: unknown }).message === "string"
+        ? (body as { message: string }).message
+        : err.code === "ECONNABORTED"
+          ? "Request timed out"
+          : (err.message ?? `Request failed (${err.response?.status ?? 0})`);
+    return new ApiError(
+      message,
+      err.response?.status ?? (err.code === "ECONNABORTED" ? 408 : 0),
+      body,
+    );
+  }
+  return new ApiError(err instanceof Error ? err.message : "Request failed", 0);
+}
+
+const clients = new Map<ServiceKey, AxiosInstance>();
+
+function createClient(baseURL: string): AxiosInstance {
+  const instance = axios.create({
+    baseURL,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+  });
+
+  instance.interceptors.request.use((config) => {
+    if (config.skipAuth) return config;
+    const token =
+      config.accessToken !== undefined ? config.accessToken : getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  instance.interceptors.response.use(
+    (response) => {
+      response.data = unwrapData(response.data);
+      return response;
+    },
+    (error) => Promise.reject(toApiError(error)),
+  );
+
+  return instance;
+}
+
+/** Axios instance for a backend service — token + JSON handled by interceptors. */
+export function http(service: ServiceKey): AxiosInstance {
+  let client = clients.get(service);
+  if (!client) {
+    client = createClient(services[service]);
+    clients.set(service, client);
+  }
+  return client;
 }
 
 export async function apiRequest<T>(
@@ -39,65 +123,23 @@ export async function apiRequest<T>(
     token,
     headers = {},
     signal,
-    timeoutMs = 30_000,
   } = options;
-  const base = services[service];
-  const accessToken = token === undefined ? getToken() : token;
-  const abortSignal = withTimeout(timeoutMs, signal);
 
-  let res: Response;
   try {
-    res = await fetch(`${base}${path}`, {
+    const res = await http(service).request<T>({
+      url: path,
       method,
-      signal: abortSignal,
-      credentials: "omit",
-      cache: method === "GET" ? "no-store" : "default",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...headers,
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      data: body,
+      headers,
+      signal,
+      skipAuth: token === null,
+      accessToken: token === undefined ? undefined : token,
     });
+    return res.data;
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new ApiError("Request timed out", 408);
-    }
-    throw err;
+    throw toApiError(err);
   }
-
-  const text = await res.text();
-  let json: unknown = null;
-  if (text) {
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = text;
-    }
-  }
-
-  if (!res.ok) {
-    const message =
-      typeof json === "object" &&
-      json !== null &&
-      "message" in json &&
-      typeof (json as { message: unknown }).message === "string"
-        ? (json as { message: string }).message
-        : `Request failed (${res.status})`;
-    throw new ApiError(message, res.status, json);
-  }
-
-  if (
-    typeof json === "object" &&
-    json !== null &&
-    "data" in json &&
-    (json as { data: unknown }).data !== undefined
-  ) {
-    return (json as { data: T }).data;
-  }
-
-  return json as T;
 }
 
 export { useMocks };
+export type { ServiceKey };

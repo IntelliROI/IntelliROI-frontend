@@ -121,7 +121,7 @@ function NavListItem({
   const linkContent = (
     <Link
       href={item.href}
-      prefetch
+      prefetch={false}
       onClick={onNavigate}
       className={cn(
         "group relative flex items-center gap-3 transition-all duration-150",
@@ -513,7 +513,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
 
         {/* ── Header ── */}
-        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-hairline bg-ink/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center border-b border-hairline bg-ink">
           <div className="flex flex-1 items-center gap-3 px-4 md:px-5">
 
             {/* Mobile hamburger */}
@@ -544,7 +544,7 @@ export function AppShell({
             {/* Notifications */}
             <Link
               href={notifyHref}
-              prefetch
+              prefetch={false}
               className={cn(
                 "relative flex h-8 w-8 items-center justify-center",
                 "text-text-secondary/70 transition-colors hover:bg-surface/70 hover:text-text-primary",
