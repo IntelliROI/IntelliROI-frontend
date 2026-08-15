@@ -10,6 +10,8 @@ import { Chapter } from "@/components/ui/panel";
 import { authApi } from "@/features/auth/api/auth.api";
 import { registerSchema } from "@/features/auth/schemas/auth.schema";
 import { useAuthStore } from "@/stores/auth-store";
+import { getHomePath } from "@/lib/rbac/route-access";
+import { ROLES } from "@/constants/roles";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -51,10 +53,15 @@ export function RegisterForm() {
         company: session.company,
         accessToken: session.access_token,
         refreshToken: session.refresh_token,
-        onboardingComplete: false,
+        onboardingComplete: true,
       });
-      toast.success("Company registered — complete onboarding");
-      router.replace("/onboarding/company-profile");
+      toast.success("Company registered");
+      if (session.user.role === ROLES.SUPER_ADMIN) {
+        router.replace("/super-admin/dashboard");
+      } else {
+        const slug = session.company?.slug ?? session.user.company?.slug ?? "";
+        router.replace(getHomePath(session.user.role, slug));
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -64,13 +71,13 @@ export function RegisterForm() {
 
   return (
     <div className="w-full max-w-xl">
-      <Chapter number="02" label="Onboard" />
+      <Chapter number="02" label="Register" />
       <h1 className="mt-8 text-3xl font-light tracking-tight text-text-primary">
         Register your company
       </h1>
       <p className="mt-3 text-sm text-text-secondary">
-        Creates the tenant and Company Owner (CEO). Next: settings → job roles →
-        departments → teams → providers → employees.
+        Creates the tenant and Company Owner. You land on the dashboard — add a
+        manager later from Organization.
       </p>
 
       <form onSubmit={onSubmit} className="mt-10 grid gap-4 sm:grid-cols-2">

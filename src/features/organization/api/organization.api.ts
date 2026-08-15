@@ -272,9 +272,9 @@ async function getUserUuid(id: number): Promise<string | undefined> {
 
 async function loadOrgMaps() {
   const [departments, teams, jobRoles] = await Promise.all([
-    listDepartments(),
-    listTeams(),
-    listJobRoles(),
+    listDepartments().catch(() => [] as Department[]),
+    listTeams().catch(() => [] as Team[]),
+    listJobRoles().catch(() => [] as JobRole[]),
   ]);
   return {
     deptName: new Map(departments.map((d) => [d.id, d.department_name])),
@@ -351,29 +351,39 @@ async function getEmployee(uuid: string): Promise<Employee> {
   return toEmployee(profile, maps);
 }
 
-async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
-  const { user } = await authApi.invite({
+async function createEmployee(
+  input: CreateEmployeeInput,
+): Promise<{ employee: Employee; temporary_password?: string }> {
+  const { user, temporary_password } = await authApi.invite({
     email: input.email,
     first_name: input.first_name,
     last_name: input.last_name,
     role: input.app_role,
-    employee_code: input.employee_code,
+    employee_code: input.employee_code || undefined,
     phone: input.phone,
     designation: input.designation,
-    department_id: input.department_id,
-    team_id: input.team_id ?? undefined,
-    manager_user_id: input.manager_employee_id ?? undefined,
+    department_id: input.department_id || undefined,
+    team_id: input.team_id || undefined,
+    manager_user_id: input.manager_employee_id || undefined,
     joining_date: input.joining_date,
   });
 
   if (input.job_role_id) {
-    await assignEmployeeJobRole(user.uuid, input.job_role_id);
+    try {
+      await assignEmployeeJobRole(user.uuid, input.job_role_id);
+    } catch {
+      // Invite still succeeded; job role can be assigned later.
+    }
   }
 
   const maps = await loadOrgMaps();
-  return toEmployee(
+  const employee = toEmployee(
     {
-      user: { ...user, department_id: input.department_id, team_id: input.team_id ?? null },
+      user: {
+        ...user,
+        department_id: input.department_id || user.department_id || null,
+        team_id: input.team_id ?? user.team_id ?? null,
+      },
       job_role: input.job_role_id
         ? maps.jobRoleById.get(input.job_role_id) && {
             job_role_id: input.job_role_id,
@@ -385,9 +395,8 @@ async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
     },
     maps,
   );
+  return { employee, temporary_password };
 }
-
-/* ── Company settings  ────── */
 
 async function getSettings(): Promise<CompanySettings> {
   const s = await authApi.getCompanySettings();

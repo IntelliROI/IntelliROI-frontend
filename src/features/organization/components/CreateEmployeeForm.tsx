@@ -52,9 +52,9 @@ export function CreateEmployeeForm({
     email: "",
     phone: "",
     employee_code: "",
-    department_id: String(departments[0]?.id ?? ""),
+    department_id: "",
     team_id: "",
-    job_role_id: String(jobRoles[0]?.id ?? ""),
+    job_role_id: "",
     manager_employee_id: "",
     designation: "",
     joining_date: new Date().toISOString().slice(0, 10),
@@ -85,6 +85,8 @@ export function CreateEmployeeForm({
     setLoading(true);
     try {
       await onSubmit(parsed.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create person");
     } finally {
       setLoading(false);
     }
@@ -149,7 +151,7 @@ export function CreateEmployeeForm({
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Employee ID</Label>
+            <Label>Employee ID (optional)</Label>
             <Input
               placeholder="EMP-0041"
               value={form.employee_code}
@@ -169,7 +171,7 @@ export function CreateEmployeeForm({
             />
           </div>
           <div className="space-y-2">
-            <Label>Department</Label>
+            <Label>Department (optional)</Label>
             <Select
               value={form.department_id}
               onChange={(e) =>
@@ -205,7 +207,7 @@ export function CreateEmployeeForm({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Job role (hourly cost)</Label>
+            <Label>Job role (optional)</Label>
             <Select
               value={form.job_role_id}
               onChange={(e) =>
@@ -286,8 +288,9 @@ export function CreateEmployeeForm({
             </Select>
           </div>
           <p className="self-end text-sm text-text-secondary">
-            Auth user is invited separately; employee record holds org identity
-            for usage → cost → Estimated ROI.
+            Invite sends login access via auth-service. Org fields can be filled
+            later — start with a Department Head if you want them to hire the
+            rest of the team.
           </p>
         </div>
       </section>

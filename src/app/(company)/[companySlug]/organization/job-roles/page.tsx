@@ -98,6 +98,13 @@ export default function JobRolesPage({
 
       {roles.isLoading ? (
         <LoadingBlock className="h-64" />
+      ) : roles.isError ? (
+        <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+          Could not load job roles from business-context (:8083).{" "}
+          {roles.error instanceof Error
+            ? roles.error.message
+            : "Check the service is running and allows this origin."}
+        </p>
       ) : view === "table" ? (
         <DataTable
           columns={[

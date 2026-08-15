@@ -121,10 +121,10 @@ export type CreateEmployeeInput = {
   display_name?: string;
   email: string;
   phone?: string;
-  employee_code: string;
-  department_id: number;
+  employee_code?: string;
+  department_id?: number | null;
   team_id?: number | null;
-  job_role_id: number;
+  job_role_id?: number | null;
   manager_employee_id?: number | null;
   designation?: string;
   joining_date?: string;

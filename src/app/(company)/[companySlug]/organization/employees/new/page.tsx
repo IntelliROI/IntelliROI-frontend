@@ -31,15 +31,18 @@ export default function NewEmployeePage({
     queryFn: () => organizationApi.listEmployees(),
   });
 
-  const ready =
-    departments.data && teams.data && jobRoles.data && !departments.isLoading;
+  const loading =
+    departments.isLoading ||
+    teams.isLoading ||
+    jobRoles.isLoading ||
+    employees.isLoading;
 
   return (
     <div>
       <PageHeader
         eyebrow="Organization"
-        title="Add employee"
-        description="Org identity required: department, team, job role, manager, employee code."
+        title="Invite person"
+        description="Start with a Department Head if you want them to hire the team. Department, team, and job role can wait."
       />
       <Can
         resource="employees"
@@ -50,19 +53,25 @@ export default function NewEmployeePage({
           </p>
         }
       >
-        {!ready ? (
+        {loading ? (
           <LoadingBlock className="h-64" />
         ) : (
           <CreateEmployeeForm
-            departments={departments.data!}
-            teams={teams.data!}
-            jobRoles={jobRoles.data!}
+            departments={departments.data ?? []}
+            teams={teams.data ?? []}
+            jobRoles={jobRoles.data ?? []}
             managers={employees.data ?? []}
             onSubmit={async (values) => {
-              const row = await organizationApi.createEmployee(values);
-              toast.success(`Created ${row.display_name}`);
+              const { employee, temporary_password } =
+                await organizationApi.createEmployee(values);
+              toast.success(`Invited ${employee.display_name}`);
+              if (temporary_password) {
+                toast.message(`Temporary password for ${employee.email}`, {
+                  description: temporary_password,
+                });
+              }
               router.push(
-                `/${params.companySlug}/organization/employees/${row.uuid}`,
+                `/${params.companySlug}/organization/employees/${employee.uuid}`,
               );
             }}
           />

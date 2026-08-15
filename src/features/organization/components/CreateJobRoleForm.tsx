@@ -37,6 +37,8 @@ export function CreateJobRoleForm({
     try {
       await onSubmit(parsed.data);
       setForm({ role_name: "", hourly_cost: "", currency: "USD" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save job role");
     } finally {
       setLoading(false);
     }
