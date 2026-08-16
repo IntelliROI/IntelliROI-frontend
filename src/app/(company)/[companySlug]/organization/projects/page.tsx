@@ -69,10 +69,14 @@ export default function ProjectsPage({
 
   async function assignMember() {
     if (!assigning || !memberUuid) return;
-    await organizationApi.addProjectMember(assigning.id, memberUuid);
-    toast.success(`Added member to ${assigning.project_name}`);
-    setAssigning(null);
-    setMemberUuid("");
+    try {
+      await organizationApi.addProjectMember(assigning.id, memberUuid);
+      toast.success(`Added member to ${assigning.project_name}`);
+      setAssigning(null);
+      setMemberUuid("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Request failed");
+    }
   }
 
   const rows = (projects.data ?? []).map((p) => ({

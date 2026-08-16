@@ -46,9 +46,14 @@ export default function CompanySettingsPage({
             <CompanySettingsForm
               initial={settings.data}
               onSubmit={async (values) => {
-                await organizationApi.updateSettings(values);
-                toast.success("Settings saved");
-                settings.refetch();
+                try {
+                  await organizationApi.updateSettings(values);
+                  toast.success("Settings saved");
+                  settings.refetch();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Request failed");
+                  throw err;
+                }
               }}
             />
           </div>

@@ -50,22 +50,30 @@ export function TeamDashboard({
 
   async function addMember() {
     if (!memberUuid) return;
-    await organizationApi.addTeamMember(teamId, memberUuid);
-    await organizationApi.assignUser(memberUuid, {
-      department_id: departmentId,
-      team_id: teamId,
-    });
-    toast.success("Member added");
-    setMemberUuid("");
-    setAdding(false);
-    employees.refetch();
+    try {
+      await organizationApi.addTeamMember(teamId, memberUuid);
+      await organizationApi.assignUser(memberUuid, {
+        department_id: departmentId,
+        team_id: teamId,
+      });
+      toast.success("Member added");
+      setMemberUuid("");
+      setAdding(false);
+      employees.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Request failed");
+    }
   }
 
   async function removeMember(uuid: string, name: string) {
-    await organizationApi.removeTeamMember(teamId, uuid);
-    await organizationApi.assignUser(uuid, { team_id: null });
-    toast.success(`Removed ${name}`);
-    employees.refetch();
+    try {
+      await organizationApi.removeTeamMember(teamId, uuid);
+      await organizationApi.assignUser(uuid, { team_id: null });
+      toast.success(`Removed ${name}`);
+      employees.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Request failed");
+    }
   }
 
   return (

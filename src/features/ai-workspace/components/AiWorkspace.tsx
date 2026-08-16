@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { useChatStore } from "@/stores/chat-store";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -265,14 +266,15 @@ export function AiWorkspace({
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
+        const message =
+          err instanceof Error ? err.message : "Request failed";
+        toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
-                  content:
-                    m.content ||
-                    "Something went wrong reaching the gateway. Try again.",
+                  content: m.content || message,
                   isStreaming: false,
                 }
               : m,

@@ -46,9 +46,13 @@ export default function RecommendationsPage({
       <Button
         size="sm"
         onClick={async () => {
-          await roiApi.updateRecommendation(r.id, "accepted");
-          toast.success("Accepted");
-          recommendations.refetch();
+          try {
+            await roiApi.updateRecommendation(r.id, "accepted");
+            toast.success("Accepted");
+            recommendations.refetch();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Request failed");
+          }
         }}
       >
         Accept
@@ -77,9 +81,13 @@ export default function RecommendationsPage({
       <Button
         size="sm"
         onClick={async () => {
-          await roiApi.updateRecommendation(r.id, "accepted");
-          toast.success("Accepted");
-          recommendations.refetch();
+          try {
+            await roiApi.updateRecommendation(r.id, "accepted");
+            toast.success("Accepted");
+            recommendations.refetch();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Request failed");
+          }
         }}
       >
         Accept

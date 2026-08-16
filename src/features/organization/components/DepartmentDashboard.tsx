@@ -120,9 +120,15 @@ export function DepartmentDashboard({
                   <Button
                     size="sm"
                     onClick={async () => {
-                      await businessContextApi.approveBenchmark(b.id);
-                      toast.success("Benchmark approved");
-                      benchmarks.refetch();
+                      try {
+                        await businessContextApi.approveBenchmark(b.id);
+                        toast.success("Benchmark approved");
+                        benchmarks.refetch();
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Request failed",
+                        );
+                      }
                     }}
                   >
                     Approve
@@ -131,9 +137,15 @@ export function DepartmentDashboard({
                     size="sm"
                     variant="secondary"
                     onClick={async () => {
-                      await businessContextApi.rejectBenchmark(b.id);
-                      toast.message("Benchmark rejected");
-                      benchmarks.refetch();
+                      try {
+                        await businessContextApi.rejectBenchmark(b.id);
+                        toast.message("Benchmark rejected");
+                        benchmarks.refetch();
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Request failed",
+                        );
+                      }
                     }}
                   >
                     Reject

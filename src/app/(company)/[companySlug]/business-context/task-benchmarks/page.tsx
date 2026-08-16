@@ -59,23 +59,31 @@ export default function TaskBenchmarksPage({
   async function onCreateCategory(e: FormEvent) {
     e.preventDefault();
     if (!categoryName.trim()) return;
-    await businessContextApi.createTaskCategory({ name: categoryName.trim() });
-    toast.success("Category created");
-    setCategoryName("");
-    categories.refetch();
+    try {
+      await businessContextApi.createTaskCategory({ name: categoryName.trim() });
+      toast.success("Category created");
+      setCategoryName("");
+      categories.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Request failed");
+    }
   }
 
   async function onCreateBenchmark(e: FormEvent) {
     e.preventDefault();
-    await businessContextApi.createBenchmark({
-      task_category_id: Number(form.task_category_id),
-      job_role_id: Number(form.job_role_id),
-      estimated_minutes_saved: Number(form.estimated_minutes_saved),
-    });
-    toast.success("Benchmark submitted");
-    setForm({ task_category_id: "", job_role_id: "", estimated_minutes_saved: "" });
-    setShowForm(false);
-    benchmarks.refetch();
+    try {
+      await businessContextApi.createBenchmark({
+        task_category_id: Number(form.task_category_id),
+        job_role_id: Number(form.job_role_id),
+        estimated_minutes_saved: Number(form.estimated_minutes_saved),
+      });
+      toast.success("Benchmark submitted");
+      setForm({ task_category_id: "", job_role_id: "", estimated_minutes_saved: "" });
+      setShowForm(false);
+      benchmarks.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Request failed");
+    }
   }
 
   const rows = (benchmarks.data ?? []).map((b) => ({
@@ -102,9 +110,13 @@ export default function TaskBenchmarksPage({
             <Button
               size="sm"
               onClick={async () => {
-                await businessContextApi.approveBenchmark(b.id);
-                toast.success("Approved");
-                benchmarks.refetch();
+                try {
+                  await businessContextApi.approveBenchmark(b.id);
+                  toast.success("Approved");
+                  benchmarks.refetch();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Request failed");
+                }
               }}
             >
               Approve
@@ -113,9 +125,13 @@ export default function TaskBenchmarksPage({
               size="sm"
               variant="secondary"
               onClick={async () => {
-                await businessContextApi.rejectBenchmark(b.id);
-                toast.message("Rejected");
-                benchmarks.refetch();
+                try {
+                  await businessContextApi.rejectBenchmark(b.id);
+                  toast.message("Rejected");
+                  benchmarks.refetch();
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Request failed");
+                }
               }}
             >
               Reject
