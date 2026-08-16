@@ -5,6 +5,7 @@ import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { roiApi } from "@/features/roi/api/roi.api";
 
 export default function EmployeeDetailPage({
@@ -28,8 +29,9 @@ export default function EmployeeDetailPage({
   });
 
   const employee = employeeQ.data;
+  const invited = employee?.status === "invited";
 
-  if (employeeQ.isLoading || roi.isLoading) {
+  if (employeeQ.isLoading || (!invited && roi.isLoading)) {
     return <LoadingBlock className="h-64" />;
   }
 
@@ -38,7 +40,19 @@ export default function EmployeeDetailPage({
       <PageHeader
         eyebrow={employee?.employee_code ?? "Employee"}
         title={employee?.display_name ?? params.employeeId}
-        description={`${employee?.department_name ?? ""} · ${employee?.team_name ?? ""} · ${employee?.job_role_name ?? ""} ($${employee?.hourly_cost ?? 0}/hr)`}
+        description={
+          invited
+            ? `${employee.email} has not activated their account yet. Resend the invite if they never received the email.`
+            : `${employee?.department_name ?? ""} · ${employee?.team_name ?? ""} · ${employee?.job_role_name ?? ""} ($${employee?.hourly_cost ?? 0}/hr)`
+        }
+        actions={
+          invited && employee?.email ? (
+            <ResendInviteButton
+              email={employee.email}
+              displayName={employee.display_name}
+            />
+          ) : undefined
+        }
       />
       <Mosaic cols={4}>
         <KpiTile

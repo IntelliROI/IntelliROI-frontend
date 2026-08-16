@@ -13,6 +13,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { useState } from "react";
@@ -43,6 +44,11 @@ export default function EmployeesPage({
     name: (
       <div>
         <span className="font-medium text-text-primary">{e.display_name}</span>
+        {e.status === "invited" ? (
+          <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.14em] text-accent">
+            Invited
+          </span>
+        ) : null}
       </div>
     ),
     department: e.department_name ?? "—",
@@ -60,12 +66,21 @@ export default function EmployeesPage({
       <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
     ),
     action: (
-      <Link
-        href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
-      >
-        Profile →
-      </Link>
+      <div className="flex items-center justify-end gap-3">
+        {e.status === "invited" ? (
+          <ResendInviteButton
+            email={e.email}
+            displayName={e.display_name}
+            compact
+          />
+        ) : null}
+        <Link
+          href={`/${params.companySlug}/organization/employees/${e.uuid}`}
+          className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
+        >
+          Profile →
+        </Link>
+      </div>
     ),
   }));
 
@@ -74,7 +89,7 @@ export default function EmployeesPage({
     subtitle: `${e.department_name ?? "—"} · ${e.team_name ?? "—"}`,
     badge: (
       <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary/60">
-        {e.employee_code}
+        {e.status === "invited" ? "Invited" : e.employee_code}
       </span>
     ),
     metrics: [
@@ -84,12 +99,21 @@ export default function EmployeesPage({
       { label: "Rate", value: `$${e.hourly_cost}/hr` },
     ],
     action: (
-      <Link
-        href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-        className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent transition-colors hover:text-accent/70"
-      >
-        View profile →
-      </Link>
+      <div className="flex items-center gap-3">
+        {e.status === "invited" ? (
+          <ResendInviteButton
+            email={e.email}
+            displayName={e.display_name}
+            compact
+          />
+        ) : null}
+        <Link
+          href={`/${params.companySlug}/organization/employees/${e.uuid}`}
+          className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
+        >
+          View profile →
+        </Link>
+      </div>
     ),
   }));
 
@@ -137,7 +161,7 @@ export default function EmployeesPage({
             { key: "job", label: "Job role" },
             { key: "spend", label: "Spend", align: "right", sortable: true },
             { key: "roi", label: "Est. ROI", align: "right", sortable: true },
-            { key: "action", label: "", width: "w-24" },
+            { key: "action", label: "", width: "w-48" },
           ]}
           rows={rows}
           showIndex
