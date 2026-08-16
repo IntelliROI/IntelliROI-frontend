@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Chassis (never role-swap) */
+  --ink: #09090b;
+  --surface: #111827;
+  --surface-2: #1f2937;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --hairline: #2a2a2a;
+  --accent-blue: #4f8cff;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --reveal-duration: 0.7s;
+
+  /* Brand mint — logo + landing always */
+  --brand-accent: #00e5a8;
+  /* Role accent — overridden by [data-role-theme] on AppShell */
+  --role-accent: var(--brand-accent);
+  --role-accent-muted: color-mix(in srgb, var(--role-accent) 12%, transparent);
+  --role-glow: 0 0 40px color-mix(in srgb, var(--role-accent) 25%, transparent);
+
+  /* Back-compat: existing `accent` / primary utilities follow role accent */
+  --accent: var(--role-accent);
+  --background: #09090b;
+  --foreground: #f8fafc;
+  --card: #111827;
+  --card-foreground: #f8fafc;
+  --primary: var(--role-accent);
+  --primary-foreground: #09090b;
+  --secondary: #1f2937;
+  --secondary-foreground: #f8fafc;
+  --muted: #111827;
+  --muted-foreground: #cbd5e1;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: var(--role-accent);
+}
+
+/* Hierarchy altitude accents — see ROLE_COLOR_IDENTITY.md */
+[data-role-theme="super-admin"] {
+  --role-accent: #67e8f9;
+}
+[data-role-theme="ceo"] {
+  --role-accent: #e8c547;
+}
+[data-role-theme="department-manager"] {
+  --role-accent: #4f8cff;
+}
+[data-role-theme="team-lead"] {
+  --role-accent: #2dd4bf;
+}
+[data-role-theme="employee"] {
+  --role-accent: #00e5a8;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--hairline);
+}
+
+html {
+  scroll-behavior: auto;
+}
+
+body {
+  @apply bg-ink text-text-primary font-sans antialiased;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--brand-accent);
+  color: #09090b;
+}
+
+:focus-visible {
+  outline: 2px solid var(--role-accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--role-accent);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .grid-backdrop {
+    background-image:
+      linear-gradient(rgba(42, 42, 42, 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(42, 42, 42, 0.4) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+  }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+

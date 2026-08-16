@@ -1,0 +1,52 @@
+---
+description: IntelliROI product context — what we build and the core hierarchy. Always apply.
+alwaysApply: true
+---
+
+# IntelliROI — Product Context
+
+IntelliROI is an **AI intelligence / governance SaaS**: companies route employee AI usage through a gateway, then roll up **usage → cost → estimated business value → ROI** through the org hierarchy.
+
+## Core chain (never break this)
+
+```
+Platform → Company → Department → Team → Employee → Project → Task → AI Request → Usage → Cost → ROI
+```
+
+Every AI request must be traceable to **company + department + team + employee + project + task category**.
+
+## Two layers
+
+| Layer | Who | Sees |
+|-------|-----|------|
+| **Platform** | Super Admin | SaaS health, companies, subscriptions — not customer employee prompts by default |
+| **Customer** | CEO → Dept Manager → Team Lead → Employee | Scoped org intelligence + AI Workspace |
+
+## One app, not five
+
+Build **one shell + role/permission/scope-aware modules**. Do not fork separate CEO/Manager/Employee apps.
+
+## Five experiences (same shell)
+
+1. Super Admin — platform
+2. CEO / Owner — company executive
+3. Department Manager — department only
+4. Team Lead — team only
+5. Employee — AI Workspace + personal usage/ROI
+
+## Domain split
+
+- **Org entities:** Company, Department, Team, Employee, Project
+- **Config entities:** Job Role (hourly cost), AI Providers/Models, AI Policies, ROI benchmarks
+
+## ROI wording
+
+Always say **Estimated ROI** (benchmark-based MVP), never “Actual ROI”.
+
+## Visual identity
+
+Shared chassis (Inter + JetBrains Mono, ink/hairline ops-console). **Unique accent per role** via `data-role-theme` — Super Admin ice cyan, CEO gold, Dept blue, Team teal, Employee mint. Logo always brand mint. See `ROLE_COLOR_IDENTITY.md`.
+
+## Source docs
+
+`.cursor/docs/Platform_Hirarchy.md`, `Restructure frontend architecture.md`, `restructure design for IntelliRoi.md`, `DESIGN_SYSTEM.md`, `ROLE_COLOR_IDENTITY.md`

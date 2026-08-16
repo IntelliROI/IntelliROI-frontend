@@ -1,0 +1,38 @@
+---
+description: Shared chassis + unique role accent colors per hierarchy. Apply on UI/theme work.
+globs: "**/*.{tsx,jsx,css}"
+alwaysApply: false
+---
+
+# Role Color Identity
+
+One IntelliROI chassis. **Role accents change — fonts/surfaces do not.**
+
+## Chassis (always)
+
+- Fonts: Inter + JetBrains Mono
+- Surfaces: `ink` `#09090B` · `surface` · `hairline`
+- Sharp corners ≈ 0 · Lucide 1.5 · ease `[0.22,1,0.36,1]`
+- Logo / `INTELLIROI` wordmark → always brand mint `#00E5A8`
+
+## Role accents
+
+| Role | `data-role-theme` | Accent |
+|------|-------------------|--------|
+| Super Admin | `super-admin` | `#67E8F9` ice cyan |
+| CEO | `ceo` | `#E8C547` executive gold |
+| Dept Manager | `department-manager` | `#4F8CFF` signal blue |
+| Team Lead | `team-lead` | `#2DD4BF` aurora teal |
+| Employee | `employee` | `#00E5A8` brand mint |
+
+Wire via CSS `--role-accent` / `--role-glow` on AppShell. Do not fork separate themes.
+
+## Paint with role accent
+
+Active nav · primary CTA · focus ring · live pulse · KPI spark / primary series · role badge
+
+## Never role-swap
+
+Backgrounds · body text · logo · `warning`/`danger` semantics · purple/indigo accents
+
+Full spec: `.cursor/docs/ROLE_COLOR_IDENTITY.md`

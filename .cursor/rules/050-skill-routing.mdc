@@ -1,0 +1,20 @@
+---
+description: Always load IntelliROI project skills before implementing features or UI.
+alwaysApply: true
+---
+
+# Skill routing (every prompt)
+
+Before implementing IntelliROI work, **read the matching skill** with the Read tool:
+
+| Task | Skill path |
+|------|------------|
+| Pages, layouts, nav, architecture | `.cursor/skills/intelliroi-architecture/SKILL.md` |
+| Dashboards, KPIs, analytics charts, shells | `.cursor/skills/intelliroi-dashboard/SKILL.md` |
+| Roles, permissions, sidebars, middleware, Can | `.cursor/skills/intelliroi-rbac/SKILL.md` |
+| Org forms, types, APIs, ROI/usage model | `.cursor/skills/intelliroi-domain/SKILL.md` |
+| Styling, tokens, landing, chassis + role colors | `.cursor/skills/intelliroi-theme/SKILL.md` |
+
+For dashboard/visual UI: read **theme + dashboard** skills, then use **21st.dev MCP** (`get_inspiration` / `search`) for MNC-grade patterns. Adapt into IntelliROI chassis + `data-role-theme` accents — never purple/cream AI defaults or foreign full themes.
+
+Deep specs: `.cursor/docs/` (incl. `ROLE_COLOR_IDENTITY.md`).
