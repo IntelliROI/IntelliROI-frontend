@@ -1,5 +1,14 @@
 import { z } from "zod";
 import { ROLES } from "@/constants/roles";
+import {
+  CURRENCIES,
+  COUNTRIES,
+  isValidNationalNumber,
+  toE164,
+} from "@/constants/locale";
+
+const currencyCodes = CURRENCIES.map((c) => c.code) as [string, ...string[]];
+const countryIsos = COUNTRIES.map((c) => c.iso) as [string, ...string[]];
 
 /** Company owner is created only at registration */
 const appRoleEnum = z.enum([
@@ -11,7 +20,7 @@ const appRoleEnum = z.enum([
 export const companySettingsSchema = z.object({
   working_hours_per_day: z.coerce.number().min(1).max(24),
   working_days_per_month: z.coerce.number().min(1).max(31),
-  default_currency: z.string().length(3),
+  default_currency: z.enum(currencyCodes),
   timezone: z.string().min(1),
   date_format: z.string().min(1),
   fiscal_year_start: z.string().min(1),
@@ -20,7 +29,7 @@ export const companySettingsSchema = z.object({
 export const jobRoleSchema = z.object({
   role_name: z.string().min(2, "Role name required"),
   hourly_cost: z.coerce.number().positive("Hourly cost must be > 0"),
-  currency: z.string().length(3).default("USD"),
+  currency: z.enum(currencyCodes),
 });
 
 export const departmentSchema = z.object({
@@ -53,6 +62,8 @@ export const employeeSchema = z.object({
   last_name: z.string().min(1),
   display_name: z.string().optional(),
   email: z.string().email(),
+  phone_iso: z.enum(countryIsos).optional(),
+  phone_national: z.string().optional(),
   phone: z.string().optional(),
   employee_code: z.string().optional(),
   department_id: z.preprocess(
@@ -71,6 +82,23 @@ export const employeeSchema = z.object({
     .enum(["active", "inactive", "on_leave"])
     .default("active"),
   app_role: appRoleEnum.default(ROLES.EMPLOYEE),
+}).superRefine((data, ctx) => {
+  const national = (data.phone_national ?? "").trim();
+  if (!national) return;
+  const iso = data.phone_iso ?? "IN";
+  if (!isValidNationalNumber(iso, national)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone_national"],
+      message: "Enter a valid phone number for the selected country (digits only)",
+    });
+  }
+}).transform((data) => {
+  const iso = data.phone_iso ?? "IN";
+  return {
+    ...data,
+    phone: toE164(iso, data.phone_national ?? "") || undefined,
+  };
 });
 
 export type CompanySettingsSchema = z.infer<typeof companySettingsSchema>;

@@ -2,11 +2,12 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import {
   jobRoleSchema,
   type JobRoleSchema,
 } from "@/features/organization/schemas/organization.schema";
+import { CURRENCIES, DEFAULT_CURRENCY } from "@/constants/locale";
 
 type Props = {
   onSubmit: (values: JobRoleSchema) => Promise<void>;
@@ -22,7 +23,7 @@ export function CreateJobRoleForm({
   const [form, setForm] = useState({
     role_name: "",
     hourly_cost: "",
-    currency: "USD",
+    currency: DEFAULT_CURRENCY,
   });
   const submitting = useRef(false);
 
@@ -39,7 +40,7 @@ export function CreateJobRoleForm({
     setLoading(true);
     try {
       await onSubmit(parsed.data);
-      setForm({ role_name: "", hourly_cost: "", currency: "USD" });
+      setForm({ role_name: "", hourly_cost: "", currency: DEFAULT_CURRENCY });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save job role");
     } finally {
@@ -74,11 +75,22 @@ export function CreateJobRoleForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="currency">Currency</Label>
-        <Input
+        <Select
           id="currency"
           value={form.currency}
-          onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-        />
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              currency: e.target.value as (typeof CURRENCIES)[number]["code"],
+            }))
+          }
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
       </div>
       {error && <p className="sm:col-span-3 text-sm text-danger">{error}</p>}
       <div className="sm:col-span-3">

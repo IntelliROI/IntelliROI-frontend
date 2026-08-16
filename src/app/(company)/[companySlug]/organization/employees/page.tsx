@@ -18,6 +18,14 @@ import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { useState } from "react";
 
+function cell(value?: string | null) {
+  const text = (value ?? "").trim();
+  if (!text || text === "—") {
+    return <span className="text-text-secondary/40">—</span>;
+  }
+  return text;
+}
+
 export default function EmployeesPage({
   params,
 }: {
@@ -35,94 +43,121 @@ export default function EmployeesPage({
       ? employees.error.message
       : "Could not reach the auth service.";
 
-  const rows = (employees.data ?? []).map((e) => ({
-    code: (
-      <span className="font-mono text-[11px] font-medium text-text-secondary/70">
-        {e.employee_code}
-      </span>
-    ),
-    name: (
-      <div>
-        <span className="font-medium text-text-primary">{e.display_name}</span>
-        {e.status === "invited" ? (
-          <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.14em] text-accent">
-            Invited
-          </span>
-        ) : null}
-      </div>
-    ),
-    department: e.department_name ?? "—",
-    team: e.team_name ?? "—",
-    job: (
-      <span className="text-[12px] text-text-secondary">
-        {e.job_role_name}{" "}
-        <span className="font-mono text-text-secondary/50">
-          · ${e.hourly_cost}/hr
+  const rows = (employees.data ?? []).map((e) => {
+    const pending = e.status === "invited";
+    return {
+      code: (
+        <span className="font-mono text-[11px] text-text-secondary/70">
+          {cell(e.employee_code)}
         </span>
-      </span>
-    ),
-    spend: formatCurrency(e.spend, "USD", true),
-    roi: (
-      <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
-    ),
-    action: (
-      <div className="flex items-center justify-end gap-3">
-        {e.status === "invited" ? (
-          <ResendInviteButton
-            email={e.email}
-            displayName={e.display_name}
-            compact
-          />
-        ) : null}
-        <Link
-          href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-          className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
-        >
-          Profile →
-        </Link>
-      </div>
-    ),
-  }));
+      ),
+      name: (
+        <span className="font-medium text-text-primary">{e.display_name}</span>
+      ),
+      department: (
+        <span className="text-text-primary">{cell(e.department_name)}</span>
+      ),
+      team: <span className="text-text-primary">{cell(e.team_name)}</span>,
+      job: (
+        <span className="text-[12px] text-text-secondary">
+          {e.job_role_name && e.job_role_name !== "—" ? (
+            <>
+              {e.job_role_name}
+              {e.hourly_cost > 0 ? (
+                <span className="font-mono text-text-secondary/50">
+                  {" "}
+                  · ${e.hourly_cost}/hr
+                </span>
+              ) : null}
+            </>
+          ) : (
+            cell(null)
+          )}
+        </span>
+      ),
+      status: pending ? (
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-warning">
+          Pending
+        </span>
+      ) : (
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
+          Active
+        </span>
+      ),
+      spend: (
+        <span className="font-mono text-[12px] text-text-secondary">
+          {formatCurrency(e.spend, "USD", true)}
+        </span>
+      ),
+      roi: (
+        <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
+      ),
+      action: (
+        <div className="flex items-center justify-end gap-4">
+          {pending ? (
+            <ResendInviteButton
+              email={e.email}
+              displayName={e.display_name}
+              compact
+            />
+          ) : null}
+          <Link
+            href={`/${params.companySlug}/organization/employees/${e.uuid}`}
+            className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
+          >
+            Profile
+          </Link>
+        </div>
+      ),
+    };
+  });
 
-  const cards: GridCard[] = (employees.data ?? []).map((e) => ({
-    title: e.display_name,
-    subtitle: `${e.department_name ?? "—"} · ${e.team_name ?? "—"}`,
-    badge: (
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary/60">
-        {e.status === "invited" ? "Invited" : e.employee_code}
-      </span>
-    ),
-    metrics: [
-      { label: "Role", value: <span className="text-[12px]">{e.job_role_name}</span> },
-      { label: "Est. ROI", value: <span className="text-accent">{e.roi_pct}%</span> },
-      { label: "Spend", value: formatCurrency(e.spend, "USD", true) },
-      { label: "Rate", value: `$${e.hourly_cost}/hr` },
-    ],
-    action: (
-      <div className="flex items-center gap-3">
-        {e.status === "invited" ? (
-          <ResendInviteButton
-            email={e.email}
-            displayName={e.display_name}
-            compact
-          />
-        ) : null}
-        <Link
-          href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
+  const cards: GridCard[] = (employees.data ?? []).map((e) => {
+    const pending = e.status === "invited";
+    return {
+      title: e.display_name,
+      subtitle: `${e.department_name && e.department_name !== "—" ? e.department_name : "No department"} · ${e.team_name && e.team_name !== "—" ? e.team_name : "No team"}`,
+      badge: (
+        <span
+          className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${
+            pending ? "text-warning" : "text-text-secondary/60"
+          }`}
         >
-          View profile →
-        </Link>
-      </div>
-    ),
-  }));
+          {pending ? "Pending" : "Active"}
+        </span>
+      ),
+      metrics: [
+        { label: "ID", value: cell(e.employee_code) },
+        { label: "Role", value: <span className="text-[12px]">{cell(e.job_role_name)}</span> },
+        { label: "Est. ROI", value: <span className="text-accent">{e.roi_pct}%</span> },
+        { label: "Rate", value: e.hourly_cost > 0 ? `$${e.hourly_cost}/hr` : "—" },
+      ],
+      action: (
+        <div className="flex items-center gap-4">
+          {pending ? (
+            <ResendInviteButton
+              email={e.email}
+              displayName={e.display_name}
+              compact
+            />
+          ) : null}
+          <Link
+            href={`/${params.companySlug}/organization/employees/${e.uuid}`}
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
+          >
+            Profile
+          </Link>
+        </div>
+      ),
+    };
+  });
 
   return (
     <div>
       <PageHeader
         eyebrow="Organization"
         title="Employees"
-        description="Each employee resolves to company → department → team → job role for Estimated ROI."
+        description="Each employee resolves to company → department → team → job role for Estimated ROI. Pending means they have not set a password yet."
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
@@ -159,9 +194,10 @@ export default function EmployeesPage({
             { key: "department", label: "Department", sortable: true },
             { key: "team", label: "Team" },
             { key: "job", label: "Job role" },
+            { key: "status", label: "Status", width: "w-24" },
             { key: "spend", label: "Spend", align: "right", sortable: true },
             { key: "roi", label: "Est. ROI", align: "right", sortable: true },
-            { key: "action", label: "", width: "w-48" },
+            { key: "action", label: "Actions", align: "right", width: "w-40" },
           ]}
           rows={rows}
           showIndex

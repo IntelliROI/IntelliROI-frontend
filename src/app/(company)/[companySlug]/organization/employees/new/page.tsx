@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/feedback/States";
 import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
@@ -31,8 +33,17 @@ export default function NewEmployeePage({
     queryFn: () => organizationApi.listEmployees(),
   });
 
+  const listHref = `/${params.companySlug}/organization/employees`;
+
   return (
     <div>
+      <Link
+        href={listHref}
+        className="mb-4 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary transition-colors hover:text-accent"
+      >
+        <ChevronLeft className="h-3 w-3" strokeWidth={1.75} />
+        Employees
+      </Link>
       <PageHeader
         eyebrow="Organization"
         title="Invite person"
@@ -85,9 +96,7 @@ export default function NewEmployeePage({
             for (const warning of warnings) {
               toast.warning(warning);
             }
-            router.push(
-              `/${params.companySlug}/organization/employees/${employee.uuid}`,
-            );
+            router.push(listHref);
           }}
         />
       </Can>

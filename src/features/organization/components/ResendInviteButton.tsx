@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Can } from "@/lib/rbac/Can";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { cn } from "@/lib/utils";
 
 type Props = {
   email: string;
@@ -18,20 +18,20 @@ type Props = {
  */
 export function ResendInviteButton({ email, displayName, compact }: Props) {
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
   const who = displayName ?? email;
 
   async function onResend() {
+    if (loading || sent) return;
     setLoading(true);
     try {
       const result = await organizationApi.resendInvite(email);
       if (result.emailSent) {
-        toast.success(`Invite resent to ${who}`, {
-          description: `A new activation link was emailed to ${email}.`,
-        });
+        toast.success(`Invite sent to ${email}`);
       } else if (result.inviteUrl) {
-        toast.success(`Invite resent for ${who}`, {
+        toast.success(`Invite ready for ${who}`, {
           description:
-            "No mail provider configured — share this link to activate the account.",
+            "No mail provider configured — copy the link and share it.",
           action: {
             label: "Copy link",
             onClick: () => {
@@ -42,10 +42,10 @@ export function ResendInviteButton({ email, displayName, compact }: Props) {
           duration: 15000,
         });
       } else {
-        toast.success(`Invite resent to ${who}`, {
-          description: result.message,
-        });
+        toast.success(result.message || `Invite resent to ${who}`);
       }
+      setSent(true);
+      window.setTimeout(() => setSent(false), 4000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not resend invite");
     } finally {
@@ -53,21 +53,35 @@ export function ResendInviteButton({ email, displayName, compact }: Props) {
     }
   }
 
+  const label = sent
+    ? "Sent"
+    : loading
+      ? "Sending…"
+      : compact
+        ? "Resend"
+        : "Resend invite";
+
   return (
     <Can resource="employees" action="create">
-      <Button
+      <button
         type="button"
-        size="sm"
-        variant="secondary"
-        disabled={loading}
+        disabled={loading || sent}
+        aria-live="polite"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           void onResend();
         }}
+        className={cn(
+          "font-mono text-[10px] uppercase tracking-[0.15em] transition-colors",
+          sent
+            ? "text-accent"
+            : "text-accent hover:text-accent/70",
+          "disabled:cursor-default disabled:opacity-70",
+        )}
       >
-        {loading ? "Sending…" : compact ? "Resend" : "Resend invite"}
-      </Button>
+        {label}
+      </button>
     </Can>
   );
 }
