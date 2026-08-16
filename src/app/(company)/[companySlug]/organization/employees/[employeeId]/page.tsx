@@ -151,7 +151,7 @@ export default function EmployeeDetailPage({
             label="Job role"
             value={
               employee.job_role_name && employee.job_role_name !== "—"
-                ? `${employee.job_role_name} · ${formatCurrency(employee.hourly_cost)}/hr`
+                ? `${employee.job_role_name} · ${formatCurrency(employee.hourly_cost, employee.currency)}/hr`
                 : "—"
             }
           />

@@ -141,7 +141,11 @@ async function refreshAccessToken(): Promise<string | null> {
 
   refreshPromise = (async () => {
     const refreshToken = getRefreshToken();
-    if (!refreshToken) return null;
+    if (!refreshToken) {
+      useAuthStore.getState().clearSession();
+      redirectToLogin();
+      return null;
+    }
 
     try {
       const raw = await axios.post(
@@ -156,7 +160,11 @@ async function refreshAccessToken(): Promise<string | null> {
         },
       );
       const payload = unwrapData<RefreshPayload>(raw.data);
-      if (!payload?.access_token) return null;
+      if (!payload?.access_token) {
+        useAuthStore.getState().clearSession();
+        redirectToLogin();
+        return null;
+      }
 
       const nextRefresh = payload.refresh_token || refreshToken;
       useAuthStore.getState().setTokens({
@@ -239,6 +247,8 @@ function createClient(service: ServiceKey, baseURL: string): AxiosInstance {
           original.headers.Authorization = `Bearer ${nextToken}`;
           return instance.request(original);
         }
+        useAuthStore.getState().clearSession();
+        redirectToLogin();
       }
 
       return Promise.reject(toApiError(error));

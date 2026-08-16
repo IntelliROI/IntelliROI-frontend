@@ -66,7 +66,7 @@ export default function EmployeesPage({
               {e.hourly_cost > 0 ? (
                 <span className="font-mono text-text-secondary/50">
                   {" "}
-                  · ${e.hourly_cost}/hr
+                  · {formatCurrency(e.hourly_cost, e.currency)}/hr
                 </span>
               ) : null}
             </>
@@ -86,7 +86,7 @@ export default function EmployeesPage({
       ),
       spend: (
         <span className="font-mono text-[12px] text-text-secondary">
-          {formatCurrency(e.spend, "USD", true)}
+          {formatCurrency(e.spend, e.currency, true)}
         </span>
       ),
       roi: (
@@ -130,7 +130,13 @@ export default function EmployeesPage({
         { label: "ID", value: cell(e.employee_code) },
         { label: "Role", value: <span className="text-[12px]">{cell(e.job_role_name)}</span> },
         { label: "Est. ROI", value: <span className="text-accent">{e.roi_pct}%</span> },
-        { label: "Rate", value: e.hourly_cost > 0 ? `$${e.hourly_cost}/hr` : "—" },
+        {
+          label: "Rate",
+          value:
+            e.hourly_cost > 0
+              ? `${formatCurrency(e.hourly_cost, e.currency)}/hr`
+              : "—",
+        },
       ],
       action: (
         <div className="flex items-center gap-4">

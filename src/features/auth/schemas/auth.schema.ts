@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/constants/locale";
+
+const currencyCodes = CURRENCIES.map((c) => c.code) as [string, ...string[]];
 
 export const loginSchema = z.object({
   email: z.string().email("Valid email required"),
@@ -18,7 +21,7 @@ export const registerSchema = z.object({
   company_size: z.string().min(1),
   country: z.string().min(2),
   timezone: z.string().min(1),
-  currency: z.string().min(3).max(3),
+  currency: z.enum(currencyCodes),
   website: z.string().url().optional().or(z.literal("")),
   email: z.string().email(),
   first_name: z.string().min(1),
