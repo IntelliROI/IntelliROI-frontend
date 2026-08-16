@@ -547,25 +547,15 @@ async function updateEmployee(
 ): Promise<{ employee: Employee; warnings: string[] }> {
   const warnings: string[] = [];
 
-  try {
-    await authApi.updateEmployee(uuid, {
-      employee_code: input.employee_code,
-      phone: input.phone ?? null,
-      designation: input.designation,
-      department_id: input.department_id ?? null,
-      clear_department_id: input.department_id == null,
-      team_id: input.team_id ?? null,
-      clear_team_id: input.team_id == null,
-      manager_user_id: input.manager_employee_id ?? null,
-      clear_manager_user_id: input.manager_employee_id == null,
-      joining_date: input.joining_date || null,
-      clear_joining_date: !input.joining_date,
-    });
-  } catch (err) {
-    warnings.push(
-      err instanceof Error ? `Profile: ${err.message}` : "Profile update failed",
-    );
-  }
+  await authApi.updateEmployee(uuid, {
+    employee_code: input.employee_code,
+    phone: input.phone ?? null,
+    designation: input.designation,
+    manager_user_id: input.manager_employee_id ?? null,
+    clear_manager_user_id: input.manager_employee_id == null,
+    joining_date: input.joining_date || null,
+    clear_joining_date: !input.joining_date,
+  });
 
   try {
     await assignUser(uuid, {
