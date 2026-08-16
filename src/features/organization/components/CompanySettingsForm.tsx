@@ -2,12 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import {
   companySettingsSchema,
   type CompanySettingsSchema,
 } from "@/features/organization/schemas/organization.schema";
 import type { CompanySettings } from "@/features/organization/types";
+import { CURRENCIES, DEFAULT_CURRENCY } from "@/constants/locale";
 
 type Props = {
   initial?: Partial<CompanySettings>;
@@ -25,7 +26,7 @@ export function CompanySettingsForm({
   const [form, setForm] = useState({
     working_hours_per_day: String(initial?.working_hours_per_day ?? 8),
     working_days_per_month: String(initial?.working_days_per_month ?? 22),
-    default_currency: initial?.default_currency ?? "USD",
+    default_currency: initial?.default_currency ?? DEFAULT_CURRENCY,
     timezone: initial?.timezone ?? "Asia/Kolkata",
     date_format: initial?.date_format ?? "YYYY-MM-DD",
     fiscal_year_start: initial?.fiscal_year_start ?? "01-01",
@@ -53,7 +54,6 @@ export function CompanySettingsForm({
         [
           ["working_hours_per_day", "Working hours / day"],
           ["working_days_per_month", "Working days / month"],
-          ["default_currency", "Currency"],
           ["timezone", "Timezone"],
           ["date_format", "Date format"],
           ["fiscal_year_start", "Fiscal year start (MM-DD)"],
@@ -68,6 +68,25 @@ export function CompanySettingsForm({
           />
         </div>
       ))}
+      <div className="space-y-2">
+        <Label htmlFor="default_currency">Currency</Label>
+        <Select
+          id="default_currency"
+          value={form.default_currency}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              default_currency: e.target.value as (typeof CURRENCIES)[number]["code"],
+            }))
+          }
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
+      </div>
       {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
       <div className="sm:col-span-2">
         <Button type="submit" disabled={loading}>

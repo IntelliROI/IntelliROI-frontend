@@ -1,4 +1,5 @@
 import { apiRequest, getStoredCompany, ApiError } from "@/lib/api/client";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { authApi } from "@/features/auth/api/auth.api";
 import type {
   CompanySettings,
@@ -250,7 +251,7 @@ async function createJobRole(input: CreateJobRoleInput): Promise<JobRole> {
     body: {
       role_name: input.role_name,
       hourly_cost: input.hourly_cost,
-      currency: input.currency ?? "USD",
+      currency: input.currency ?? DEFAULT_CURRENCY,
       ...(company_id != null ? { company_id } : {}),
       ...(company_uuid ? { company_uuid } : {}),
     },
@@ -334,6 +335,7 @@ function toEmployee(
     team_name: teamId != null ? (maps.teamName.get(teamId) ?? "—") : "—",
     job_role_name: jobRole?.role_name ?? "—",
     hourly_cost: jobRole?.hourly_cost ?? 0,
+    currency: jobRole?.currency ?? DEFAULT_CURRENCY,
     spend: 0,
     roi_pct: 0,
     requests: 0,

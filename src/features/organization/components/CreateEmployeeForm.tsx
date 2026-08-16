@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ROLES, ROLE_LABELS } from "@/constants/roles";
 import {
+  COUNTRIES,
+  DEFAULT_COUNTRY_ISO,
+  digitsOnly,
+  findCountry,
+} from "@/constants/locale";
+import { lineManagers } from "@/lib/org/line-managers";
+import {
   employeeSchema,
   type EmployeeSchema,
 } from "@/features/organization/schemas/organization.schema";
@@ -50,7 +57,8 @@ export function CreateEmployeeForm({
     last_name: "",
     display_name: "",
     email: "",
-    phone: "",
+    phone_iso: DEFAULT_COUNTRY_ISO,
+    phone_national: "",
     employee_code: "",
     department_id: "",
     team_id: "",
@@ -67,6 +75,9 @@ export function CreateEmployeeForm({
       teams.filter((t) => String(t.department_id) === form.department_id),
     [teams, form.department_id],
   );
+
+  const managerOptions = useMemo(() => lineManagers(managers), [managers]);
+  const country = findCountry(form.phone_iso);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -136,11 +147,47 @@ export function CreateEmployeeForm({
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Phone</Label>
-            <Input
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            />
+            <Label>Phone (optional)</Label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,14rem)_1fr]">
+              <Select
+                value={form.phone_iso}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    phone_iso: e.target.value,
+                    phone_national: "",
+                  }))
+                }
+                aria-label="Country code"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.iso} value={c.iso}>
+                    {c.iso} {c.dial} · {c.name}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                placeholder={
+                  country ? `${country.min} digit number` : "Phone number"
+                }
+                value={form.phone_national}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    phone_national: digitsOnly(e.target.value).slice(
+                      0,
+                      country?.max ?? 15,
+                    ),
+                  }))
+                }
+              />
+            </div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">
+              Digits only · country list is bundled locally — no network lookup
+            </p>
           </div>
         </div>
       </section>
@@ -217,7 +264,7 @@ export function CreateEmployeeForm({
               <option value="">Select job role</option>
               {jobRoles.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.role_name} · ${r.hourly_cost}/hr
+                  {r.role_name} · {r.currency} {r.hourly_cost}/hr
                 </option>
               ))}
             </Select>
@@ -231,12 +278,15 @@ export function CreateEmployeeForm({
               }
             >
               <option value="">None</option>
-              {managers.map((m) => (
+              {managerOptions.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.display_name}
                 </option>
               ))}
             </Select>
+            <p className="text-xs text-text-secondary/70">
+              Company owner is not listed — pick a department head or team lead.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Joining date</Label>

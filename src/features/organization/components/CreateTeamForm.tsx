@@ -8,6 +8,7 @@ import {
   type TeamSchema,
 } from "@/features/organization/schemas/organization.schema";
 import type { Department, Employee } from "@/features/organization/types";
+import { lineManagers } from "@/lib/org/line-managers";
 
 type Props = {
   departments: Department[];
@@ -110,7 +111,7 @@ export function CreateTeamForm({
           }
         >
           <option value="">Assign later</option>
-          {leads.map((m) => (
+          {lineManagers(leads).map((m) => (
             <option key={m.id} value={m.id}>
               {m.display_name}
             </option>

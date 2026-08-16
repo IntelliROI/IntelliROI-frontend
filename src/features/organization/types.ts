@@ -92,6 +92,7 @@ export type Employee = {
   team_name: string;
   job_role_name: string;
   hourly_cost: number;
+  currency: string;
   /** Rollup metrics — default 0 until usage/cost/ROI APIs are wired. */
   spend: number;
   roi_pct: number;

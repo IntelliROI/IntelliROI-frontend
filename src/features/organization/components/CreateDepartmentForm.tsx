@@ -7,6 +7,7 @@ import {
   departmentSchema,
   type DepartmentSchema,
 } from "@/features/organization/schemas/organization.schema";
+import { lineManagers } from "@/lib/org/line-managers";
 import type { Employee } from "@/features/organization/types";
 
 type Props = {
@@ -102,7 +103,7 @@ export function CreateDepartmentForm({
           }
         >
           <option value="">Assign later</option>
-          {managers.map((m) => (
+          {lineManagers(managers).map((m) => (
             <option key={m.id} value={m.id}>
               {m.display_name} ({m.employee_code})
             </option>

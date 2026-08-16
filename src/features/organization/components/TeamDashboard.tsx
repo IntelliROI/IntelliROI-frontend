@@ -74,7 +74,7 @@ export function TeamDashboard({
             .map((e) => ({
               name: e.display_name,
               requests: e.requests,
-              spend: formatCurrency(e.spend, "USD", true),
+              spend: formatCurrency(e.spend, e.currency, true),
               roi: <span className="text-accent">{e.roi_pct}%</span>,
               action: (
                 <Link
