@@ -480,6 +480,10 @@ async function updateSettings(
   };
 }
 
+async function resendInvite(email: string) {
+  return authApi.resendInvite(email);
+}
+
 export const organizationApi = {
   getSettings,
   updateSettings,
@@ -498,5 +502,6 @@ export const organizationApi = {
   listEmployees,
   getEmployee,
   createEmployee,
+  resendInvite,
   assignUser,
 };
