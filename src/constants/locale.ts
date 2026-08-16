@@ -63,3 +63,23 @@ export function isValidNationalNumber(iso: string, national: string): boolean {
   if (!country || digits.length === 0) return false;
   return digits.length >= country.min && digits.length <= country.max;
 }
+
+/** Split stored E.164 (+91…) back into country + national digits. */
+export function fromE164(e164?: string | null): {
+  iso: CountryIso;
+  national: string;
+} {
+  const raw = (e164 ?? "").trim();
+  if (!raw) return { iso: DEFAULT_COUNTRY_ISO, national: "" };
+  const withPlus = raw.startsWith("+") ? raw : `+${digitsOnly(raw)}`;
+  const match = [...COUNTRIES]
+    .sort((a, b) => b.dial.length - a.dial.length)
+    .find((c) => withPlus.startsWith(c.dial));
+  if (!match) {
+    return { iso: DEFAULT_COUNTRY_ISO, national: digitsOnly(raw) };
+  }
+  return {
+    iso: match.iso,
+    national: digitsOnly(withPlus.slice(match.dial.length)),
+  };
+}

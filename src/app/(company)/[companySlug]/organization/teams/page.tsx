@@ -16,8 +16,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { CreateTeamForm } from "@/features/organization/components/CreateTeamForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import type { Team } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
+import { ArchiveAction, EditAction, RowActions } from "@/components/ui/row-actions";
 
 export default function TeamsPage({
   params,
@@ -25,6 +27,7 @@ export default function TeamsPage({
   params: { companySlug: string };
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Team | null>(null);
   const [view, setView] = useState<ViewMode>("table");
 
   const teams = useQuery({
@@ -44,34 +47,66 @@ export default function TeamsPage({
     (departments.data ?? []).map((d) => [d.id, d.department_name]),
   );
 
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+  }
+
+  async function onArchive(t: Team) {
+    const restore = t.status === "inactive";
+    try {
+      await organizationApi.archiveTeam(t.id, restore);
+      toast.success(
+        restore ? `Restored ${t.team_name}` : `Archived ${t.team_name}`,
+      );
+      teams.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update status");
+    }
+  }
+
   const rows = (teams.data ?? []).map((t) => ({
     code: (
       <span className="font-mono text-[11px] font-medium text-text-secondary/70">
         {t.team_code}
       </span>
     ),
-    name: (
-      <span className="font-medium text-text-primary">{t.team_name}</span>
-    ),
+    name: <span className="font-medium text-text-primary">{t.team_name}</span>,
     dept: deptMap[t.department_id] ?? "—",
     people: t.member_count,
     spend: formatCurrency(t.monthly_spend, "USD", true),
     roi: (
       <span className="font-mono font-medium text-accent">{t.roi_pct}%</span>
     ),
-    action: (
-      <Link
-        href={`/${params.companySlug}/organization/departments/${t.department_id}/teams/${t.id}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
-      >
-        Open →
-      </Link>
+    status: (
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
+        {t.status === "inactive" ? "Archived" : "Active"}
+      </span>
     ),
-    // raw values for sorting
-    _name: t.team_name,
-    _spend: t.monthly_spend,
-    _roi: t.roi_pct,
-    _people: t.member_count,
+    action: (
+      <RowActions>
+        <Can resource="teams" action="edit">
+          <EditAction
+            onClick={() => {
+              setEditing(t);
+              setShowForm(true);
+            }}
+          />
+        </Can>
+        <Can resource="teams" action="edit">
+          <ArchiveAction
+            archived={t.status === "inactive"}
+            onClick={() => onArchive(t)}
+          />
+        </Can>
+        <Link
+          href={`/${params.companySlug}/organization/departments/${t.department_id}/teams/${t.id}`}
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
+        >
+          Open
+        </Link>
+      </RowActions>
+    ),
   }));
 
   const cards: GridCard[] = (teams.data ?? []).map((t) => ({
@@ -79,22 +114,45 @@ export default function TeamsPage({
     subtitle: deptMap[t.department_id] ?? "No department",
     badge: (
       <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary/60">
-        {t.team_code}
+        {t.status === "inactive" ? "Archived" : t.team_code}
       </span>
     ),
     metrics: [
       { label: "Members", value: t.member_count },
       { label: "Est. ROI", value: <span className="text-accent">{t.roi_pct}%</span> },
       { label: "Spend", value: formatCurrency(t.monthly_spend, "USD", true) },
-      { label: "Status", value: <span className="text-accent text-[12px]">Active</span> },
+      {
+        label: "Status",
+        value: (
+          <span className="text-[12px] text-accent">
+            {t.status === "inactive" ? "Archived" : "Active"}
+          </span>
+        ),
+      },
     ],
     action: (
-      <Link
-        href={`/${params.companySlug}/organization/departments/${t.department_id}/teams/${t.id}`}
-        className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent transition-colors hover:text-accent/70"
-      >
-        Open →
-      </Link>
+      <RowActions>
+        <Can resource="teams" action="edit">
+          <EditAction
+            onClick={() => {
+              setEditing(t);
+              setShowForm(true);
+            }}
+          />
+        </Can>
+        <Can resource="teams" action="edit">
+          <ArchiveAction
+            archived={t.status === "inactive"}
+            onClick={() => onArchive(t)}
+          />
+        </Can>
+        <Link
+          href={`/${params.companySlug}/organization/departments/${t.department_id}/teams/${t.id}`}
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
+        >
+          Open
+        </Link>
+      </RowActions>
     ),
   }));
 
@@ -108,8 +166,18 @@ export default function TeamsPage({
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
             <Can resource="teams" action="create">
-              <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-                {showForm ? "Close" : "Add team"}
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (showForm && !editing) {
+                    closeForm();
+                    return;
+                  }
+                  setEditing(null);
+                  setShowForm(true);
+                }}
+              >
+                {showForm && !editing ? "Close" : "Add team"}
               </Button>
             </Can>
           </div>
@@ -118,13 +186,24 @@ export default function TeamsPage({
 
       {showForm && departments.data && (
         <div className="mb-8 border border-hairline p-6">
+          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+            {editing ? `Edit · ${editing.team_name}` : "New team"}
+          </p>
           <CreateTeamForm
+            key={editing?.id ?? "new"}
+            initial={editing ?? undefined}
             departments={departments.data}
             leads={employees.data ?? []}
+            submitLabel={editing ? "Save changes" : "Create team"}
             onSubmit={async (values) => {
-              await organizationApi.createTeam(values);
-              toast.success(`Created ${values.team_name}`);
-              setShowForm(false);
+              if (editing) {
+                await organizationApi.updateTeam(editing.id, values);
+                toast.success(`Updated ${values.team_name}`);
+              } else {
+                await organizationApi.createTeam(values);
+                toast.success(`Created ${values.team_name}`);
+              }
+              closeForm();
               teams.refetch();
             }}
           />
@@ -142,7 +221,8 @@ export default function TeamsPage({
             { key: "people", label: "Members", align: "right", sortable: true },
             { key: "spend", label: "Spend", align: "right", sortable: true },
             { key: "roi", label: "Est. ROI", align: "right", sortable: true },
-            { key: "action", label: "", width: "w-20" },
+            { key: "status", label: "Status", width: "w-24" },
+            { key: "action", label: "Actions", align: "right", width: "w-40" },
           ]}
           rows={rows}
           showIndex

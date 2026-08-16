@@ -55,7 +55,7 @@ const matrix: Record<Role, PermissionMap> = {
     projects: { view: true, create: true, edit: true, manage: true },
     providers_company: { view: true, manage: true },
     budgets: { view: true, create: true, edit: true, manage: true },
-    benchmarks: { view: true, approve: true, manage: true },
+    benchmarks: { view: true, approve: true, create: true, manage: true },
     job_roles: { view: true, create: true, edit: true, manage: true },
     workspace: { use: true, view: true },
     usage: { view: true },

@@ -33,7 +33,7 @@ export function DepartmentDashboard({
   });
   const benchmarks = useQuery({
     queryKey: ["company", companySlug, "benchmarks", "pending"],
-    queryFn: () => businessContextApi.listBenchmarks("pending"),
+    queryFn: () => businessContextApi.listBenchmarks(),
   });
 
   if (department.isLoading || roi.isLoading) {
@@ -103,16 +103,18 @@ export function DepartmentDashboard({
             Benchmark approval queue
           </h2>
           <div className="space-y-px bg-hairline">
-            {(benchmarks.data ?? []).map((b) => (
+            {(benchmarks.data ?? [])
+              .filter((b) => b.status === "pending")
+              .map((b) => (
               <div key={b.id} className="bg-ink p-4">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                  {b.task_category}
+                  Category {b.task_category_id} · Role {b.job_role_id}
                 </p>
                 <p className="mt-2 text-sm text-text-primary">
-                  {b.baseline_minutes}m → {b.ai_assisted_minutes}m with AI
+                  {b.estimated_minutes_saved} min saved
                 </p>
                 <p className="mt-1 text-xs text-text-secondary">
-                  Proposed by {b.proposed_by}
+                  Status {b.status}
                 </p>
                 <div className="mt-4 flex gap-2">
                   <Button

@@ -8,28 +8,33 @@ import {
   type DepartmentSchema,
 } from "@/features/organization/schemas/organization.schema";
 import { lineManagers } from "@/lib/org/line-managers";
-import type { Employee } from "@/features/organization/types";
+import type { Department, Employee } from "@/features/organization/types";
 
 type Props = {
   managers?: Employee[];
   onSubmit: (values: DepartmentSchema) => Promise<void>;
   submitLabel?: string;
+  initial?: Partial<Department>;
 };
 
 export function CreateDepartmentForm({
   managers = [],
   onSubmit,
   submitLabel = "Create department",
+  initial,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    department_name: "",
-    department_code: "",
-    description: "",
-    manager_employee_id: "",
-    status: "active",
+    department_name: initial?.department_name ?? "",
+    department_code: initial?.department_code ?? "",
+    description: initial?.description ?? "",
+    manager_employee_id: initial?.manager_employee_id
+      ? String(initial.manager_employee_id)
+      : "",
+    status: initial?.status ?? "active",
   });
+  const isEdit = Boolean(initial?.id);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -47,13 +52,17 @@ export function CreateDepartmentForm({
     setLoading(true);
     try {
       await onSubmit(parsed.data);
-      setForm({
-        department_name: "",
-        department_code: "",
-        description: "",
-        manager_employee_id: "",
-        status: "active",
-      });
+      if (!isEdit) {
+        setForm({
+          department_name: "",
+          department_code: "",
+          description: "",
+          manager_employee_id: "",
+          status: "active",
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save department");
     } finally {
       setLoading(false);
     }
@@ -115,7 +124,12 @@ export function CreateDepartmentForm({
         <Select
           id="status"
           value={form.status}
-          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              status: e.target.value as "active" | "inactive",
+            }))
+          }
         >
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -124,7 +138,7 @@ export function CreateDepartmentForm({
       {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
       <div className="sm:col-span-2">
         <Button type="submit" disabled={loading}>
-          {loading ? "Creating…" : submitLabel}
+          {loading ? "Saving…" : submitLabel}
         </Button>
       </div>
     </form>
