@@ -1,10 +1,12 @@
 import { apiRequest, getStoredCompany, ApiError } from "@/lib/api/client";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { authApi } from "@/features/auth/api/auth.api";
 import type {
   CompanySettings,
   CreateDepartmentInput,
   CreateEmployeeInput,
   CreateJobRoleInput,
+  CreateProjectInput,
   CreateTeamInput,
   Department,
   Employee,
@@ -12,6 +14,10 @@ import type {
   Project,
   Team,
   UpdateCompanySettingsInput,
+  UpdateDepartmentInput,
+  UpdateEmployeeOrgInput,
+  UpdateJobRoleInput,
+  UpdateTeamInput,
 } from "@/features/organization/types";
 
 export type {
@@ -123,6 +129,11 @@ function toJobRole(r: JobRoleDto): JobRole {
   };
 }
 
+function toApiStatus(status?: string): "active" | "archived" | undefined {
+  if (!status) return undefined;
+  return status === "inactive" || status === "archived" ? "archived" : "active";
+}
+
 /* ── Departments (organization-service) ─────────────────────── */
 
 async function listDepartments(): Promise<Department[]> {
@@ -151,6 +162,44 @@ async function createDepartment(input: CreateDepartmentInput): Promise<Departmen
   return toDepartment(res);
 }
 
+async function updateDepartment(
+  id: number,
+  input: UpdateDepartmentInput,
+): Promise<Department> {
+  const hadManager = Object.prototype.hasOwnProperty.call(
+    input,
+    "manager_employee_id",
+  );
+  const managerUserUuid = input.manager_employee_id
+    ? await getUserUuid(input.manager_employee_id)
+    : undefined;
+  const res = await apiRequest<DepartmentDto>("org", `/departments/${id}`, {
+    method: "PATCH",
+    body: {
+      ...(input.department_name != null
+        ? { department_name: input.department_name }
+        : {}),
+      ...(input.department_code != null
+        ? { department_code: input.department_code }
+        : {}),
+      ...(input.description != null ? { description: input.description } : {}),
+      ...(hadManager && !input.manager_employee_id
+        ? { clear_manager_user_uuid: true }
+        : {}),
+      ...(managerUserUuid ? { manager_user_uuid: managerUserUuid } : {}),
+      ...(input.status ? { status: toApiStatus(input.status) } : {}),
+    },
+  });
+  return toDepartment(res);
+}
+
+async function archiveDepartment(
+  id: number,
+  restore = false,
+): Promise<Department> {
+  return updateDepartment(id, { status: restore ? "active" : "inactive" });
+}
+
 /* ── Teams (organization-service) ────────────────────────────── */
 
 async function listTeams(departmentId?: number): Promise<Team[]> {
@@ -176,6 +225,34 @@ async function createTeam(input: CreateTeamInput): Promise<Team> {
   return toTeam(res);
 }
 
+async function updateTeam(id: number, input: UpdateTeamInput): Promise<Team> {
+  const hadLead = Object.prototype.hasOwnProperty.call(
+    input,
+    "team_lead_employee_id",
+  );
+  const leadUserUuid = input.team_lead_employee_id
+    ? await getUserUuid(input.team_lead_employee_id)
+    : undefined;
+  const res = await apiRequest<TeamDto>("org", `/teams/${id}`, {
+    method: "PATCH",
+    body: {
+      ...(input.team_name != null ? { team_name: input.team_name } : {}),
+      ...(input.team_code != null ? { team_code: input.team_code } : {}),
+      ...(input.description != null ? { description: input.description } : {}),
+      ...(hadLead && !input.team_lead_employee_id
+        ? { clear_lead_user_uuid: true }
+        : {}),
+      ...(leadUserUuid ? { lead_user_uuid: leadUserUuid } : {}),
+      ...(input.status ? { status: toApiStatus(input.status) } : {}),
+    },
+  });
+  return toTeam(res);
+}
+
+async function archiveTeam(id: number, restore = false): Promise<Team> {
+  return updateTeam(id, { status: restore ? "active" : "inactive" });
+}
+
 async function addTeamMember(teamId: number, userUuid: string): Promise<void> {
   await apiRequest("org", `/teams/${teamId}/members`, {
     method: "POST",
@@ -196,18 +273,14 @@ async function listProjects(): Promise<Project[]> {
   return res.map(toProject);
 }
 
-async function createProject(input: {
-  project_name: string;
-  project_code?: string;
-  department_id?: number;
-  team_id?: number;
-}): Promise<Project> {
+async function createProject(input: CreateProjectInput): Promise<Project> {
   const res = await apiRequest<ProjectDto>("org", "/projects", {
     method: "POST",
     body: {
       project_name: input.project_name,
-      department_id: input.department_id,
-      team_id: input.team_id,
+      description: input.description,
+      department_id: input.department_id ?? undefined,
+      team_id: input.team_id ?? undefined,
     },
   });
   return toProject(res);
@@ -250,12 +323,32 @@ async function createJobRole(input: CreateJobRoleInput): Promise<JobRole> {
     body: {
       role_name: input.role_name,
       hourly_cost: input.hourly_cost,
-      currency: input.currency ?? "USD",
+      currency: input.currency ?? DEFAULT_CURRENCY,
       ...(company_id != null ? { company_id } : {}),
       ...(company_uuid ? { company_uuid } : {}),
     },
   });
   return toJobRole(res);
+}
+
+async function updateJobRole(
+  id: number,
+  input: UpdateJobRoleInput,
+): Promise<JobRole> {
+  const res = await apiRequest<JobRoleDto>("bc", `/job-roles/${id}`, {
+    method: "PATCH",
+    body: {
+      ...(input.role_name != null ? { role_name: input.role_name } : {}),
+      ...(input.hourly_cost != null ? { hourly_cost: input.hourly_cost } : {}),
+      ...(input.currency != null ? { currency: input.currency } : {}),
+      ...(input.status ? { status: toApiStatus(input.status) } : {}),
+    },
+  });
+  return toJobRole(res);
+}
+
+async function archiveJobRole(id: number, restore = false): Promise<JobRole> {
+  return updateJobRole(id, { status: restore ? "active" : "inactive" });
 }
 
 async function assignEmployeeJobRole(
@@ -334,6 +427,7 @@ function toEmployee(
     team_name: teamId != null ? (maps.teamName.get(teamId) ?? "—") : "—",
     job_role_name: jobRole?.role_name ?? "—",
     hourly_cost: jobRole?.hourly_cost ?? 0,
+    currency: jobRole?.currency ?? DEFAULT_CURRENCY,
     spend: 0,
     roi_pct: 0,
     requests: 0,
@@ -447,6 +541,80 @@ async function createEmployee(
   return { employee, emailSent, inviteUrl, warnings };
 }
 
+async function updateEmployee(
+  uuid: string,
+  input: UpdateEmployeeOrgInput,
+): Promise<{ employee: Employee; warnings: string[] }> {
+  const warnings: string[] = [];
+
+  await authApi.updateEmployee(uuid, {
+    employee_code: input.employee_code,
+    phone: input.phone ?? null,
+    designation: input.designation,
+    manager_user_id: input.manager_employee_id ?? null,
+    clear_manager_user_id: input.manager_employee_id == null,
+    joining_date: input.joining_date || null,
+    clear_joining_date: !input.joining_date,
+  });
+
+  try {
+    await assignUser(uuid, {
+      department_id: input.department_id ?? null,
+      team_id: input.team_id ?? null,
+    });
+  } catch (err) {
+    warnings.push(
+      err instanceof Error
+        ? `Org assignment: ${err.message}`
+        : "Org assignment failed",
+    );
+  }
+
+  const nextTeam = input.team_id ?? null;
+  const prevTeam = input.previous_team_id ?? null;
+  if (nextTeam && nextTeam !== prevTeam) {
+    try {
+      await addTeamMember(nextTeam, uuid);
+    } catch (err) {
+      const alreadyMember =
+        err instanceof ApiError && (err.status === 409 || err.status === 422);
+      if (!alreadyMember) {
+        warnings.push(
+          err instanceof Error
+            ? `Team membership: ${err.message}`
+            : "Could not add team member",
+        );
+      }
+    }
+  }
+  if (prevTeam && prevTeam !== nextTeam) {
+    try {
+      await removeTeamMember(prevTeam, uuid);
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Remove from previous team: ${err.message}`
+          : "Could not leave previous team",
+      );
+    }
+  }
+
+  if (input.job_role_id) {
+    try {
+      await assignEmployeeJobRole(uuid, input.job_role_id);
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Job role: ${err.message}`
+          : "Job role could not be assigned",
+      );
+    }
+  }
+
+  const employee = await getEmployee(uuid);
+  return { employee, warnings };
+}
+
 async function getSettings(): Promise<CompanySettings> {
   const s = await authApi.getCompanySettings();
   return {
@@ -480,16 +648,27 @@ async function updateSettings(
   };
 }
 
+async function resendInvite(email: string) {
+  return authApi.resendInvite(email);
+}
+
 export const organizationApi = {
   getSettings,
   updateSettings,
   listJobRoles,
   createJobRole,
+  updateJobRole,
+  archiveJobRole,
+  assignEmployeeJobRole,
   listDepartments,
   getDepartment,
   createDepartment,
+  updateDepartment,
+  archiveDepartment,
   listTeams,
   createTeam,
+  updateTeam,
+  archiveTeam,
   addTeamMember,
   removeTeamMember,
   listProjects,
@@ -498,5 +677,7 @@ export const organizationApi = {
   listEmployees,
   getEmployee,
   createEmployee,
+  updateEmployee,
+  resendInvite,
   assignUser,
 };

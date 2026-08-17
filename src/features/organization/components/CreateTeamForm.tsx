@@ -8,6 +8,7 @@ import {
   type TeamSchema,
 } from "@/features/organization/schemas/organization.schema";
 import type { Department, Employee } from "@/features/organization/types";
+import { lineManagers } from "@/lib/org/line-managers";
 
 type Props = {
   departments: Department[];
@@ -15,6 +16,7 @@ type Props = {
   defaultDepartmentId?: number;
   onSubmit: (values: TeamSchema) => Promise<void>;
   submitLabel?: string;
+  initial?: Partial<Team>;
 };
 
 export function CreateTeamForm({
@@ -23,17 +25,23 @@ export function CreateTeamForm({
   defaultDepartmentId,
   onSubmit,
   submitLabel = "Create team",
+  initial,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    team_name: "",
-    team_code: "",
-    department_id: String(defaultDepartmentId ?? departments[0]?.id ?? ""),
-    description: "",
-    team_lead_employee_id: "",
-    status: "active",
+    team_name: initial?.team_name ?? "",
+    team_code: initial?.team_code ?? "",
+    department_id: String(
+      initial?.department_id ?? defaultDepartmentId ?? departments[0]?.id ?? "",
+    ),
+    description: initial?.description ?? "",
+    team_lead_employee_id: initial?.team_lead_employee_id
+      ? String(initial.team_lead_employee_id)
+      : "",
+    status: initial?.status ?? "active",
   });
+  const isEdit = Boolean(initial?.id);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,13 +59,17 @@ export function CreateTeamForm({
     setLoading(true);
     try {
       await onSubmit(parsed.data);
-      setForm((f) => ({
-        ...f,
-        team_name: "",
-        team_code: "",
-        description: "",
-        team_lead_employee_id: "",
-      }));
+      if (!isEdit) {
+        setForm((f) => ({
+          ...f,
+          team_name: "",
+          team_code: "",
+          description: "",
+          team_lead_employee_id: "",
+        }));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save team");
     } finally {
       setLoading(false);
     }
@@ -88,6 +100,7 @@ export function CreateTeamForm({
         <Select
           id="department_id"
           value={form.department_id}
+          disabled={isEdit}
           onChange={(e) =>
             setForm((f) => ({ ...f, department_id: e.target.value }))
           }
@@ -110,7 +123,7 @@ export function CreateTeamForm({
           }
         >
           <option value="">Assign later</option>
-          {leads.map((m) => (
+          {lineManagers(leads).map((m) => (
             <option key={m.id} value={m.id}>
               {m.display_name}
             </option>
@@ -127,10 +140,26 @@ export function CreateTeamForm({
           }
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
+        <Select
+          id="status"
+          value={form.status}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              status: e.target.value as "active" | "inactive",
+            }))
+          }
+        >
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </Select>
+      </div>
       {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
       <div className="sm:col-span-2">
         <Button type="submit" disabled={loading}>
-          {loading ? "Creating…" : submitLabel}
+          {loading ? "Saving…" : submitLabel}
         </Button>
       </div>
     </form>

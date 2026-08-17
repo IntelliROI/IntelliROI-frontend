@@ -33,14 +33,18 @@ export function CompanyProvidersPanel({
             <Button
               size="sm"
               onClick={async () => {
-                await aiGatewayApi.addKey("openai", {
-                  api_key: "sk-demo",
-                  key_alias: `key-${Date.now() % 1000}`,
-                });
-                toast.success("Provider key added");
-                queryClient.invalidateQueries({
-                  queryKey: queryKeys.company.providersConfigured(companySlug),
-                });
+                try {
+                  await aiGatewayApi.addKey("openai", {
+                    api_key: "sk-demo",
+                    key_alias: `key-${Date.now() % 1000}`,
+                  });
+                  toast.success("Provider key added");
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.company.providersConfigured(companySlug),
+                  });
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Request failed");
+                }
               }}
             >
               Add OpenAI key

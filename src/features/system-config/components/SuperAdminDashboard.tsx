@@ -133,13 +133,14 @@ export function SuperAdminDashboard() {
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-secondary">
                   <span
                     className={
-                      p.status === "healthy" ? "text-accent" : "text-warning"
+                      p.status === "active" || p.status === "healthy"
+                        ? "text-accent"
+                        : "text-warning"
                     }
                   >
                     {p.status}
                   </span>
-                  {" · "}
-                  {p.latency_ms}ms
+                  {p.latency_ms > 0 ? ` · ${p.latency_ms}ms` : null}
                 </span>
               </li>
             ))}

@@ -47,10 +47,6 @@ export type UpdateEmployeeProfileInput = {
   employee_code?: string | null;
   phone?: string | null;
   designation?: string | null;
-  department_id?: number | null;
-  clear_department_id?: boolean;
-  team_id?: number | null;
-  clear_team_id?: boolean;
   manager_user_id?: number | null;
   clear_manager_user_id?: boolean;
   joining_date?: string | null;

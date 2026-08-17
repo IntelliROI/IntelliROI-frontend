@@ -38,11 +38,15 @@ export function NotificationsInbox({ companySlug }: { companySlug: string }) {
                 size="sm"
                 variant="ghost"
                 onClick={async () => {
-                  await notificationsApi.markRead(n.id);
-                  toast.success("Marked read");
-                  queryClient.invalidateQueries({
-                    queryKey: queryKeys.company.notifications(companySlug, false),
-                  });
+                  try {
+                    await notificationsApi.markRead(n.id);
+                    toast.success("Marked read");
+                    queryClient.invalidateQueries({
+                      queryKey: queryKeys.company.notifications(companySlug, false),
+                    });
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Request failed");
+                  }
                 }}
               >
                 Mark read

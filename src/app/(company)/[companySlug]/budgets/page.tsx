@@ -55,7 +55,7 @@ export default function BudgetsPage({
             scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
             limit: formatCurrency(b.monthly_limit, "USD", true),
             consumed: formatCurrency(b.consumed, "USD", true),
-            pct: `${Math.round((b.consumed / b.monthly_limit) * 100)}%`,
+            pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
           }))}
         />
       )}

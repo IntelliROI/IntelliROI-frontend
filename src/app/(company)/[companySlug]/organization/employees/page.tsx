@@ -13,9 +13,19 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { useState } from "react";
+import { Pencil } from "lucide-react";
+
+function cell(value?: string | null) {
+  const text = (value ?? "").trim();
+  if (!text || text === "—") {
+    return <span className="text-text-secondary/40">—</span>;
+  }
+  return text;
+}
 
 export default function EmployeesPage({
   params,
@@ -34,71 +44,147 @@ export default function EmployeesPage({
       ? employees.error.message
       : "Could not reach the auth service.";
 
-  const rows = (employees.data ?? []).map((e) => ({
-    code: (
-      <span className="font-mono text-[11px] font-medium text-text-secondary/70">
-        {e.employee_code}
-      </span>
-    ),
-    name: (
-      <div>
-        <span className="font-medium text-text-primary">{e.display_name}</span>
-      </div>
-    ),
-    department: e.department_name ?? "—",
-    team: e.team_name ?? "—",
-    job: (
-      <span className="text-[12px] text-text-secondary">
-        {e.job_role_name}{" "}
-        <span className="font-mono text-text-secondary/50">
-          · ${e.hourly_cost}/hr
+  const rows = (employees.data ?? []).map((e) => {
+    const pending = e.status === "invited";
+    return {
+      code: (
+        <span className="font-mono text-[11px] text-text-secondary/70">
+          {cell(e.employee_code)}
         </span>
-      </span>
-    ),
-    spend: formatCurrency(e.spend, "USD", true),
-    roi: (
-      <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
-    ),
-    action: (
-      <Link
-        href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
-      >
-        Profile →
-      </Link>
-    ),
-  }));
+      ),
+      name: (
+        <span className="font-medium text-text-primary">{e.display_name}</span>
+      ),
+      department: (
+        <span className="text-text-primary">{cell(e.department_name)}</span>
+      ),
+      team: <span className="text-text-primary">{cell(e.team_name)}</span>,
+      job: (
+        <span className="text-[12px] text-text-secondary">
+          {e.job_role_name && e.job_role_name !== "—" ? (
+            <>
+              {e.job_role_name}
+              {e.hourly_cost > 0 ? (
+                <span className="font-mono text-text-secondary/50">
+                  {" "}
+                  · {formatCurrency(e.hourly_cost, e.currency)}/hr
+                </span>
+              ) : null}
+            </>
+          ) : (
+            cell(null)
+          )}
+        </span>
+      ),
+      status: pending ? (
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-warning">
+          Pending
+        </span>
+      ) : (
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
+          Active
+        </span>
+      ),
+      spend: (
+        <span className="font-mono text-[12px] text-text-secondary">
+          {formatCurrency(e.spend, e.currency, true)}
+        </span>
+      ),
+      roi: (
+        <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
+      ),
+      action: (
+        <div className="flex items-center justify-end gap-1">
+          {pending ? (
+            <ResendInviteButton
+              email={e.email}
+              displayName={e.display_name}
+              compact
+            />
+          ) : null}
+          <Can resource="employees" action="edit">
+            <Link
+              href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
+              title="Edit"
+              aria-label="Edit"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </Can>
+          <Link
+            href={`/${params.companySlug}/organization/employees/${e.uuid}`}
+            className="px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
+          >
+            Profile
+          </Link>
+        </div>
+      ),
+    };
+  });
 
-  const cards: GridCard[] = (employees.data ?? []).map((e) => ({
-    title: e.display_name,
-    subtitle: `${e.department_name ?? "—"} · ${e.team_name ?? "—"}`,
-    badge: (
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text-secondary/60">
-        {e.employee_code}
-      </span>
-    ),
-    metrics: [
-      { label: "Role", value: <span className="text-[12px]">{e.job_role_name}</span> },
-      { label: "Est. ROI", value: <span className="text-accent">{e.roi_pct}%</span> },
-      { label: "Spend", value: formatCurrency(e.spend, "USD", true) },
-      { label: "Rate", value: `$${e.hourly_cost}/hr` },
-    ],
-    action: (
-      <Link
-        href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-        className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent transition-colors hover:text-accent/70"
-      >
-        View profile →
-      </Link>
-    ),
-  }));
+  const cards: GridCard[] = (employees.data ?? []).map((e) => {
+    const pending = e.status === "invited";
+    return {
+      title: e.display_name,
+      subtitle: `${e.department_name && e.department_name !== "—" ? e.department_name : "No department"} · ${e.team_name && e.team_name !== "—" ? e.team_name : "No team"}`,
+      badge: (
+        <span
+          className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${
+            pending ? "text-warning" : "text-text-secondary/60"
+          }`}
+        >
+          {pending ? "Pending" : "Active"}
+        </span>
+      ),
+      metrics: [
+        { label: "ID", value: cell(e.employee_code) },
+        { label: "Role", value: <span className="text-[12px]">{cell(e.job_role_name)}</span> },
+        { label: "Est. ROI", value: <span className="text-accent">{e.roi_pct}%</span> },
+        {
+          label: "Rate",
+          value:
+            e.hourly_cost > 0
+              ? `${formatCurrency(e.hourly_cost, e.currency)}/hr`
+              : "—",
+        },
+      ],
+      action: (
+        <div className="flex items-center gap-1">
+          {pending ? (
+            <ResendInviteButton
+              email={e.email}
+              displayName={e.display_name}
+              compact
+            />
+          ) : null}
+          <Can resource="employees" action="edit">
+            <Link
+              href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
+              title="Edit"
+              aria-label="Edit"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </Can>
+          <Link
+            href={`/${params.companySlug}/organization/employees/${e.uuid}`}
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
+          >
+            Profile
+          </Link>
+        </div>
+      ),
+    };
+  });
 
   return (
     <div>
       <PageHeader
         eyebrow="Organization"
         title="Employees"
-        description="Each employee resolves to company → department → team → job role for Estimated ROI."
+        description="Each employee resolves to company → department → team → job role for Estimated ROI. Pending means they have not set a password yet."
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
@@ -135,9 +221,10 @@ export default function EmployeesPage({
             { key: "department", label: "Department", sortable: true },
             { key: "team", label: "Team" },
             { key: "job", label: "Job role" },
+            { key: "status", label: "Status", width: "w-24" },
             { key: "spend", label: "Spend", align: "right", sortable: true },
             { key: "roi", label: "Est. ROI", align: "right", sortable: true },
-            { key: "action", label: "", width: "w-24" },
+            { key: "action", label: "Actions", align: "right", width: "w-40" },
           ]}
           rows={rows}
           showIndex
