@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api/client";
 
 export type Provider = {
+  id: number;
   name: string;
   display_name: string;
   models: string[];
@@ -22,6 +23,7 @@ export type Conversation = {
   model: string;
   updated_at: string;
   message_count: number;
+  pinned: boolean;
 };
 
 export type ChatInput = {
@@ -47,23 +49,132 @@ export type ConversationDetail = Conversation & {
   messages: { id: string; role: string; content: string }[];
 };
 
+type ProviderModelDto = { id?: number; model_name?: string; status?: string };
+
+type ProviderDto = {
+  id?: number;
+  provider_name?: string;
+  name?: string;
+  display_name?: string;
+  status?: string;
+  models?: ProviderModelDto[] | string[];
+};
+
+type ConfiguredDto = {
+  id: number;
+  provider_name?: string;
+  provider?: string;
+  key_alias?: string;
+  created_at?: string;
+};
+
+type ChatDto = {
+  request_uuid: string;
+  conversation_uuid: string;
+  provider: string;
+  model: string;
+  prompt?: string;
+  response?: string;
+  content?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+  tokens_in?: number;
+  tokens_out?: number;
+};
+
+type MessageDto = {
+  id: number | string;
+  role: string;
+  content: string;
+};
+
+type ConversationDto = {
+  id?: number;
+  conversation_uuid?: string;
+  uuid?: string;
+  title?: string;
+  pinned?: boolean;
+  updated_at?: string;
+  created_at?: string;
+  provider?: string;
+  model?: string;
+  messages?: MessageDto[];
+};
+
+function asList<T>(raw: unknown): T[] {
+  return Array.isArray(raw) ? (raw as T[]) : [];
+}
+
+function toProvider(p: ProviderDto): Provider {
+  const models = Array.isArray(p.models)
+    ? p.models.map((m) => (typeof m === "string" ? m : (m.model_name ?? "")))
+    : [];
+  return {
+    id: p.id ?? 0,
+    name: p.provider_name ?? p.name ?? "",
+    display_name: p.display_name ?? p.provider_name ?? p.name ?? "",
+    models: models.filter(Boolean),
+    status: p.status ?? "unknown",
+    latency_ms: 0,
+  };
+}
+
+function toConfigured(p: ConfiguredDto): ConfiguredProvider {
+  return {
+    id: p.id,
+    provider: p.provider_name ?? p.provider ?? "",
+    key_alias: p.key_alias ?? "",
+    created_at: p.created_at ?? "",
+  };
+}
+
+function toConversation(c: ConversationDto): Conversation {
+  return {
+    uuid: c.conversation_uuid ?? c.uuid ?? "",
+    title: c.title || "Untitled",
+    provider: c.provider ?? "",
+    model: c.model ?? "",
+    updated_at: c.updated_at ?? c.created_at ?? "",
+    message_count: c.messages?.length ?? 0,
+    pinned: Boolean(c.pinned),
+  };
+}
+
+function toChat(r: ChatDto): ChatResponse {
+  return {
+    request_uuid: r.request_uuid,
+    conversation_uuid: r.conversation_uuid,
+    content: r.response ?? r.content ?? "",
+    provider: r.provider,
+    model: r.model,
+    tokens_in: r.usage?.prompt_tokens ?? r.tokens_in ?? 0,
+    tokens_out: r.usage?.completion_tokens ?? r.tokens_out ?? 0,
+  };
+}
+
 export const aiGatewayApi = {
   async listProviders(): Promise<Provider[]> {
-    return apiRequest<Provider[]>("ai", "/providers");
+    const raw = await apiRequest<ProviderDto[]>("ai", "/providers");
+    return asList<ProviderDto>(raw).map(toProvider);
   },
 
   async listConfigured(): Promise<ConfiguredProvider[]> {
-    return apiRequest<ConfiguredProvider[]>("ai", "/providers/configured");
+    const raw = await apiRequest<ConfiguredDto[]>("ai", "/providers/configured");
+    return asList<ConfiguredDto>(raw).map(toConfigured);
   },
 
   async addKey(
     providerName: string,
     input: { api_key: string; key_alias: string },
   ): Promise<ConfiguredProvider> {
-    return apiRequest<ConfiguredProvider>("ai", `/providers/${providerName}/keys`, {
-      method: "POST",
-      body: input,
-    });
+    const raw = await apiRequest<ConfiguredDto>(
+      "ai",
+      `/providers/${providerName}/keys`,
+      { method: "POST", body: input },
+    );
+    return toConfigured(raw);
   },
 
   async deleteKey(id: number): Promise<void> {
@@ -74,18 +185,38 @@ export const aiGatewayApi = {
     input: ChatInput,
     options?: { signal?: AbortSignal },
   ): Promise<ChatResponse> {
-    return apiRequest<ChatResponse>("ai", "/chat", {
+    const body: Record<string, unknown> = {
+      provider: input.provider,
+      model: input.model,
+      prompt: input.prompt,
+    };
+    if (input.project_id) body.project_id = input.project_id;
+    if (input.task_category_id) body.task_category_id = input.task_category_id;
+    if (input.conversation_uuid) body.conversation_uuid = input.conversation_uuid;
+
+    const raw = await apiRequest<ChatDto>("ai", "/chat", {
       method: "POST",
-      body: input,
+      body,
       signal: options?.signal,
     });
+    return toChat(raw);
   },
 
   async listConversations(): Promise<Conversation[]> {
-    return apiRequest<Conversation[]>("ai", "/conversations");
+    const raw = await apiRequest<ConversationDto[]>("ai", "/conversations");
+    return asList<ConversationDto>(raw).map(toConversation);
   },
 
   async getConversation(uuid: string): Promise<ConversationDetail> {
-    return apiRequest<ConversationDetail>("ai", `/conversations/${uuid}`);
+    const raw = await apiRequest<ConversationDto>("ai", `/conversations/${uuid}`);
+    return {
+      ...toConversation(raw),
+      message_count: raw.messages?.length ?? 0,
+      messages: (raw.messages ?? []).map((m) => ({
+        id: String(m.id),
+        role: m.role,
+        content: m.content,
+      })),
+    };
   },
 };

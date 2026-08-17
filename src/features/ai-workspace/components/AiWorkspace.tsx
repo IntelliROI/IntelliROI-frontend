@@ -29,33 +29,6 @@ const SUGGESTIONS = [
   "Refactor this auth flow for clearer error handling",
 ];
 
-const MODELS: Record<
-  string,
-  { label: string; models: { id: string; label: string }[] }
-> = {
-  openai: {
-    label: "OpenAI",
-    models: [
-      { id: "gpt-4o-mini", label: "GPT-4o mini" },
-      { id: "gpt-4o", label: "GPT-4o" },
-    ],
-  },
-  anthropic: {
-    label: "Anthropic",
-    models: [{ id: "claude-sonnet-4-20250514", label: "Claude Sonnet" }],
-  },
-  google: {
-    label: "Google",
-    models: [{ id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }],
-  },
-};
-
-const PROVIDERS = Object.entries(MODELS).map(([id, meta]) => ({
-  id,
-  label: meta.label,
-  models: meta.models,
-}));
-
 function pinnedStorageKey(slug: string) {
   return `intelliroi.pinned-chats.${slug}`;
 }
@@ -77,8 +50,8 @@ export function AiWorkspace({
     useChatStore();
 
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
-  const [provider, setProvider] = useState("openai");
-  const [model, setModel] = useState("gpt-4o-mini");
+  const [provider, setProvider] = useState("");
+  const [model, setModel] = useState("");
   const [projectId, setProjectId] = useState("");
   const [taskId, setTaskId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -116,6 +89,17 @@ export function AiWorkspace({
     );
   }
 
+  const catalog = useQuery({
+    queryKey: queryKeys.company.providers(companySlug),
+    queryFn: () => aiGatewayApi.listProviders(),
+  });
+
+  const providerOptions = (catalog.data ?? []).map((p) => ({
+    id: p.name,
+    label: p.display_name || p.name,
+    models: p.models.map((m) => ({ id: m, label: m })),
+  }));
+
   const conversations = useQuery({
     queryKey: queryKeys.company.conversations(companySlug),
     queryFn: () => aiGatewayApi.listConversations(),
@@ -141,6 +125,15 @@ export function AiWorkspace({
     setActiveId(conversationId);
     setMessages([]);
   }, [conversationId]);
+
+  useEffect(() => {
+    const first = catalog.data?.[0];
+    if (!first) return;
+    if (!provider || !catalog.data?.some((p) => p.name === provider)) {
+      setProvider(first.name);
+      setModel(first.models[0] ?? "");
+    }
+  }, [catalog.data, provider]);
 
   // Prefill draft from templates (?prompt=)
   useEffect(() => {
@@ -179,6 +172,16 @@ export function AiWorkspace({
     async (promptOverride?: string) => {
       const prompt = (promptOverride ?? draft).trim();
       if (!prompt || busy) return;
+      if (!projectId || !taskId) {
+        toast.error(
+          "Select a project and task so this request can roll up to Estimated ROI",
+        );
+        return;
+      }
+      if (!provider || !model) {
+        toast.error("Select a provider and model");
+        return;
+      }
 
       setDraft("");
       setBusy(true);
@@ -205,9 +208,9 @@ export function AiWorkspace({
             provider,
             model,
             prompt,
-            conversation_uuid: activeId || "",
-            project_id: projectId ? Number(projectId) : null,
-            task_category_id: taskId ? Number(taskId) : null,
+            conversation_uuid: activeId || undefined,
+            project_id: Number(projectId),
+            task_category_id: Number(taskId),
           },
           { signal: controller.signal },
         );
@@ -311,8 +314,9 @@ export function AiWorkspace({
     router.push(`/${companySlug}/ai-workspace`);
   }
 
-  const modelLabel = `${MODELS[provider]?.label ?? provider} · ${
-    MODELS[provider]?.models.find((m) => m.id === model)?.label ?? model
+  const activeProvider = providerOptions.find((p) => p.id === provider);
+  const modelLabel = `${activeProvider?.label ?? provider} · ${
+    activeProvider?.models.find((m) => m.id === model)?.label ?? model
   }`;
 
   const empty = displayMessages.length === 0;
@@ -381,12 +385,13 @@ export function AiWorkspace({
           onStop={stop}
           busy={busy}
           companySlug={companySlug}
-          providers={PROVIDERS}
+          providers={providerOptions}
           provider={provider}
           model={model}
           onProviderChange={(p) => {
             setProvider(p);
-            setModel(MODELS[p]?.models[0]?.id ?? model);
+            const next = providerOptions.find((row) => row.id === p);
+            setModel(next?.models[0]?.id ?? model);
           }}
           onModelChange={setModel}
           projects={(projects.data ?? []).map((p) => ({

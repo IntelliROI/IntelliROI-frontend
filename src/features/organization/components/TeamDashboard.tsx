@@ -124,7 +124,7 @@ export function TeamDashboard({
             format="percent"
             accent
           />
-          <KpiTile label="Requests / week" value={186} format="number" />
+          <KpiTile label="Requests" value={roi.data.requests} format="number" />
           <KpiTile label="Members" value={members.length} format="number" />
         </Mosaic>
       ) : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Check, X } from "lucide-react";
@@ -58,6 +58,17 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
     queryKey: ["company", companySlug, "roi", "recommendations"],
     queryFn: () => roiApi.recommendations("open"),
   });
+  const providerMix = useQuery({
+    queryKey: ["company", companySlug, "analytics", "providers"],
+    queryFn: () => analyticsApi.providers("month"),
+  });
+  const deptRoi = useQueries({
+    queries: (departments.data ?? []).map((d) => ({
+      queryKey: ["company", companySlug, "roi", "department", d.id],
+      queryFn: () => roiApi.department(d.id),
+      enabled: Boolean(departments.data?.length),
+    })),
+  });
 
   const series = useMemo(
     () =>
@@ -67,11 +78,6 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
         secondary: p.cost / 100,
       })) ?? [],
     [analytics.data],
-  );
-
-  const deptMax = Math.max(
-    ...(departments.data?.map((d) => d.roi_pct) ?? [1]),
-    1,
   );
 
   if (roi.isLoading || analytics.isLoading) {
@@ -98,6 +104,13 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
 
   const roiData = roi.data;
   const rawSeries = analytics.data?.series ?? [];
+  const deptRows = (departments.data ?? []).map((d, i) => ({
+    ...d,
+    roi_pct: deptRoi[i]?.data?.roi_pct ?? 0,
+    monthly_spend: deptRoi[i]?.data?.total_spend ?? 0,
+  }));
+  const deptMax = Math.max(...deptRows.map((d) => d.roi_pct), 1);
+  const mix = providerMix.data ?? [];
 
   return (
     <div>
@@ -136,8 +149,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             label="AI spend MTD"
             value={roiData.total_spend}
             format="currency"
-            delta={-4.2}
-            hint="vs last month"
+            hint={`${formatNumber(roiData.requests)} requests`}
             spark={sparkFromSeries(rawSeries, "cost")}
             delay={0.05}
           />
@@ -157,10 +169,10 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             delay={0.11}
           />
           <MetricTile
-            label="Adoption"
-            value={Math.round(roiData.adoption_rate * 100)}
-            format="percent"
-            hint={`${roiData.active_employees}/${roiData.total_seats} seats active`}
+            label="Requests"
+            value={analytics.data?.requests ?? roiData.requests}
+            format="number"
+            hint="this period"
             spark={sparkFromSeries(rawSeries, "requests")}
             delay={0.14}
           />
@@ -194,13 +206,13 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
         <Panel className="border-0 bg-ink p-5 md:p-6 lg:col-span-4">
           <SectionLabel title="Provider mix" meta="Cost share" />
           <ProviderDonut
-            data={(costs.data?.by_provider ?? []).map((p) => ({
+            data={mix.map((p) => ({
               name: p.provider,
               value: p.cost,
             }))}
           />
           <ul className="mt-1 space-y-2.5">
-            {(costs.data?.by_provider ?? []).map((p, i) => (
+            {mix.map((p, i) => (
               <li
                 key={p.provider}
                 className="flex items-center justify-between gap-3"
@@ -244,11 +256,11 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             }
           />
           <div className="divide-y divide-hairline">
-            {(departments.data ?? []).map((d) => (
+            {(deptRows).map((d) => (
               <RankBar
                 key={d.id}
                 label={d.department_name}
-                valueLabel={`${d.roi_pct}% · ${formatCurrency(d.monthly_spend, "USD", true)}`}
+                valueLabel={`${d.roi_pct.toFixed(0)}% · ${formatCurrency(d.monthly_spend, "USD", true)}`}
                 percent={(d.roi_pct / deptMax) * 100}
                 href={`/${companySlug}/organization/departments/${d.id}`}
               />
@@ -261,18 +273,18 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             <SectionLabel title="Executive signals" className="mb-0" />
           </div>
           <InsightRow tone="good" code="TOP">
-            Engineering leads Estimated ROI at{" "}
-            {departments.data?.[0]?.roi_pct ?? "—"}%.
+            {deptRows[0]
+              ? `${deptRows[0].department_name} leads Estimated ROI at ${deptRows[0].roi_pct.toFixed(0)}%.`
+              : "Chat from AI Workspace with a project and task to populate Estimated ROI."}
           </InsightRow>
-          <InsightRow tone="warn" code="WATCH">
-            Marketing spend rising faster than value — review model mix.
-          </InsightRow>
-          <InsightRow tone="info" code="ADOPT">
-            {Math.round(roiData.adoption_rate * 100)}% seat adoption ·{" "}
-            {formatNumber(roiData.active_employees)} active.
+          <InsightRow tone="info" code="COST">
+            {formatCurrency(costs.data?.total_cost ?? roiData.total_spend)} AI
+            spend this period · {formatNumber(costs.data?.event_count ?? 0)}{" "}
+            cost events.
           </InsightRow>
           <InsightRow tone="info" code="REQ">
-            {formatNumber(analytics.data?.requests ?? 0)} AI requests in window.
+            {formatNumber(analytics.data?.requests ?? 0)} AI requests in
+            analytics window.
           </InsightRow>
         </Panel>
 

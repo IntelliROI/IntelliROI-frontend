@@ -80,10 +80,11 @@ export default function EmployeeDetailPage({
       params.companySlug,
       "roi",
       "employee",
-      params.employeeId,
+      employeeQ.data?.id ?? params.employeeId,
     ],
-    queryFn: () => roiApi.employee(params.employeeId),
-    enabled: employeeQ.data?.status !== "invited",
+    queryFn: () => roiApi.employee(employeeQ.data!.id),
+    enabled:
+      Boolean(employeeQ.data?.id) && employeeQ.data?.status !== "invited",
   });
 
   const employee = employeeQ.data;

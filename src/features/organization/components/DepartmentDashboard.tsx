@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Mosaic } from "@/components/ui/panel";
@@ -26,6 +26,13 @@ export function DepartmentDashboard({
   const teams = useQuery({
     queryKey: ["company", companySlug, "teams", departmentId],
     queryFn: () => organizationApi.listTeams(departmentId),
+  });
+  const teamRoi = useQueries({
+    queries: (teams.data ?? []).map((t) => ({
+      queryKey: ["company", companySlug, "roi", "team", t.id],
+      queryFn: () => roiApi.team(t.id),
+      enabled: Boolean(teams.data?.length),
+    })),
   });
   const roi = useQuery({
     queryKey: ["company", companySlug, "roi", "department", departmentId],
@@ -81,10 +88,18 @@ export function DepartmentDashboard({
               { key: "members", label: "Members", align: "right" },
               { key: "action", label: "" },
             ]}
-            rows={(teams.data ?? []).map((t) => ({
+            rows={(teams.data ?? []).map((t, i) => ({
               name: t.team_name,
-              spend: formatCurrency(t.monthly_spend, "USD", true),
-              roi: <span className="text-accent">{t.roi_pct}%</span>,
+              spend: formatCurrency(
+                teamRoi[i]?.data?.total_spend ?? 0,
+                "USD",
+                true,
+              ),
+              roi: (
+                <span className="text-accent">
+                  {(teamRoi[i]?.data?.roi_pct ?? 0).toFixed(0)}%
+                </span>
+              ),
               members: t.member_count,
               action: (
                 <Link
