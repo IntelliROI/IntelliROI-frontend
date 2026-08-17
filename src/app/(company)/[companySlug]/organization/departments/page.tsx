@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   PageHeader,
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CreateDepartmentForm } from "@/features/organization/components/CreateDepartmentForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { roiApi } from "@/features/roi/api/roi.api";
 import type { Department } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
@@ -38,6 +39,18 @@ export default function DepartmentsPage({
     queryKey: ["company", params.companySlug, "employees"],
     queryFn: () => organizationApi.listEmployees(),
   });
+  // org list endpoints don't compute spend/ROI — overlay live figures from roi-engine.
+  const deptRoi = useQueries({
+    queries: (departments.data ?? []).map((d) => ({
+      queryKey: ["company", params.companySlug, "roi", "department", d.id],
+      queryFn: () => roiApi.department(d.id),
+      enabled: Boolean(departments.data?.length),
+      staleTime: 30_000,
+    })),
+  });
+  const roiById = new Map(
+    (departments.data ?? []).map((d, i) => [d.id, deptRoi[i]?.data]),
+  );
 
   function closeForm() {
     setShowForm(false);
@@ -67,9 +80,11 @@ export default function DepartmentsPage({
     ),
     name: <span className="font-medium text-text-primary">{d.department_name}</span>,
     people: d.employee_count,
-    spend: formatCurrency(d.monthly_spend, "USD", true),
+    spend: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD", true),
     roi: (
-      <span className="font-mono font-medium text-accent">{d.roi_pct}%</span>
+      <span className="font-mono font-medium text-accent">
+        {(roiById.get(d.id)?.roi_pct ?? d.roi_pct).toFixed(0)}%
+      </span>
     ),
     status: (
       <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
@@ -112,8 +127,18 @@ export default function DepartmentsPage({
     ),
     metrics: [
       { label: "Employees", value: d.employee_count },
-      { label: "Est. ROI", value: <span className="text-accent">{d.roi_pct}%</span> },
-      { label: "Monthly Spend", value: formatCurrency(d.monthly_spend, "USD", true) },
+      {
+        label: "Est. ROI",
+        value: (
+          <span className="text-accent">
+            {(roiById.get(d.id)?.roi_pct ?? d.roi_pct).toFixed(0)}%
+          </span>
+        ),
+      },
+      {
+        label: "Monthly Spend",
+        value: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD", true),
+      },
     ],
     action: (
       <RowActions>

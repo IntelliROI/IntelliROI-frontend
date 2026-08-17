@@ -9,6 +9,7 @@ import { Mosaic } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
+import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { formatCurrency } from "@/lib/utils";
@@ -26,6 +27,7 @@ export function TeamDashboard({
 }) {
   const [adding, setAdding] = useState(false);
   const [memberUuid, setMemberUuid] = useState("");
+  const [period, setPeriod] = useState<RoiPeriod>("month");
 
   const teams = useQuery({
     queryKey: ["company", companySlug, "teams", departmentId],
@@ -36,8 +38,8 @@ export function TeamDashboard({
     queryFn: () => organizationApi.listEmployees(),
   });
   const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "team", teamId],
-    queryFn: () => roiApi.team(teamId),
+    queryKey: ["company", companySlug, "roi", "team", teamId, period],
+    queryFn: () => roiApi.team(teamId, period),
   });
 
   if (teams.isLoading || roi.isLoading) return <LoadingBlock className="h-80" />;
@@ -83,11 +85,14 @@ export function TeamDashboard({
         title={team?.team_name ?? `Team ${teamId}`}
         description="Member-level usage, projects, and day-to-day AI operations."
         actions={
-          <Can resource="teams" action="edit">
-            <Button size="sm" onClick={() => setAdding((v) => !v)}>
-              {adding ? "Close" : "Add member"}
-            </Button>
-          </Can>
+          <div className="flex items-center gap-2">
+            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
+            <Can resource="teams" action="edit">
+              <Button size="sm" onClick={() => setAdding((v) => !v)}>
+                {adding ? "Close" : "Add member"}
+              </Button>
+            </Can>
+          </div>
         }
       />
 

@@ -162,7 +162,9 @@ export function AiWorkspace({
     setBusy(false);
     setMessages((prev) =>
       prev.map((m) =>
-        m.isStreaming ? { ...m, isStreaming: false, stopped: true } : m,
+        m.isStreaming
+          ? { ...m, isStreaming: false, thinking: false, stopped: true }
+          : m,
       ),
     );
     clearStreaming();
@@ -198,11 +200,19 @@ export function AiWorkspace({
       setMessages((prev) => [
         ...prev,
         userMsg,
-        { id: assistantId, role: "assistant", content: "", isStreaming: true },
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          isStreaming: true,
+          thinking: true,
+        },
       ]);
       clearStreaming();
 
       try {
+        // Gateway waits for the full provider response (no token streaming yet);
+        // this call resolves only once OpenAI/Anthropic has finished.
         const res = await aiGatewayApi.chat(
           {
             provider,
@@ -224,9 +234,20 @@ export function AiWorkspace({
           );
         }
 
-        const chunks = res.content.match(/.{1,10}/g) ?? [res.content];
+        // Full reply is in hand — type it out ChatGPT-style (word chunks,
+        // faster than real token streaming since there's nothing left to wait for).
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, thinking: false } : m,
+          ),
+        );
+
+        const words = res.content.match(/\S+\s*|\s+/g) ?? [res.content];
+        const TARGET_MS = 1400;
+        const perWordDelay = Math.min(30, Math.max(10, TARGET_MS / Math.max(words.length, 1)));
+
         let assembled = "";
-        for (const chunk of chunks) {
+        for (const word of words) {
           if (stopStreamRef.current || controller.signal.aborted) {
             setMessages((prev) =>
               prev.map((m) =>
@@ -235,6 +256,7 @@ export function AiWorkspace({
                       ...m,
                       content: assembled || m.content,
                       isStreaming: false,
+                      thinking: false,
                       stopped: true,
                     }
                   : m,
@@ -242,8 +264,8 @@ export function AiWorkspace({
             );
             return;
           }
-          assembled += chunk;
-          appendStreamingBuffer(chunk);
+          assembled += word;
+          appendStreamingBuffer(word);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -251,7 +273,9 @@ export function AiWorkspace({
                 : m,
             ),
           );
-          await new Promise((r) => setTimeout(r, 12));
+          // Punctuation / line breaks get a slightly longer beat, like natural typing.
+          const beat = /[.!?\n]\s*$/.test(word) ? perWordDelay * 2.2 : perWordDelay;
+          await new Promise((r) => setTimeout(r, beat));
         }
 
         setMessages((prev) =>
@@ -279,6 +303,7 @@ export function AiWorkspace({
                   ...m,
                   content: m.content || message,
                   isStreaming: false,
+                  thinking: false,
                 }
               : m,
           ),

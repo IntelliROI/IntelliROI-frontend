@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState } from "react";
 import {
@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CreateTeamForm } from "@/features/organization/components/CreateTeamForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { roiApi } from "@/features/roi/api/roi.api";
 import type { Team } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
@@ -42,6 +43,18 @@ export default function TeamsPage({
     queryKey: ["company", params.companySlug, "employees"],
     queryFn: () => organizationApi.listEmployees(),
   });
+  // org list endpoint doesn't compute spend/ROI — overlay live figures from roi-engine.
+  const teamRoi = useQueries({
+    queries: (teams.data ?? []).map((t) => ({
+      queryKey: ["company", params.companySlug, "roi", "team", t.id],
+      queryFn: () => roiApi.team(t.id),
+      enabled: Boolean(teams.data?.length),
+      staleTime: 30_000,
+    })),
+  });
+  const roiById = new Map(
+    (teams.data ?? []).map((t, i) => [t.id, teamRoi[i]?.data]),
+  );
 
   const deptMap = Object.fromEntries(
     (departments.data ?? []).map((d) => [d.id, d.department_name]),
@@ -74,9 +87,11 @@ export default function TeamsPage({
     name: <span className="font-medium text-text-primary">{t.team_name}</span>,
     dept: deptMap[t.department_id] ?? "—",
     people: t.member_count,
-    spend: formatCurrency(t.monthly_spend, "USD", true),
+    spend: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD", true),
     roi: (
-      <span className="font-mono font-medium text-accent">{t.roi_pct}%</span>
+      <span className="font-mono font-medium text-accent">
+        {(roiById.get(t.id)?.roi_pct ?? t.roi_pct).toFixed(0)}%
+      </span>
     ),
     status: (
       <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
@@ -119,8 +134,18 @@ export default function TeamsPage({
     ),
     metrics: [
       { label: "Members", value: t.member_count },
-      { label: "Est. ROI", value: <span className="text-accent">{t.roi_pct}%</span> },
-      { label: "Spend", value: formatCurrency(t.monthly_spend, "USD", true) },
+      {
+        label: "Est. ROI",
+        value: (
+          <span className="text-accent">
+            {(roiById.get(t.id)?.roi_pct ?? t.roi_pct).toFixed(0)}%
+          </span>
+        ),
+      },
+      {
+        label: "Spend",
+        value: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD", true),
+      },
       {
         label: "Status",
         value: (

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   PageHeader,
@@ -15,9 +16,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { CreateProjectForm } from "@/features/organization/components/CreateProjectForm";
 import { Can } from "@/lib/rbac/Can";
 import { AddMemberAction, RowActions } from "@/components/ui/row-actions";
+import { formatCurrency } from "@/lib/utils";
 import type { Project } from "@/features/organization/types";
 
 export default function ProjectsPage({
@@ -60,6 +63,19 @@ export default function ProjectsPage({
     [teams.data],
   );
 
+  // Live per-project monitor — worker writes scope_type=project snapshots.
+  const projectAnalytics = useQueries({
+    queries: (projects.data ?? []).map((p) => ({
+      queryKey: ["company", params.companySlug, "analytics", "project", p.id],
+      queryFn: () => analyticsApi.project(p.id, "month"),
+      enabled: Boolean(projects.data?.length),
+      staleTime: 30_000,
+    })),
+  });
+  const analyticsById = new Map(
+    (projects.data ?? []).map((p, i) => [p.id, projectAnalytics[i]?.data]),
+  );
+
   const statusColor = (s: string) =>
     s === "active"
       ? "text-accent"
@@ -83,6 +99,13 @@ export default function ProjectsPage({
     name: <span className="font-medium text-text-primary">{p.project_name}</span>,
     dept: p.department_id ? deptMap[p.department_id] ?? p.department_id : "—",
     team: p.team_id ? teamMap[p.team_id] ?? p.team_id : "—",
+    requests: analyticsById.get(p.id)?.requests ?? 0,
+    spend: formatCurrency(analyticsById.get(p.id)?.total_cost ?? 0, "USD", true),
+    roi: (
+      <span className="font-mono font-medium text-accent">
+        {(analyticsById.get(p.id)?.roi_pct ?? 0).toFixed(0)}%
+      </span>
+    ),
     status: (
       <span
         className={`font-mono text-[11px] uppercase tracking-[0.12em] ${statusColor(p.status)}`}
@@ -95,6 +118,12 @@ export default function ProjectsPage({
         <Can resource="projects" action="edit">
           <AddMemberAction onClick={() => setAssigning(p)} />
         </Can>
+        <Link
+          href={`/${params.companySlug}/organization/projects/${p.id}`}
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
+        >
+          Monitor
+        </Link>
       </RowActions>
     ),
   }));
@@ -114,11 +143,28 @@ export default function ProjectsPage({
         value: p.department_id ? deptMap[p.department_id] ?? "—" : "—",
       },
       { label: "Team", value: p.team_id ? teamMap[p.team_id] ?? "—" : "—" },
+      { label: "Requests", value: analyticsById.get(p.id)?.requests ?? 0 },
+      {
+        label: "Est. ROI",
+        value: (
+          <span className="text-accent">
+            {(analyticsById.get(p.id)?.roi_pct ?? 0).toFixed(0)}%
+          </span>
+        ),
+      },
     ],
     action: (
-      <Can resource="projects" action="edit">
-        <AddMemberAction onClick={() => setAssigning(p)} />
-      </Can>
+      <RowActions>
+        <Can resource="projects" action="edit">
+          <AddMemberAction onClick={() => setAssigning(p)} />
+        </Can>
+        <Link
+          href={`/${params.companySlug}/organization/projects/${p.id}`}
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
+        >
+          Monitor
+        </Link>
+      </RowActions>
     ),
   }));
 
@@ -200,8 +246,11 @@ export default function ProjectsPage({
             { key: "name", label: "Project", sortable: true },
             { key: "dept", label: "Department" },
             { key: "team", label: "Team" },
+            { key: "requests", label: "Requests", align: "right", sortable: true },
+            { key: "spend", label: "Spend", align: "right" },
+            { key: "roi", label: "Est. ROI", align: "right", sortable: true },
             { key: "status", label: "Status" },
-            { key: "action", label: "Actions", align: "right", width: "w-20" },
+            { key: "action", label: "Actions", align: "right", width: "w-32" },
           ]}
           rows={rows}
           showIndex

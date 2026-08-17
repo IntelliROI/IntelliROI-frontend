@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import {
   PageHeader,
   LoadingBlock,
@@ -13,6 +13,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { roiApi } from "@/features/roi/api/roi.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
@@ -38,6 +39,22 @@ export default function EmployeesPage({
     queryKey: ["company", params.companySlug, "employees"],
     queryFn: () => organizationApi.listEmployees(),
   });
+
+  // org list endpoint doesn't compute spend/ROI — overlay live figures from roi-engine.
+  const activeEmployees = (employees.data ?? []).filter(
+    (e) => e.status !== "invited",
+  );
+  const employeeRoi = useQueries({
+    queries: activeEmployees.map((e) => ({
+      queryKey: ["company", params.companySlug, "roi", "employee", e.id],
+      queryFn: () => roiApi.employee(e.id),
+      enabled: Boolean(activeEmployees.length),
+      staleTime: 30_000,
+    })),
+  });
+  const roiById = new Map(
+    activeEmployees.map((e, i) => [e.id, employeeRoi[i]?.data]),
+  );
 
   const errorMessage =
     employees.error instanceof Error
@@ -87,11 +104,13 @@ export default function EmployeesPage({
       ),
       spend: (
         <span className="font-mono text-[12px] text-text-secondary">
-          {formatCurrency(e.spend, e.currency, true)}
+          {formatCurrency(roiById.get(e.id)?.total_spend ?? e.spend, e.currency, true)}
         </span>
       ),
       roi: (
-        <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
+        <span className="font-mono font-medium text-accent">
+          {(roiById.get(e.id)?.roi_pct ?? e.roi_pct).toFixed(0)}%
+        </span>
       ),
       action: (
         <div className="flex items-center justify-end gap-1">
@@ -140,7 +159,14 @@ export default function EmployeesPage({
       metrics: [
         { label: "ID", value: cell(e.employee_code) },
         { label: "Role", value: <span className="text-[12px]">{cell(e.job_role_name)}</span> },
-        { label: "Est. ROI", value: <span className="text-accent">{e.roi_pct}%</span> },
+        {
+          label: "Est. ROI",
+          value: (
+            <span className="text-accent">
+              {(roiById.get(e.id)?.roi_pct ?? e.roi_pct).toFixed(0)}%
+            </span>
+          ),
+        },
         {
           label: "Rate",
           value:
