@@ -69,6 +69,24 @@ function unwrapData<T>(payload: unknown): T {
   return payload as T;
 }
 
+/** Backend error envelope: `{ status: false, error: { code, message } }`. */
+function readBackendMessage(body: unknown): string | undefined {
+  if (typeof body === "string" && body.trim()) return body.trim();
+  if (!body || typeof body !== "object") return;
+
+  const payload = body as { message?: unknown; error?: unknown };
+  const nested = payload.error;
+
+  if (nested && typeof nested === "object") {
+    const text = (nested as { message?: unknown }).message;
+    if (typeof text === "string" && text.trim()) return text.trim();
+  }
+  if (typeof nested === "string" && nested.trim()) return nested.trim();
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message.trim();
+  }
+}
+
 function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err;
   if (axios.isCancel(err)) {
@@ -77,16 +95,8 @@ function toApiError(err: unknown): ApiError {
   if (err instanceof AxiosError) {
     const body = err.response?.data;
     const message =
-      typeof body === "object" &&
-      body !== null &&
-      "message" in body &&
-      typeof (body as { message: unknown }).message === "string"
-        ? (body as { message: string }).message
-        : err.response?.status === 403
-          ? "Not allowed (403). Your role may not have permission for this action."
-          : err.code === "ECONNABORTED"
-            ? "Request timed out"
-            : (err.message ?? `Request failed (${err.response?.status ?? 0})`);
+      readBackendMessage(body) ??
+      (err.code === "ECONNABORTED" ? "Request timed out" : "Request failed");
     return new ApiError(
       message,
       err.response?.status ?? (err.code === "ECONNABORTED" ? 408 : 0),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel, Provenance } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
@@ -25,6 +25,13 @@ export default function RoiPage({
   const departments = useQuery({
     queryKey: ["company", params.companySlug, "departments"],
     queryFn: () => organizationApi.listDepartments(),
+  });
+  const deptRoi = useQueries({
+    queries: (departments.data ?? []).map((d) => ({
+      queryKey: ["company", params.companySlug, "roi", "department", d.id],
+      queryFn: () => roiApi.department(d.id),
+      enabled: Boolean(departments.data?.length),
+    })),
   });
 
   if (roi.isLoading) return <LoadingBlock className="h-80" />;
@@ -74,9 +81,9 @@ export default function RoiPage({
             Department ROI
           </h2>
           <SimpleBarChart
-            data={(departments.data ?? []).map((d) => ({
+            data={(departments.data ?? []).map((d, i) => ({
               name: d.department_name.slice(0, 8),
-              value: d.roi_pct,
+              value: deptRoi[i]?.data?.roi_pct ?? 0,
             }))}
           />
         </Panel>

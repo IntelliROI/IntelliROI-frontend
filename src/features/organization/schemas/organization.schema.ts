@@ -30,6 +30,58 @@ export const jobRoleSchema = z.object({
   role_name: z.string().min(2, "Role name required"),
   hourly_cost: z.coerce.number().positive("Hourly cost must be > 0"),
   currency: z.enum(currencyCodes),
+  status: z.enum(["active", "inactive"]).optional(),
+});
+
+export const projectSchema = z.object({
+  project_name: z.string().min(2, "Project name required"),
+  description: z.string().optional(),
+  department_id: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive().nullable().optional(),
+  ),
+  team_id: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive().nullable().optional(),
+  ),
+});
+
+export const employeeOrgPatchSchema = z.object({
+  employee_code: z.string().optional(),
+  phone_iso: z.enum(countryIsos).optional(),
+  phone_national: z.string().optional(),
+  designation: z.string().optional(),
+  department_id: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive().nullable().optional(),
+  ),
+  team_id: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive().nullable().optional(),
+  ),
+  job_role_id: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive().nullable().optional(),
+  ),
+  manager_employee_id: z.coerce.number().optional().nullable(),
+  joining_date: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const national = (data.phone_national ?? "").trim();
+  if (!national) return;
+  const iso = data.phone_iso ?? "IN";
+  if (!isValidNationalNumber(iso, national)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone_national"],
+      message: "Enter a valid phone number for the selected country (digits only)",
+    });
+  }
+}).transform((data) => {
+  const iso = data.phone_iso ?? "IN";
+  return {
+    ...data,
+    phone: toE164(iso, data.phone_national ?? "") || undefined,
+  };
 });
 
 export const departmentSchema = z.object({
@@ -106,3 +158,5 @@ export type JobRoleSchema = z.infer<typeof jobRoleSchema>;
 export type DepartmentSchema = z.infer<typeof departmentSchema>;
 export type TeamSchema = z.infer<typeof teamSchema>;
 export type EmployeeSchema = z.infer<typeof employeeSchema>;
+export type ProjectSchema = z.infer<typeof projectSchema>;
+export type EmployeeOrgPatchSchema = z.infer<typeof employeeOrgPatchSchema>;

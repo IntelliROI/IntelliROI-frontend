@@ -8,24 +8,29 @@ import {
   type JobRoleSchema,
 } from "@/features/organization/schemas/organization.schema";
 import { CURRENCIES, DEFAULT_CURRENCY } from "@/constants/locale";
+import type { JobRole } from "@/features/organization/types";
 
 type Props = {
   onSubmit: (values: JobRoleSchema) => Promise<void>;
   submitLabel?: string;
+  initial?: Partial<JobRole>;
 };
 
 export function CreateJobRoleForm({
   onSubmit,
   submitLabel = "Add job role",
+  initial,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    role_name: "",
-    hourly_cost: "",
-    currency: DEFAULT_CURRENCY,
+    role_name: initial?.role_name ?? "",
+    hourly_cost: initial?.hourly_cost != null ? String(initial.hourly_cost) : "",
+    currency: initial?.currency ?? DEFAULT_CURRENCY,
+    status: initial?.status ?? "active",
   });
   const submitting = useRef(false);
+  const isEdit = Boolean(initial?.id);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,7 +45,14 @@ export function CreateJobRoleForm({
     setLoading(true);
     try {
       await onSubmit(parsed.data);
-      setForm({ role_name: "", hourly_cost: "", currency: DEFAULT_CURRENCY });
+      if (!isEdit) {
+        setForm({
+          role_name: "",
+          hourly_cost: "",
+          currency: DEFAULT_CURRENCY,
+          status: "active",
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save job role");
     } finally {
@@ -92,6 +104,24 @@ export function CreateJobRoleForm({
           ))}
         </Select>
       </div>
+      {isEdit ? (
+        <div className="space-y-2">
+          <Label htmlFor="status">Status</Label>
+          <Select
+            id="status"
+            value={form.status}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                status: e.target.value as "active" | "inactive",
+              }))
+            }
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </Select>
+        </div>
+      ) : null}
       {error && <p className="sm:col-span-3 text-sm text-danger">{error}</p>}
       <div className="sm:col-span-3">
         <Button type="submit" disabled={loading}>

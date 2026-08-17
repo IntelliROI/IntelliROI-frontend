@@ -24,12 +24,12 @@ import { cn } from "@/lib/utils";
  */
 export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
-  const employeeId = user?.id ?? user?.scope?.user_id ?? user?.uuid;
+  const employeeId = user?.id ?? user?.scope?.user_id;
 
   const roi = useQuery({
     queryKey: ["company", companySlug, "roi", "employee", employeeId ?? "self"],
     queryFn: () => roiApi.employee(employeeId!),
-    enabled: Boolean(employeeId),
+    enabled: typeof employeeId === "number" && employeeId > 0,
   });
   const analytics = useQuery({
     queryKey: [
@@ -40,7 +40,7 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
       employeeId ?? "self",
     ],
     queryFn: () => analyticsApi.employee(employeeId!),
-    enabled: Boolean(employeeId),
+    enabled: typeof employeeId === "number" && employeeId > 0,
   });
   const conversations = useQuery({
     queryKey: ["company", companySlug, "conversations"],
@@ -60,6 +60,15 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
     () => (analytics.data?.series ?? []).map((p) => p.requests),
     [analytics.data],
   );
+
+  if (typeof employeeId !== "number" || employeeId <= 0) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Your account is missing a numeric employee id, so personal Estimated ROI
+        cannot load. Use AI Workspace once your profile is assigned in org.
+      </p>
+    );
+  }
 
   if (roi.isLoading) {
     return (
@@ -105,13 +114,13 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
           value={r.roi_pct}
           format="percent"
           hint={`${r.time_saved_hours}h saved · personal scope`}
-          spark={spark.length > 1 ? spark : [40, 55, 48, 70, 62, 88, 96]}
+          spark={spark.length > 1 ? spark : undefined}
           delay={0}
         />
         <div className="grid gap-px bg-hairline sm:grid-cols-3 lg:col-span-7">
           <MetricTile
             label="Requests"
-            value={146}
+            value={analytics.data?.requests ?? r.requests ?? 0}
             format="number"
             hint="this period"
             spark={spark.length > 1 ? spark : undefined}
@@ -201,31 +210,6 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
           </div>
         </Panel>
       </div>
-
-      {/* Task mix strip */}
-      <Panel className="mt-px border-0 border-t-0 bg-ink p-5 md:p-6">
-        <SectionLabel title="Usage by task" meta="Estimated from benchmarks" />
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[
-            { name: "Code Generation", pct: 52 },
-            { name: "Debugging", pct: 28 },
-            { name: "Documentation", pct: 20 },
-          ].map((t) => (
-            <div key={t.name}>
-              <div className="mb-2 flex justify-between text-[12px]">
-                <span className="text-text-primary">{t.name}</span>
-                <span className="font-mono text-text-secondary">{t.pct}%</span>
-              </div>
-              <div className="h-[3px] bg-hairline">
-                <div
-                  className="h-full bg-accent transition-[width] duration-700 ease-out-expo"
-                  style={{ width: `${t.pct}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Panel>
     </div>
   );
 }

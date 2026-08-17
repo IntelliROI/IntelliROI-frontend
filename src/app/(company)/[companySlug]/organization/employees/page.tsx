@@ -17,6 +17,7 @@ import { ResendInviteButton } from "@/features/organization/components/ResendInv
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { useState } from "react";
+import { Pencil } from "lucide-react";
 
 function cell(value?: string | null) {
   const text = (value ?? "").trim();
@@ -93,7 +94,7 @@ export default function EmployeesPage({
         <span className="font-mono font-medium text-accent">{e.roi_pct}%</span>
       ),
       action: (
-        <div className="flex items-center justify-end gap-4">
+        <div className="flex items-center justify-end gap-1">
           {pending ? (
             <ResendInviteButton
               email={e.email}
@@ -101,9 +102,19 @@ export default function EmployeesPage({
               compact
             />
           ) : null}
+          <Can resource="employees" action="edit">
+            <Link
+              href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
+              title="Edit"
+              aria-label="Edit"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </Can>
           <Link
             href={`/${params.companySlug}/organization/employees/${e.uuid}`}
-            className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
+            className="px-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/70"
           >
             Profile
           </Link>
@@ -139,7 +150,7 @@ export default function EmployeesPage({
         },
       ],
       action: (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1">
           {pending ? (
             <ResendInviteButton
               email={e.email}
@@ -147,6 +158,16 @@ export default function EmployeesPage({
               compact
             />
           ) : null}
+          <Can resource="employees" action="edit">
+            <Link
+              href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
+              title="Edit"
+              aria-label="Edit"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </Can>
           <Link
             href={`/${params.companySlug}/organization/employees/${e.uuid}`}
             className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"

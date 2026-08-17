@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
+import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
+import { EditEmployeeForm } from "@/features/organization/components/EditEmployeeForm";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { ROLE_LABELS } from "@/constants/roles";
 import { formatCurrency } from "@/lib/utils";
+import { Can } from "@/lib/rbac/Can";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -36,6 +40,12 @@ export default function EmployeeDetailPage({
   params: { companySlug: string; employeeId: string };
 }) {
   const listHref = `/${params.companySlug}/organization/employees`;
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("edit") === "1") setEditing(true);
+  }, []);
 
   const employeeQ = useQuery({
     queryKey: ["company", params.companySlug, "employee", params.employeeId],
@@ -49,16 +59,32 @@ export default function EmployeeDetailPage({
     queryKey: ["company", params.companySlug, "projects"],
     queryFn: () => organizationApi.listProjects(),
   });
+  const departmentsQ = useQuery({
+    queryKey: ["company", params.companySlug, "departments"],
+    queryFn: () => organizationApi.listDepartments(),
+    enabled: editing,
+  });
+  const teamsQ = useQuery({
+    queryKey: ["company", params.companySlug, "teams"],
+    queryFn: () => organizationApi.listTeams(),
+    enabled: editing,
+  });
+  const jobRolesQ = useQuery({
+    queryKey: ["company", params.companySlug, "job-roles"],
+    queryFn: () => organizationApi.listJobRoles(),
+    enabled: editing,
+  });
   const roi = useQuery({
     queryKey: [
       "company",
       params.companySlug,
       "roi",
       "employee",
-      params.employeeId,
+      employeeQ.data?.id ?? params.employeeId,
     ],
-    queryFn: () => roiApi.employee(params.employeeId),
-    enabled: employeeQ.data?.status !== "invited",
+    queryFn: () => roiApi.employee(employeeQ.data!.id),
+    enabled:
+      Boolean(employeeQ.data?.id) && employeeQ.data?.status !== "invited",
   });
 
   const employee = employeeQ.data;
@@ -113,14 +139,59 @@ export default function EmployeeDetailPage({
             : `${dash(employee.designation)} · ${dash(employee.department_name)}`
         }
         actions={
-          pending && employee.email ? (
-            <ResendInviteButton
-              email={employee.email}
-              displayName={employee.display_name}
-            />
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {pending && employee.email ? (
+              <ResendInviteButton
+                email={employee.email}
+                displayName={employee.display_name}
+              />
+            ) : null}
+            <Can resource="employees" action="edit">
+              <Button
+                size="sm"
+                variant={editing ? "secondary" : "primary"}
+                onClick={() => setEditing((v) => !v)}
+              >
+                <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {editing ? "Close" : "Edit"}
+              </Button>
+            </Can>
+          </div>
         }
       />
+
+      {editing ? (
+        <div className="mb-px border-0 border-t border-hairline bg-ink p-6">
+          <EditEmployeeForm
+            employee={employee}
+            departments={departmentsQ.data ?? []}
+            teams={teamsQ.data ?? []}
+            jobRoles={jobRolesQ.data ?? []}
+            managers={peopleQ.data ?? []}
+            onCancel={() => setEditing(false)}
+            onSubmit={async (values) => {
+              const { warnings } = await organizationApi.updateEmployee(
+                employee.uuid,
+                {
+                  employee_code: values.employee_code,
+                  phone: values.phone,
+                  designation: values.designation,
+                  department_id: values.department_id ?? null,
+                  team_id: values.team_id ?? null,
+                  manager_employee_id: values.manager_employee_id ?? null,
+                  joining_date: values.joining_date,
+                  job_role_id: values.job_role_id ?? null,
+                  previous_team_id: employee.team_id,
+                },
+              );
+              toast.success("Employee updated");
+              for (const warning of warnings) toast.warning(warning);
+              setEditing(false);
+              await Promise.all([employeeQ.refetch(), peopleQ.refetch()]);
+            }}
+          />
+        </div>
+      ) : null}
 
       <div className="mb-px grid gap-px bg-hairline lg:grid-cols-12">
         <Panel className="border-0 bg-ink lg:col-span-5">

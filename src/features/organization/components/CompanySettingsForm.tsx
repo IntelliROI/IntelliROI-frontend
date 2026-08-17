@@ -43,6 +43,8 @@ export function CompanySettingsForm({
     setLoading(true);
     try {
       await onSubmit(parsed.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setLoading(false);
     }
