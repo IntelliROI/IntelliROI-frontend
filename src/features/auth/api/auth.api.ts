@@ -1,7 +1,12 @@
 /**
  * Auth API client (:8081) — live HTTP only, no mocks.
  */
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import {
+  LIST_PAGE_SIZE_DEFAULT,
+  type ListQuery,
+  type Paged,
+} from "@/lib/api/types";
 import {
   type AuthScope,
   type AuthSession,
@@ -342,6 +347,24 @@ export const authApi = {
   async listEmployees(): Promise<{ user: User; job_role?: JobRoleDto }[]> {
     const res = await apiRequest<EmployeeProfileDto[]>("auth", "/auth/users");
     return res.map((p) => ({ user: toUser(p.user), job_role: p.job_role }));
+  },
+
+  async listEmployeesPage(
+    query: ListQuery & { department_id?: number; team_id?: number } = {},
+  ): Promise<Paged<{ user: User; job_role?: JobRoleDto }>> {
+    const path = withQuery("/auth/users", {
+      page: query.page ?? 1,
+      page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
+      q: query.q,
+      status: query.status,
+      department_id: query.department_id,
+      team_id: query.team_id,
+    });
+    const page = await pagedRequest<EmployeeProfileDto>("auth", path);
+    return {
+      items: page.items.map((p) => ({ user: toUser(p.user), job_role: p.job_role })),
+      meta: page.meta,
+    };
   },
 
   async getEmployee(

@@ -1,4 +1,17 @@
-import { apiRequest, getStoredCompany, ApiError } from "@/lib/api/client";
+import {
+  apiRequest,
+  getStoredCompany,
+  pagedRequest,
+  withQuery,
+  ApiError,
+} from "@/lib/api/client";
+import {
+  LIST_DROPDOWN_PAGE_SIZE,
+  LIST_PAGE_SIZE_DEFAULT,
+  LIST_PAGE_SIZE_MAX,
+  type ListQuery,
+  type Paged,
+} from "@/lib/api/types";
 import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { authApi } from "@/features/auth/api/auth.api";
 import type {
@@ -136,9 +149,29 @@ function toApiStatus(status?: string): "active" | "archived" | undefined {
 
 /* ── Departments (organization-service) ─────────────────────── */
 
+async function listDepartmentsPage(
+  query: ListQuery = {},
+): Promise<Paged<Department>> {
+  const path = withQuery("/departments", {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
+    q: query.q,
+    status: toApiStatus(query.status),
+  });
+  const page = await pagedRequest<DepartmentDto>("org", path);
+  return {
+    items: page.items.map(toDepartment),
+    meta: page.meta,
+  };
+}
+
+/** Dropdowns / dashboards: one page at backend max (100). List UI uses `listDepartmentsPage`. */
 async function listDepartments(): Promise<Department[]> {
-  const res = await apiRequest<DepartmentDto[]>("org", "/departments");
-  return res.map(toDepartment);
+  const page = await listDepartmentsPage({
+    page: 1,
+    page_size: LIST_DROPDOWN_PAGE_SIZE,
+  });
+  return page.items;
 }
 
 async function getDepartment(id: number): Promise<Department> {
@@ -202,10 +235,31 @@ async function archiveDepartment(
 
 /* ── Teams (organization-service) ────────────────────────────── */
 
+async function listTeamsPage(
+  query: ListQuery & { department_id?: number } = {},
+): Promise<Paged<Team>> {
+  const path = withQuery("/teams", {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
+    q: query.q,
+    status: toApiStatus(query.status),
+    department_id: query.department_id,
+  });
+  const page = await pagedRequest<TeamDto>("org", path);
+  return {
+    items: page.items.map(toTeam),
+    meta: page.meta,
+  };
+}
+
+/** Dropdowns / dashboards: one page at backend max (100). List UI uses `listTeamsPage`. */
 async function listTeams(departmentId?: number): Promise<Team[]> {
-  const qs = departmentId ? `?department_id=${departmentId}` : "";
-  const res = await apiRequest<TeamDto[]>("org", `/teams${qs}`);
-  return res.map(toTeam);
+  const page = await listTeamsPage({
+    page: 1,
+    page_size: LIST_DROPDOWN_PAGE_SIZE,
+    department_id: departmentId,
+  });
+  return page.items;
 }
 
 async function createTeam(input: CreateTeamInput): Promise<Team> {
@@ -268,9 +322,31 @@ async function removeTeamMember(teamId: number, userUuid: string): Promise<void>
 
 /* ── Projects (organization-service) ─────────────────────────── */
 
+async function listProjectsPage(
+  query: ListQuery & { department_id?: number; team_id?: number } = {},
+): Promise<Paged<Project>> {
+  const path = withQuery("/projects", {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
+    q: query.q,
+    status: query.status,
+    department_id: query.department_id,
+    team_id: query.team_id,
+  });
+  const page = await pagedRequest<ProjectDto>("org", path);
+  return {
+    items: page.items.map(toProject),
+    meta: page.meta,
+  };
+}
+
+/** Dropdowns / dashboards: one page at backend max (100). List UI uses `listProjectsPage`. */
 async function listProjects(): Promise<Project[]> {
-  const res = await apiRequest<ProjectDto[]>("org", "/projects");
-  return res.map(toProject);
+  const page = await listProjectsPage({
+    page: 1,
+    page_size: LIST_DROPDOWN_PAGE_SIZE,
+  });
+  return page.items;
 }
 
 async function createProject(input: CreateProjectInput): Promise<Project> {
@@ -309,9 +385,27 @@ async function assignUser(
 
 /* ── Job roles (business-context-service — config entity) ──────── */
 
+async function listJobRolesPage(query: ListQuery = {}): Promise<Paged<JobRole>> {
+  const path = withQuery("/job-roles", {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
+    q: query.q,
+    status: toApiStatus(query.status),
+  });
+  const page = await pagedRequest<JobRoleDto>("bc", path);
+  return {
+    items: page.items.map(toJobRole),
+    meta: page.meta,
+  };
+}
+
+/** Dropdowns / dashboards: one page at backend max (100). List UI uses `listJobRolesPage`. */
 async function listJobRoles(): Promise<JobRole[]> {
-  const res = await apiRequest<JobRoleDto[]>("bc", "/job-roles");
-  return res.map(toJobRole);
+  const page = await listJobRolesPage({
+    page: 1,
+    page_size: LIST_DROPDOWN_PAGE_SIZE,
+  });
+  return page.items;
 }
 
 async function createJobRole(input: CreateJobRoleInput): Promise<JobRole> {
@@ -440,6 +534,19 @@ async function listEmployees(): Promise<Employee[]> {
     loadOrgMaps(),
   ]);
   return profiles.map((p) => toEmployee(p, maps));
+}
+
+async function listEmployeesPage(
+  query: ListQuery & { department_id?: number; team_id?: number } = {},
+): Promise<Paged<Employee>> {
+  const [page, maps] = await Promise.all([
+    authApi.listEmployeesPage(query),
+    loadOrgMaps(),
+  ]);
+  return {
+    items: page.items.map((p) => toEmployee(p, maps)),
+    meta: page.meta,
+  };
 }
 
 async function getEmployee(uuid: string): Promise<Employee> {
@@ -652,32 +759,179 @@ async function resendInvite(email: string) {
   return authApi.resendInvite(email);
 }
 
+/* ── Bulk import (organization-service) ──────────────────────── */
+
+export type ImportJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type ImportJob = {
+  mode: string;
+  import_uuid: string;
+  status: ImportJobStatus;
+  current_pass: string;
+  total_rows: number;
+  processed_rows: number;
+  created_rows: number;
+  skipped_rows: number;
+  failed_rows: number;
+  send_invite_emails: boolean;
+  error_summary?: string;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+};
+
+export type ImportPreviewAction = "create" | "update" | "skip" | "fail";
+
+export type ImportPreviewRow = {
+  row_number: number;
+  pass: string;
+  entity: string;
+  natural_key: string;
+  action: ImportPreviewAction;
+  message?: string;
+  payload: unknown;
+};
+
+export type ImportPreview = {
+  mode: "preview";
+  total_rows: number;
+  would_create: number;
+  would_update: number;
+  would_skip: number;
+  would_fail: number;
+  send_invite_emails: boolean;
+  rows: ImportPreviewRow[];
+};
+
+export type ImportRowStatus =
+  | "pending"
+  | "processing"
+  | "created"
+  | "skipped"
+  | "failed";
+
+export type ImportRow = {
+  row_number: number;
+  pass: string;
+  entity: string;
+  natural_key: string;
+  status: ImportRowStatus;
+  error_code?: string;
+  error_message?: string;
+  result_id?: number;
+  result_uuid?: string;
+};
+
+/**
+ * Single-hierarchy import scope. When set, the backend parses only that
+ * entity's CSV columns and never derives/creates unrelated entities (e.g. a
+ * people upload never creates departments/teams as a side effect).
+ * Omit for the legacy combined (departments+teams+people+projects) upload.
+ */
+export type ImportEntity = "departments" | "teams" | "people" | "projects";
+
+/** Dry-run: parses + simulates the CSV without writing anything. */
+async function previewImport(
+  csvText: string,
+  entity?: ImportEntity,
+): Promise<ImportPreview> {
+  const path = withQuery("/imports", { mode: "preview", entity });
+  return apiRequest<ImportPreview>("org", path, {
+    method: "POST",
+    body: csvText,
+    headers: { "Content-Type": "text/csv" },
+  });
+}
+
+/** Enqueues the CSV for async processing. One active import per company. */
+async function startImport(
+  csvText: string,
+  sendInviteEmails: boolean,
+  entity?: ImportEntity,
+): Promise<ImportJob> {
+  const path = withQuery("/imports", {
+    mode: "execute",
+    send_invite_emails: sendInviteEmails ? "true" : undefined,
+    entity,
+  });
+  return apiRequest<ImportJob>("org", path, {
+    method: "POST",
+    body: csvText,
+    headers: { "Content-Type": "text/csv" },
+  });
+}
+
+async function getImportJob(uuid: string): Promise<ImportJob> {
+  return apiRequest<ImportJob>("org", `/imports/${uuid}`);
+}
+
+async function listImportRows(
+  uuid: string,
+  query: {
+    page?: number;
+    page_size?: number;
+    status?: string;
+    pass?: string;
+    entity?: string;
+  } = {},
+): Promise<Paged<ImportRow>> {
+  const path = withQuery(`/imports/${uuid}/rows`, {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? LIST_PAGE_SIZE_MAX,
+    status: query.status,
+    pass: query.pass,
+    entity: query.entity,
+  });
+  return pagedRequest<ImportRow>("org", path);
+}
+
+async function cancelImport(uuid: string): Promise<ImportJob> {
+  return apiRequest<ImportJob>("org", `/imports/${uuid}/cancel`, {
+    method: "POST",
+  });
+}
+
 export const organizationApi = {
   getSettings,
   updateSettings,
   listJobRoles,
+  listJobRolesPage,
   createJobRole,
   updateJobRole,
   archiveJobRole,
   assignEmployeeJobRole,
   listDepartments,
+  listDepartmentsPage,
   getDepartment,
   createDepartment,
   updateDepartment,
   archiveDepartment,
   listTeams,
+  listTeamsPage,
   createTeam,
   updateTeam,
   archiveTeam,
   addTeamMember,
   removeTeamMember,
   listProjects,
+  listProjectsPage,
   createProject,
   addProjectMember,
   listEmployees,
+  listEmployeesPage,
   getEmployee,
   createEmployee,
   updateEmployee,
   resendInvite,
   assignUser,
+  previewImport,
+  startImport,
+  getImportJob,
+  listImportRows,
+  cancelImport,
 };

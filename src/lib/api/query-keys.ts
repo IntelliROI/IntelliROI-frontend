@@ -6,18 +6,58 @@ export const queryKeys = {
     all: (companySlug: string) => ["company", companySlug] as const,
     departments: (companySlug: string) =>
       ["company", companySlug, "departments"] as const,
+    departmentsPage: (
+      companySlug: string,
+      query: { page: number; pageSize: number; q: string; status: string },
+    ) => ["company", companySlug, "departments", "list", query] as const,
     department: (companySlug: string, departmentId: number) =>
       ["company", companySlug, "department", departmentId] as const,
     teams: (companySlug: string, departmentId?: number) =>
       ["company", companySlug, "teams", departmentId ?? "all"] as const,
+    teamsPage: (
+      companySlug: string,
+      query: {
+        page: number;
+        pageSize: number;
+        q: string;
+        status: string;
+        departmentId: number | "";
+      },
+    ) => ["company", companySlug, "teams", "list", query] as const,
     employees: (companySlug: string) =>
       ["company", companySlug, "employees"] as const,
+    employeesPage: (
+      companySlug: string,
+      query: {
+        page: number;
+        pageSize: number;
+        q: string;
+        status: string;
+        departmentId: number | "";
+        teamId: number | "";
+      },
+    ) => ["company", companySlug, "employees", "list", query] as const,
     jobRoles: (companySlug: string) =>
       ["company", companySlug, "job-roles"] as const,
+    jobRolesPage: (
+      companySlug: string,
+      query: { page: number; pageSize: number; q: string; status: string },
+    ) => ["company", companySlug, "job-roles", "list", query] as const,
     settings: (companySlug: string) =>
       ["company", companySlug, "settings"] as const,
     projects: (companySlug: string) =>
       ["company", companySlug, "projects"] as const,
+    projectsPage: (
+      companySlug: string,
+      query: {
+        page: number;
+        pageSize: number;
+        q: string;
+        status: string;
+        departmentId: number | "";
+        teamId: number | "";
+      },
+    ) => ["company", companySlug, "projects", "list", query] as const,
     roi: {
       summary: (companySlug: string, period = "month") =>
         ["company", companySlug, "roi", "summary", period] as const,
@@ -68,6 +108,13 @@ export const queryKeys = {
       ["company", companySlug, "prompt-templates"] as const,
     audit: (companySlug: string) =>
       ["company", companySlug, "audit"] as const,
+    importJob: (companySlug: string, uuid: string) =>
+      ["company", companySlug, "import", uuid] as const,
+    importRows: (
+      companySlug: string,
+      uuid: string,
+      query: { page: number; pageSize: number; status: string },
+    ) => ["company", companySlug, "import", uuid, "rows", query] as const,
   },
   platform: {
     metrics: () => ["platform", "metrics"] as const,

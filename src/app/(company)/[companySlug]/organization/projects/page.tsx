@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -10,18 +10,28 @@ import {
   DataTable,
   GridView,
   ViewToggle,
+  EmptyState,
   type ViewMode,
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
+import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { useProjectsPage } from "@/features/organization/hooks/useOrganizationQueries";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { CreateProjectForm } from "@/features/organization/components/CreateProjectForm";
+import { EntityImportPanel } from "@/features/organization/components/EntityImportPanel";
+import { PROJECTS_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { Can } from "@/lib/rbac/Can";
 import { AddMemberAction, RowActions } from "@/components/ui/row-actions";
 import { formatCurrency } from "@/lib/utils";
 import type { Project } from "@/features/organization/types";
+import { queryKeys } from "@/lib/api/query-keys";
+import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+
+type ProjectStatusFilter = "" | "active" | "completed" | "archived";
 
 export default function ProjectsPage({
   params,
@@ -30,23 +40,49 @@ export default function ProjectsPage({
 }) {
   const [view, setView] = useState<ViewMode>("table");
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [assigning, setAssigning] = useState<Project | null>(null);
   const [memberUuid, setMemberUuid] = useState("");
 
-  const projects = useQuery({
-    queryKey: ["company", params.companySlug, "projects"],
-    queryFn: () => organizationApi.listProjects(),
+  const [search, setSearch] = useState("");
+  const q = useDebouncedValue(search, 300);
+  const [status, setStatus] = useState<ProjectStatusFilter>("");
+  const [departmentId, setDepartmentId] = useState<number | "">("");
+  const [teamId, setTeamId] = useState<number | "">("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(LIST_PAGE_SIZE_DEFAULT);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, status, departmentId, teamId, pageSize]);
+
+  const projects = useProjectsPage(params.companySlug, {
+    page,
+    pageSize,
+    q,
+    status,
+    departmentId,
+    teamId,
   });
+  const items = projects.data?.items ?? [];
+  const meta = projects.data?.meta ?? EMPTY_PAGE_META;
+
+  useEffect(() => {
+    if (page > 1 && meta.total_pages > 0 && page > meta.total_pages) {
+      setPage(meta.total_pages);
+    }
+  }, [meta.total_pages, page]);
+
   const departments = useQuery({
-    queryKey: ["company", params.companySlug, "departments"],
+    queryKey: queryKeys.company.departments(params.companySlug),
     queryFn: () => organizationApi.listDepartments(),
   });
   const teams = useQuery({
-    queryKey: ["company", params.companySlug, "teams"],
+    queryKey: queryKeys.company.teams(params.companySlug),
     queryFn: () => organizationApi.listTeams(),
   });
   const employees = useQuery({
-    queryKey: ["company", params.companySlug, "employees"],
+    queryKey: queryKeys.company.employees(params.companySlug),
     queryFn: () => organizationApi.listEmployees(),
   });
 
@@ -62,18 +98,25 @@ export default function ProjectsPage({
       Object.fromEntries((teams.data ?? []).map((t) => [t.id, t.team_name])),
     [teams.data],
   );
+  const teamsInDept = useMemo(
+    () =>
+      departmentId === ""
+        ? teams.data ?? []
+        : (teams.data ?? []).filter((t) => t.department_id === departmentId),
+    [teams.data, departmentId],
+  );
 
   // Live per-project monitor — worker writes scope_type=project snapshots.
   const projectAnalytics = useQueries({
-    queries: (projects.data ?? []).map((p) => ({
+    queries: items.map((p) => ({
       queryKey: ["company", params.companySlug, "analytics", "project", p.id],
       queryFn: () => analyticsApi.project(p.id, "month"),
-      enabled: Boolean(projects.data?.length),
+      enabled: items.length > 0,
       staleTime: 30_000,
     })),
   });
   const analyticsById = new Map(
-    (projects.data ?? []).map((p, i) => [p.id, projectAnalytics[i]?.data]),
+    items.map((p, i) => [p.id, projectAnalytics[i]?.data]),
   );
 
   const statusColor = (s: string) =>
@@ -95,7 +138,7 @@ export default function ProjectsPage({
     }
   }
 
-  const rows = (projects.data ?? []).map((p) => ({
+  const rows = items.map((p) => ({
     name: <span className="font-medium text-text-primary">{p.project_name}</span>,
     dept: p.department_id ? deptMap[p.department_id] ?? p.department_id : "—",
     team: p.team_id ? teamMap[p.team_id] ?? p.team_id : "—",
@@ -128,7 +171,7 @@ export default function ProjectsPage({
     ),
   }));
 
-  const cards: GridCard[] = (projects.data ?? []).map((p) => ({
+  const cards: GridCard[] = items.map((p) => ({
     title: p.project_name,
     badge: (
       <span
@@ -168,6 +211,9 @@ export default function ProjectsPage({
     ),
   }));
 
+  const empty = !projects.isLoading && items.length === 0;
+  const hasFilters = Boolean(q || status || departmentId || teamId);
+
   return (
     <div>
       <PageHeader
@@ -177,6 +223,15 @@ export default function ProjectsPage({
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
+            <Can resource="projects" action="manage">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowImport((v) => !v)}
+              >
+                {showImport ? "Close import" : "Import CSV"}
+              </Button>
+            </Can>
             <Can resource="projects" action="create">
               <Button size="sm" onClick={() => setShowForm((v) => !v)}>
                 {showForm ? "Close" : "Add project"}
@@ -185,6 +240,21 @@ export default function ProjectsPage({
           </div>
         }
       />
+
+      {showImport && (
+        <EntityImportPanel
+          companySlug={params.companySlug}
+          entity="projects"
+          title="Import projects"
+          description="Columns match the Add project form: project_name, description, department_name, team_name, plus an optional project_members list (semicolon-separated emails)."
+          templateCsv={PROJECTS_IMPORT_TEMPLATE}
+          templateFilename="projects-import-template.csv"
+          onClose={() => setShowImport(false)}
+          onImported={() => {
+            void projects.refetch();
+          }}
+        />
+      )}
 
       {showForm && (
         <div className="mb-8 border border-hairline p-6">
@@ -198,7 +268,7 @@ export default function ProjectsPage({
               await organizationApi.createProject(values);
               toast.success(`Created ${values.project_name}`);
               setShowForm(false);
-              projects.refetch();
+              await projects.refetch();
             }}
           />
         </div>
@@ -238,25 +308,101 @@ export default function ProjectsPage({
         </div>
       )}
 
-      {projects.isLoading ? (
+      <ListFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search project name"
+        showStatus={false}
+        extra={
+          <>
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as ProjectStatusFilter)}
+              className="h-8 w-auto min-w-[9.5rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Status"
+            >
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="archived">Archived</option>
+            </Select>
+            <Select
+              value={departmentId}
+              onChange={(e) => {
+                const next = e.target.value === "" ? "" : Number(e.target.value);
+                setDepartmentId(next);
+                setTeamId("");
+              }}
+              className="h-8 w-auto min-w-[11rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Department"
+            >
+              <option value="">All departments</option>
+              {(departments.data ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.department_name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={teamId}
+              onChange={(e) =>
+                setTeamId(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className="h-8 w-auto min-w-[10rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Team"
+            >
+              <option value="">All teams</option>
+              {teamsInDept.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.team_name}
+                </option>
+              ))}
+            </Select>
+          </>
+        }
+      />
+
+      {projects.isLoading && !projects.data ? (
         <LoadingBlock className="h-48" />
-      ) : view === "table" ? (
-        <DataTable
-          columns={[
-            { key: "name", label: "Project", sortable: true },
-            { key: "dept", label: "Department" },
-            { key: "team", label: "Team" },
-            { key: "requests", label: "Requests", align: "right", sortable: true },
-            { key: "spend", label: "Spend", align: "right" },
-            { key: "roi", label: "Est. ROI", align: "right", sortable: true },
-            { key: "status", label: "Status" },
-            { key: "action", label: "Actions", align: "right", width: "w-32" },
-          ]}
-          rows={rows}
-          showIndex
+      ) : empty ? (
+        <EmptyState
+          title={hasFilters ? "No projects match" : "No projects yet"}
+          description={
+            hasFilters
+              ? "Try a different search, status, department, or team filter."
+              : "Add a project to start attributing AI usage."
+          }
         />
       ) : (
-        <GridView cards={cards} cols={3} />
+        <>
+          {view === "table" ? (
+            <DataTable
+              columns={[
+                { key: "name", label: "Project", sortable: true },
+                { key: "dept", label: "Department" },
+                { key: "team", label: "Team" },
+                { key: "requests", label: "Requests", align: "right", sortable: true },
+                { key: "spend", label: "Spend", align: "right" },
+                { key: "roi", label: "Est. ROI", align: "right", sortable: true },
+                { key: "status", label: "Status" },
+                { key: "action", label: "Actions", align: "right", width: "w-32" },
+              ]}
+              rows={rows}
+              showIndex
+            />
+          ) : (
+            <GridView cards={cards} cols={3} />
+          )}
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={meta.total}
+            totalPages={meta.total_pages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            noun="projects"
+          />
+        </>
       )}
     </div>
   );

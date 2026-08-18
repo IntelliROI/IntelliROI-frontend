@@ -1,24 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   PageHeader,
   LoadingBlock,
   DataTable,
   GridView,
   ViewToggle,
+  EmptyState,
   type ViewMode,
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/input";
+import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { useEmployeesPage } from "@/features/organization/hooks/useOrganizationQueries";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
+import { EntityImportPanel } from "@/features/organization/components/EntityImportPanel";
+import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
-import { useState } from "react";
 import { Pencil } from "lucide-react";
+import { queryKeys } from "@/lib/api/query-keys";
+import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useQueries } from "@tanstack/react-query";
+
+type EmployeeStatusFilter = "" | "active" | "invited";
 
 function cell(value?: string | null) {
   const text = (value ?? "").trim();
@@ -34,21 +46,60 @@ export default function EmployeesPage({
   params: { companySlug: string };
 }) {
   const [view, setView] = useState<ViewMode>("table");
+  const [showImport, setShowImport] = useState(false);
 
-  const employees = useQuery({
-    queryKey: ["company", params.companySlug, "employees"],
-    queryFn: () => organizationApi.listEmployees(),
+  const [search, setSearch] = useState("");
+  const q = useDebouncedValue(search, 300);
+  const [status, setStatus] = useState<EmployeeStatusFilter>("");
+  const [departmentId, setDepartmentId] = useState<number | "">("");
+  const [teamId, setTeamId] = useState<number | "">("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(LIST_PAGE_SIZE_DEFAULT);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, status, departmentId, teamId, pageSize]);
+
+  const employees = useEmployeesPage(params.companySlug, {
+    page,
+    pageSize,
+    q,
+    status,
+    departmentId,
+    teamId,
   });
+  const items = employees.data?.items ?? [];
+  const meta = employees.data?.meta ?? EMPTY_PAGE_META;
+
+  useEffect(() => {
+    if (page > 1 && meta.total_pages > 0 && page > meta.total_pages) {
+      setPage(meta.total_pages);
+    }
+  }, [meta.total_pages, page]);
+
+  const departments = useQuery({
+    queryKey: queryKeys.company.departments(params.companySlug),
+    queryFn: () => organizationApi.listDepartments(),
+  });
+  const teams = useQuery({
+    queryKey: queryKeys.company.teams(params.companySlug),
+    queryFn: () => organizationApi.listTeams(),
+  });
+  const teamsInDept = useMemo(
+    () =>
+      departmentId === ""
+        ? teams.data ?? []
+        : (teams.data ?? []).filter((t) => t.department_id === departmentId),
+    [teams.data, departmentId],
+  );
 
   // org list endpoint doesn't compute spend/ROI — overlay live figures from roi-engine.
-  const activeEmployees = (employees.data ?? []).filter(
-    (e) => e.status !== "invited",
-  );
+  const activeEmployees = items.filter((e) => e.status !== "invited");
   const employeeRoi = useQueries({
     queries: activeEmployees.map((e) => ({
       queryKey: ["company", params.companySlug, "roi", "employee", e.id],
       queryFn: () => roiApi.employee(e.id),
-      enabled: Boolean(activeEmployees.length),
+      enabled: activeEmployees.length > 0,
       staleTime: 30_000,
     })),
   });
@@ -61,7 +112,7 @@ export default function EmployeesPage({
       ? employees.error.message
       : "Could not reach the auth service.";
 
-  const rows = (employees.data ?? []).map((e) => {
+  const rows = items.map((e) => {
     const pending = e.status === "invited";
     return {
       code: (
@@ -142,7 +193,7 @@ export default function EmployeesPage({
     };
   });
 
-  const cards: GridCard[] = (employees.data ?? []).map((e) => {
+  const cards: GridCard[] = items.map((e) => {
     const pending = e.status === "invited";
     return {
       title: e.display_name,
@@ -205,6 +256,9 @@ export default function EmployeesPage({
     };
   });
 
+  const empty = !employees.isLoading && !employees.isError && items.length === 0;
+  const hasFilters = Boolean(q || status || departmentId || teamId);
+
   return (
     <div>
       <PageHeader
@@ -214,6 +268,15 @@ export default function EmployeesPage({
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
+            <Can resource="employees" action="manage">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowImport((v) => !v)}
+              >
+                {showImport ? "Close import" : "Import CSV"}
+              </Button>
+            </Can>
             <Can resource="employees" action="create">
               <Button asChild size="sm">
                 <Link href={`/${params.companySlug}/organization/employees/new`}>
@@ -225,7 +288,76 @@ export default function EmployeesPage({
         }
       />
 
-      {employees.isLoading ? (
+      {showImport && (
+        <EntityImportPanel
+          companySlug={params.companySlug}
+          entity="people"
+          title="Import employees"
+          description="Columns match the Add employee form: email, first_name, last_name, role, employee_code, phone, designation, department_name, team_name, manager_email, joining_date. Department/team must already exist."
+          templateCsv={EMPLOYEES_IMPORT_TEMPLATE}
+          templateFilename="employees-import-template.csv"
+          showInviteToggle
+          onClose={() => setShowImport(false)}
+          onImported={() => {
+            void employees.refetch();
+          }}
+        />
+      )}
+
+      <ListFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search name, email, or ID"
+        showStatus={false}
+        extra={
+          <>
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as EmployeeStatusFilter)}
+              className="h-8 w-auto min-w-[9.5rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Status"
+            >
+              <option value="">All</option>
+              <option value="active">Active</option>
+              <option value="invited">Pending</option>
+            </Select>
+            <Select
+              value={departmentId}
+              onChange={(e) => {
+                const next = e.target.value === "" ? "" : Number(e.target.value);
+                setDepartmentId(next);
+                setTeamId("");
+              }}
+              className="h-8 w-auto min-w-[11rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Department"
+            >
+              <option value="">All departments</option>
+              {(departments.data ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.department_name}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={teamId}
+              onChange={(e) =>
+                setTeamId(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className="h-8 w-auto min-w-[10rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+              aria-label="Team"
+            >
+              <option value="">All teams</option>
+              {teamsInDept.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.team_name}
+                </option>
+              ))}
+            </Select>
+          </>
+        }
+      />
+
+      {employees.isLoading && !employees.data ? (
         <LoadingBlock className="h-64" />
       ) : employees.isError ? (
         <div className="border border-hairline px-4 py-8 text-sm text-text-secondary">
@@ -239,24 +371,46 @@ export default function EmployeesPage({
             Retry
           </Button>
         </div>
-      ) : view === "table" ? (
-        <DataTable
-          columns={[
-            { key: "code", label: "ID", mono: true, width: "w-24" },
-            { key: "name", label: "Name", sortable: true },
-            { key: "department", label: "Department", sortable: true },
-            { key: "team", label: "Team" },
-            { key: "job", label: "Job role" },
-            { key: "status", label: "Status", width: "w-24" },
-            { key: "spend", label: "Spend", align: "right", sortable: true },
-            { key: "roi", label: "Est. ROI", align: "right", sortable: true },
-            { key: "action", label: "Actions", align: "right", width: "w-40" },
-          ]}
-          rows={rows}
-          showIndex
+      ) : empty ? (
+        <EmptyState
+          title={hasFilters ? "No employees match" : "No employees yet"}
+          description={
+            hasFilters
+              ? "Try a different search, status, department, or team filter."
+              : "Add an employee to start attributing AI usage."
+          }
         />
       ) : (
-        <GridView cards={cards} cols={3} />
+        <>
+          {view === "table" ? (
+            <DataTable
+              columns={[
+                { key: "code", label: "ID", mono: true, width: "w-24" },
+                { key: "name", label: "Name", sortable: true },
+                { key: "department", label: "Department", sortable: true },
+                { key: "team", label: "Team" },
+                { key: "job", label: "Job role" },
+                { key: "status", label: "Status", width: "w-24" },
+                { key: "spend", label: "Spend", align: "right", sortable: true },
+                { key: "roi", label: "Est. ROI", align: "right", sortable: true },
+                { key: "action", label: "Actions", align: "right", width: "w-40" },
+              ]}
+              rows={rows}
+              showIndex
+            />
+          ) : (
+            <GridView cards={cards} cols={3} />
+          )}
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={meta.total}
+            totalPages={meta.total_pages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            noun="employees"
+          />
+        </>
       )}
     </div>
   );

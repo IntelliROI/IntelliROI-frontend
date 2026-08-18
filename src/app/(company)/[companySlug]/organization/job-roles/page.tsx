@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   PageHeader,
@@ -9,17 +9,23 @@ import {
   DataTable,
   GridView,
   ViewToggle,
+  EmptyState,
   type ViewMode,
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
+import { ListFilterBar, ListPagination, type StatusFilter } from "@/components/ui/list-toolbar";
 import { CreateJobRoleForm } from "@/features/organization/components/CreateJobRoleForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { useJobRolesPage } from "@/features/organization/hooks/useOrganizationQueries";
 import type { JobRole } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { ArchiveAction, EditAction, RowActions } from "@/components/ui/row-actions";
-import { useState } from "react";
+import { queryKeys } from "@/lib/api/query-keys";
+import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useEffect, useState } from "react";
 
 export default function JobRolesPage({
   params,
@@ -30,10 +36,31 @@ export default function JobRolesPage({
   const [editing, setEditing] = useState<JobRole | null>(null);
   const queryClient = useQueryClient();
 
-  const roles = useQuery({
-    queryKey: ["company", params.companySlug, "job-roles"],
-    queryFn: () => organizationApi.listJobRoles(),
-  });
+  const [search, setSearch] = useState("");
+  const q = useDebouncedValue(search, 300);
+  const [status, setStatus] = useState<StatusFilter>("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(LIST_PAGE_SIZE_DEFAULT);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, status, pageSize]);
+
+  const roles = useJobRolesPage(params.companySlug, { page, pageSize, q, status });
+  const items = roles.data?.items ?? [];
+  const meta = roles.data?.meta ?? EMPTY_PAGE_META;
+
+  useEffect(() => {
+    if (page > 1 && meta.total_pages > 0 && page > meta.total_pages) {
+      setPage(meta.total_pages);
+    }
+  }, [meta.total_pages, page]);
+
+  async function invalidateJobRoles() {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.company.jobRoles(params.companySlug),
+    });
+  }
 
   const createRole = useMutation({
     mutationFn: (values: {
@@ -41,11 +68,9 @@ export default function JobRolesPage({
       hourly_cost: number;
       currency?: string;
     }) => organizationApi.createJobRole(values),
-    onSuccess: (row) => {
+    onSuccess: async (row) => {
       toast.success(`Added ${row.role_name}`);
-      void queryClient.invalidateQueries({
-        queryKey: ["company", params.companySlug, "job-roles"],
-      });
+      await invalidateJobRoles();
     },
   });
 
@@ -56,9 +81,7 @@ export default function JobRolesPage({
       toast.success(
         restore ? `Restored ${r.role_name}` : `Archived ${r.role_name}`,
       );
-      void queryClient.invalidateQueries({
-        queryKey: ["company", params.companySlug, "job-roles"],
-      });
+      await invalidateJobRoles();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update status");
     }
@@ -67,7 +90,7 @@ export default function JobRolesPage({
   const statusColor = (s: string) =>
     s === "active" ? "text-accent" : "text-text-secondary/50";
 
-  const rows = (roles.data ?? []).map((r) => ({
+  const rows = items.map((r) => ({
     name: <span className="font-medium text-text-primary">{r.role_name}</span>,
     rate: (
       <span className="font-mono font-medium text-text-primary">
@@ -101,7 +124,7 @@ export default function JobRolesPage({
     ),
   }));
 
-  const cards: GridCard[] = (roles.data ?? []).map((r) => ({
+  const cards: GridCard[] = items.map((r) => ({
     title: r.role_name,
     badge: (
       <span
@@ -136,6 +159,8 @@ export default function JobRolesPage({
     ),
   }));
 
+  const empty = !roles.isLoading && items.length === 0;
+
   return (
     <div>
       <PageHeader
@@ -168,9 +193,7 @@ export default function JobRolesPage({
                 await organizationApi.updateJobRole(editing.id, values);
                 toast.success(`Updated ${values.role_name}`);
                 setEditing(null);
-                void queryClient.invalidateQueries({
-                  queryKey: ["company", params.companySlug, "job-roles"],
-                });
+                await invalidateJobRoles();
               } else {
                 await createRole.mutateAsync(values);
               }
@@ -190,7 +213,15 @@ export default function JobRolesPage({
         </div>
       </Can>
 
-      {roles.isLoading ? (
+      <ListFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search role name"
+        status={status}
+        onStatusChange={setStatus}
+      />
+
+      {roles.isLoading && !roles.data ? (
         <LoadingBlock className="h-64" />
       ) : roles.isError ? (
         <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
@@ -199,20 +230,42 @@ export default function JobRolesPage({
             ? roles.error.message
             : "Check the service is running and allows this origin."}
         </p>
-      ) : view === "table" ? (
-        <DataTable
-          columns={[
-            { key: "name", label: "Role", sortable: true },
-            { key: "rate", label: "Hourly cost", align: "right", sortable: true },
-            { key: "currency", label: "Currency" },
-            { key: "status", label: "Status" },
-            { key: "action", label: "Actions", align: "right", width: "w-28" },
-          ]}
-          rows={rows}
-          showIndex
+      ) : empty ? (
+        <EmptyState
+          title={q || status ? "No job roles match" : "No job roles yet"}
+          description={
+            q || status
+              ? "Try a different search or status filter."
+              : "Add a job role to set hourly costs for Estimated ROI."
+          }
         />
       ) : (
-        <GridView cards={cards} cols={4} />
+        <>
+          {view === "table" ? (
+            <DataTable
+              columns={[
+                { key: "name", label: "Role", sortable: true },
+                { key: "rate", label: "Hourly cost", align: "right", sortable: true },
+                { key: "currency", label: "Currency" },
+                { key: "status", label: "Status" },
+                { key: "action", label: "Actions", align: "right", width: "w-28" },
+              ]}
+              rows={rows}
+              showIndex
+            />
+          ) : (
+            <GridView cards={cards} cols={4} />
+          )}
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={meta.total}
+            totalPages={meta.total_pages}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            noun="job roles"
+          />
+        </>
       )}
     </div>
   );
