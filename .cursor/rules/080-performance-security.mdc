@@ -1,0 +1,31 @@
+---
+description: Performance and security defaults for IntelliROI frontend.
+globs: src/**/*.{ts,tsx}, next.config.mjs, middleware.ts
+alwaysApply: false
+---
+
+# Performance & Security
+
+## Performance
+
+- TanStack Query: use `QUERY_DEFAULTS` from `lib/performance.ts` (60s stale, no focus refetch spam)
+- Prefer `prefetch` on primary nav Links
+- API calls: pass `signal` / rely on 30s timeout in `apiRequest`
+- Keep `app/**/page.tsx` thin — heavy UI in `features/` for clearer code-splitting
+- Avoid mirroring large API lists into Zustand
+
+## Security
+
+- Middleware enforces auth + Super Admin + tenant slug match — never rely on UI alone
+- Security headers set in `next.config.mjs` (frame deny, nosniff, referrer, permissions)
+- Cookies: `SameSite=Lax`; `Secure` in production
+- `credentials: "omit"` on API fetch unless backend requires cookies
+- Never log access tokens or provider API keys
+- RBAC via `lib/rbac` + `<Can>`; backend must still enforce
+
+## Lag prevention checklist
+
+- [ ] No unbounded `useEffect` polling without interval cleanup
+- [ ] Charts/lists virtualize or paginate when data is large
+- [ ] Mutations `retry: 0` (don’t double-submit)
+- [ ] Abort in-flight requests on route change when using custom fetchers

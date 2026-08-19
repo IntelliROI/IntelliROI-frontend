@@ -1,0 +1,41 @@
+---
+description: IntelliROI visual chassis + role accents — dark ops-console, Inter + Mono.
+globs: "**/*.{tsx,jsx,css}"
+alwaysApply: false
+---
+
+# IntelliROI Design System
+
+**Aesthetic:** Terminal / Bloomberg / ops-console. Dark only. Sharp corners (≈0).
+
+**Model:** Shared chassis (fonts/surfaces) + **role accent** via `data-role-theme` / `--role-accent`. Logo always brand mint `#00E5A8`.
+
+## Chassis tokens
+
+| Token | Hex | Use |
+|-------|-----|-----|
+| `ink` | `#09090B` | Page bg |
+| `surface` | `#111827` | Panels |
+| `text-primary` | `#F8FAFC` | Headings |
+| `text-secondary` | `#CBD5E1` | Body |
+| `hairline` | `#2A2A2A` | Borders |
+| `brand` | `#00E5A8` | Logo / landing |
+| `warning` / `danger` | `#F59E0B` / `#EF4444` | Semantics only |
+
+## Role accents (interactive chrome)
+
+`super-admin` `#67E8F9` · `ceo` `#E8C547` · `department-manager` `#4F8CFF` · `team-lead` `#2DD4BF` · `employee` `#00E5A8`
+
+## Typography (never role-swap)
+
+Inter (`font-sans`) + JetBrains Mono (`font-mono`, uppercase system labels)
+
+## Patterns
+
+Hairline mosaics · role-colored glow (not soft shadows) · Lucide 1.5 · ease `[0.22,1,0.36,1]`
+
+## Don't
+
+Light mode · purple/cream defaults · large radius · separate full themes per role · “Actual ROI”
+
+See `.cursor/docs/ROLE_COLOR_IDENTITY.md` + skill `intelliroi-dashboard`.
