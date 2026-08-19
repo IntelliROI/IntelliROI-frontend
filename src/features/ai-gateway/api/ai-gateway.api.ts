@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
 
 export type ProviderModel = {
   id: number;
@@ -109,10 +110,6 @@ type ConversationDto = {
   messages?: MessageDto[];
 };
 
-function asList<T>(raw: unknown): T[] {
-  return Array.isArray(raw) ? (raw as T[]) : [];
-}
-
 function toProvider(p: ProviderDto): Provider {
   const model_entries: ProviderModel[] = Array.isArray(p.models)
     ? p.models
@@ -169,13 +166,22 @@ function toChat(r: ChatDto): ChatResponse {
 
 export const aiGatewayApi = {
   async listProviders(): Promise<Provider[]> {
-    const raw = await apiRequest<ProviderDto[]>("ai", "/providers");
-    return asList<ProviderDto>(raw).map(toProvider);
+    const page = await pagedRequest<ProviderDto>(
+      "ai",
+      withQuery("/providers", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
+    );
+    return page.items.map(toProvider);
   },
 
   async listConfigured(): Promise<ConfiguredProvider[]> {
-    const raw = await apiRequest<ConfiguredDto[]>("ai", "/providers/configured");
-    return asList<ConfiguredDto>(raw).map(toConfigured);
+    const page = await pagedRequest<ConfiguredDto>(
+      "ai",
+      withQuery("/providers/configured", {
+        page: 1,
+        page_size: LIST_PAGE_SIZE_MAX,
+      }),
+    );
+    return page.items.map(toConfigured);
   },
 
   async addKey(
@@ -216,8 +222,11 @@ export const aiGatewayApi = {
   },
 
   async listConversations(): Promise<Conversation[]> {
-    const raw = await apiRequest<ConversationDto[]>("ai", "/conversations");
-    return asList<ConversationDto>(raw).map(toConversation);
+    const page = await pagedRequest<ConversationDto>(
+      "ai",
+      withQuery("/conversations", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
+    );
+    return page.items.map(toConversation);
   },
 
   async getConversation(uuid: string): Promise<ConversationDetail> {

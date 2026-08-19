@@ -23,6 +23,10 @@ export default function RoiPage({
     queryKey: ["company", params.companySlug, "roi", "summary", period],
     queryFn: () => roiApi.company(period),
   });
+  const formulas = useQuery({
+    queryKey: ["company", params.companySlug, "roi", "formula-versions"],
+    queryFn: () => roiApi.formulaVersions(),
+  });
   const analytics = useQuery({
     queryKey: ["company", params.companySlug, "analytics", analyticsPeriod],
     queryFn: () => analyticsApi.company(analyticsPeriod),
@@ -50,6 +54,10 @@ export default function RoiPage({
   }
 
   const r = roi.data;
+  const formulaVersion =
+    r.formula_version ||
+    formulas.data?.[formulas.data.length - 1]?.version ||
+    undefined;
 
   return (
     <div>
@@ -72,7 +80,7 @@ export default function RoiPage({
             <h2 className="font-medium text-text-primary">ROI over time</h2>
             <Provenance
               computedAt={r.computed_at}
-              formulaVersion={r.formula_version}
+              formulaVersion={formulaVersion}
             />
           </div>
           <TrendAreaChart

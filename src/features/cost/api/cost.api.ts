@@ -73,6 +73,15 @@ function asList<T>(raw: unknown): T[] {
   return Array.isArray(raw) ? (raw as T[]) : [];
 }
 
+/** Backend cost APIs require `YYYY-MM`. Aliases like month/day/week become the current UTC month. */
+export function toCostPeriodMonth(period?: string): string {
+  const raw = (period ?? "").trim();
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+  const now = new Date();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `${now.getUTCFullYear()}-${month}`;
+}
+
 function budgetScope(b: BudgetDto): { scope: string; scope_id?: number } {
   if (b.team_id) return { scope: "team", scope_id: b.team_id };
   if (b.department_id) return { scope: "department", scope_id: b.department_id };
@@ -98,7 +107,8 @@ export const costApi = {
     period = "month",
     scopeId?: number,
   ): Promise<CostSummary> {
-    const qs = new URLSearchParams({ scope, period });
+    const periodMonth = toCostPeriodMonth(period);
+    const qs = new URLSearchParams({ scope, period: periodMonth });
     if (scopeId) qs.set("scope_id", String(scopeId));
     const raw = await apiRequest<CostSummaryDto>(
       "cost",
@@ -106,7 +116,7 @@ export const costApi = {
     );
     return {
       scope: raw.scope ?? scope,
-      period: raw.period ?? period,
+      period: raw.period ?? periodMonth,
       total_cost: Number(raw.total_cost ?? 0),
       currency: raw.currency ?? "USD",
       event_count: raw.event_count ?? 0,
@@ -121,7 +131,7 @@ export const costApi = {
         try {
           const cons = await apiRequest<ConsumptionDto>(
             "cost",
-            `/budgets/${b.id}/consumption`,
+            `/budgets/${b.id}/consumption?period=${toCostPeriodMonth()}`,
           );
           return toBudget(
             b,
@@ -155,8 +165,12 @@ export const costApi = {
     return toBudget(raw);
   },
 
-  async budgetConsumption(id: number) {
-    return apiRequest<ConsumptionDto>("cost", `/budgets/${id}/consumption`);
+  async budgetConsumption(id: number, period?: string) {
+    const periodMonth = toCostPeriodMonth(period);
+    return apiRequest<ConsumptionDto>(
+      "cost",
+      `/budgets/${id}/consumption?period=${periodMonth}`,
+    );
   },
 
   async costAlerts(): Promise<CostAlert[]> {

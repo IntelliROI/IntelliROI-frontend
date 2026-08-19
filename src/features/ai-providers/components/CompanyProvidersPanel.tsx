@@ -13,7 +13,7 @@ import { queryKeys } from "@/lib/api/query-keys";
 import { toast } from "sonner";
 
 /** Chat is only wired for these providers on the gateway today. */
-const CHAT_READY_PROVIDERS = new Set(["openai", "anthropic"]);
+const CHAT_READY_PROVIDERS = new Set(["openai", "anthropic", "google"]);
 
 export function CompanyProvidersPanel({
   companySlug,

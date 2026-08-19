@@ -1,5 +1,7 @@
-import { apiRequest } from "@/lib/api/client";
-
+/**
+ * Audit list HTTP is not implemented (gateway writes rows; no GET).
+ * UI uses empty-state pages. Do not call these from features.
+ */
 export type AuditEntry = {
   id: string;
   time: string;
@@ -11,9 +13,9 @@ export type AuditEntry = {
 
 export const auditApi = {
   async listTenant(): Promise<AuditEntry[]> {
-    return apiRequest<AuditEntry[]>("auth", "/audit-logs");
+    throw new Error("GET /audit-logs is not implemented");
   },
   async listPlatform(): Promise<AuditEntry[]> {
-    return apiRequest<AuditEntry[]>("auth", "/platform/audit-logs");
+    throw new Error("GET /platform/audit-logs is not implemented");
   },
 };

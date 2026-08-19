@@ -193,7 +193,7 @@ export function NotificationsInbox({ companySlug }: { companySlug: string }) {
                     size="sm"
                     variant="ghost"
                     onClick={async () => {
-                      const next = r.status === "active" ? "inactive" : "active";
+                      const next = r.status === "active" ? "disabled" : "active";
                       try {
                         await notificationsApi.patchAlertRule(r.id, next);
                         queryClient.invalidateQueries({
@@ -206,7 +206,7 @@ export function NotificationsInbox({ companySlug }: { companySlug: string }) {
                       }
                     }}
                   >
-                    {r.status === "active" ? "Pause" : "Activate"}
+                    {r.status === "active" ? "Pause" : "Enable"}
                   </Button>
                 </li>
               ))}

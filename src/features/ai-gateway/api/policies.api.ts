@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
 
 export type PolicyScope = "company" | "department" | "team";
 export type PolicyEffect = "allow" | "deny";
@@ -44,10 +45,6 @@ type PolicyDto = {
   updated_at?: string;
 };
 
-function asList<T>(raw: unknown): T[] {
-  return Array.isArray(raw) ? (raw as T[]) : [];
-}
-
 function toPolicy(p: PolicyDto): AiPolicy {
   return {
     id: p.id,
@@ -81,8 +78,11 @@ function toBody(input: CreatePolicyInput): Record<string, unknown> {
 
 export const policiesApi = {
   async list(): Promise<AiPolicy[]> {
-    const raw = await apiRequest<PolicyDto[]>("ai", "/policies");
-    return asList<PolicyDto>(raw).map(toPolicy);
+    const page = await pagedRequest<PolicyDto>(
+      "ai",
+      withQuery("/policies", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
+    );
+    return page.items.map(toPolicy);
   },
 
   async create(input: CreatePolicyInput): Promise<AiPolicy> {
