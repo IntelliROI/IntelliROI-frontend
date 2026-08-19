@@ -19,8 +19,8 @@ export default function CompanyLayout({
   const company = useAuthStore((s) => s.company);
   const role = user?.role ?? ROLES.EMPLOYEE;
   const nav = useMemo(
-    () => getCompanyNav(role, params.companySlug),
-    [role, params.companySlug],
+    () => getCompanyNav(role, params.companySlug, user?.permissions),
+    [role, params.companySlug, user?.permissions],
   );
 
   return (

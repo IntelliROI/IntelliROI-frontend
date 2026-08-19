@@ -20,12 +20,14 @@ declare module "axios" {
 export class ApiError extends Error {
   status: number;
   body: unknown;
+  code?: string;
 
-  constructor(message: string, status: number, body?: unknown) {
+  constructor(message: string, status: number, body?: unknown, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.body = body;
+    this.code = code;
   }
 }
 
@@ -94,6 +96,15 @@ function readBackendMessage(body: unknown): string | undefined {
   }
 }
 
+function readBackendCode(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return;
+  const nested = (body as { error?: unknown }).error;
+  if (nested && typeof nested === "object") {
+    const code = (nested as { code?: unknown }).code;
+    if (typeof code === "string" && code.trim()) return code.trim();
+  }
+}
+
 function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err;
   if (axios.isCancel(err)) {
@@ -108,6 +119,7 @@ function toApiError(err: unknown): ApiError {
       message,
       err.response?.status ?? (err.code === "ECONNABORTED" ? 408 : 0),
       body,
+      readBackendCode(body),
     );
   }
   return new ApiError(err instanceof Error ? err.message : "Request failed", 0);

@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
+import { ApiError } from "@/lib/api/client";
 import { useChatStore } from "@/stores/chat-store";
 import { queryKeys } from "@/lib/api/query-keys";
 import {
@@ -28,10 +29,6 @@ const SUGGESTIONS = [
   "Write SQL to roll up AI cost by department and team",
   "Refactor this auth flow for clearer error handling",
 ];
-
-function pinnedStorageKey(slug: string) {
-  return `intelliroi.pinned-chats.${slug}`;
-}
 
 /**
  * OpenAI / Claude-class enterprise chat workspace.
@@ -57,37 +54,10 @@ export function AiWorkspace({
   const [busy, setBusy] = useState(false);
   const [activeId, setActiveId] = useState(conversationId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
   const stopStreamRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(pinnedStorageKey(companySlug));
-      if (raw) setPinnedIds(JSON.parse(raw) as string[]);
-    } catch {
-      /* ignore */
-    }
-  }, [companySlug]);
-
-  function persistPins(next: string[]) {
-    setPinnedIds(next);
-    try {
-      localStorage.setItem(pinnedStorageKey(companySlug), JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-  }
-
-  function togglePin(uuid: string) {
-    persistPins(
-      pinnedIds.includes(uuid)
-        ? pinnedIds.filter((id) => id !== uuid)
-        : [...pinnedIds, uuid],
-    );
-  }
 
   const catalog = useQuery({
     queryKey: queryKeys.company.providers(companySlug),
@@ -104,6 +74,52 @@ export function AiWorkspace({
     queryKey: queryKeys.company.conversations(companySlug),
     queryFn: () => aiGatewayApi.listConversations(),
   });
+
+  const pinnedIds = (conversations.data ?? [])
+    .filter((c) => c.pinned)
+    .map((c) => c.uuid);
+
+  async function togglePin(uuid: string) {
+    const current = conversations.data?.find((c) => c.uuid === uuid);
+    try {
+      await aiGatewayApi.updateConversation(uuid, {
+        pinned: !current?.pinned,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.conversations(companySlug),
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update pin");
+    }
+  }
+
+  async function renameConversation(uuid: string, title: string) {
+    try {
+      await aiGatewayApi.updateConversation(uuid, { title });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.conversations(companySlug),
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not rename");
+    }
+  }
+
+  async function deleteConversation(uuid: string) {
+    try {
+      await aiGatewayApi.deleteConversation(uuid);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.conversations(companySlug),
+      });
+      if (activeId === uuid) {
+        setMessages([]);
+        setActiveId(undefined);
+        router.push(`/${companySlug}/ai-workspace`);
+      }
+      toast.success("Chat deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete");
+    }
+  }
 
   const conversation = useQuery({
     queryKey: queryKeys.company.conversation(companySlug, activeId ?? ""),
@@ -294,7 +310,13 @@ export function AiWorkspace({
           return;
         }
         const message =
-          err instanceof Error ? err.message : "Request failed";
+          err instanceof ApiError && err.code === "POLICY_DENIED"
+            ? "This request is blocked by an AI policy (provider, model, or daily token cap)."
+            : err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED"
+              ? "This provider has no company API key. Ask an owner to add one under AI Providers."
+              : err instanceof Error
+                ? err.message
+                : "Request failed";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
@@ -355,6 +377,8 @@ export function AiWorkspace({
         activeId={activeId}
         pinnedIds={pinnedIds}
         onTogglePin={togglePin}
+        onRename={renameConversation}
+        onDelete={deleteConversation}
         onNewChat={newChat}
         expanded={sidebarOpen}
         onExpandedChange={setSidebarOpen}

@@ -9,6 +9,7 @@ import {
   DEFAULT_COUNTRY_ISO,
   digitsOnly,
   findCountry,
+  type CountryIso,
 } from "@/constants/locale";
 import { lineManagers } from "@/lib/org/line-managers";
 import {
@@ -154,7 +155,7 @@ export function CreateEmployeeForm({
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
-                    phone_iso: e.target.value,
+                    phone_iso: e.target.value as CountryIso,
                     phone_national: "",
                   }))
                 }

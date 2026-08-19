@@ -84,4 +84,13 @@ export const businessContextApi = {
       method: "PATCH",
     });
   },
+
+  async roleAssignments(
+    userUuid: string,
+  ): Promise<{ id: number; job_role_id: number; effective_from?: string }[]> {
+    const raw = await apiRequest<
+      { id: number; job_role_id: number; effective_from?: string }[]
+    >("bc", `/employees/${userUuid}/role-assignments`);
+    return Array.isArray(raw) ? raw : [];
+  },
 };

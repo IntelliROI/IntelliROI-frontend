@@ -6,8 +6,6 @@ import {
   ClipboardList,
   Coins,
   Bell,
-  FileText,
-  Flag,
   FolderKanban,
   LayoutDashboard,
   MessageSquare,
@@ -81,24 +79,6 @@ const platformNav: NavItem[] = [
     section: "Intelligence",
   },
   {
-    id: "flags",
-    label: "Feature Flags",
-    href: "/super-admin/feature-flags",
-    icon: Flag,
-    resource: "feature_flags",
-    action: "view",
-    section: "Ops",
-  },
-  {
-    id: "audit",
-    label: "Audit Logs",
-    href: "/super-admin/audit-logs",
-    icon: Shield,
-    resource: "audit",
-    action: "view",
-    section: "Ops",
-  },
-  {
     id: "settings",
     label: "Settings",
     href: "/super-admin/settings",
@@ -109,10 +89,12 @@ const platformNav: NavItem[] = [
   },
 ];
 
-export function getPlatformNav(role: Role): NavItem[] {
+export function getPlatformNav(role: Role, permissions?: string[]): NavItem[] {
   return platformNav.filter((item) => {
     if (item.roles && !item.roles.includes(role)) return false;
-    if (item.resource && item.action) return can(role, item.resource, item.action);
+    if (item.resource && item.action) {
+      return can(role, item.resource, item.action, permissions);
+    }
     return true;
   });
 }
@@ -120,7 +102,11 @@ export function getPlatformNav(role: Role): NavItem[] {
 /**
  * Role experiences from architecture doc — not one mega-menu filtered poorly.
  */
-export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
+export function getCompanyNav(
+  role: Role,
+  companySlug: string,
+  permissions?: string[],
+): NavItem[] {
   const base = `/${companySlug}`;
 
   if (role === ROLES.EMPLOYEE) {
@@ -228,7 +214,7 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
         action: "view",
         section: "Account",
       },
-    ], role);
+    ], role, permissions);
   }
 
   if (role === ROLES.DEPARTMENT_HEAD) {
@@ -321,7 +307,7 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
         action: "view",
         section: "Account",
       },
-    ], role);
+    ], role, permissions);
   }
 
   // CEO / Company Owner — executive control center
@@ -433,6 +419,15 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       section: "Governance",
     },
     {
+      id: "policies",
+      label: "AI Policies",
+      href: `${base}/governance/policies`,
+      icon: Shield,
+      resource: "policies",
+      action: "view",
+      section: "Governance",
+    },
+    {
       id: "business-context",
       label: "Task Benchmarks",
       href: `${base}/business-context/task-benchmarks`,
@@ -442,11 +437,11 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       section: "Governance",
     },
     {
-      id: "reports",
-      label: "Reports",
-      href: `${base}/reports`,
-      icon: FileText,
-      resource: "reports",
+      id: "recommendations",
+      label: "Recommendations",
+      href: `${base}/roi/recommendations`,
+      icon: Sparkles,
+      resource: "roi",
       action: "view",
       section: "Governance",
     },
@@ -477,22 +472,19 @@ export function getCompanyNav(role: Role, companySlug: string): NavItem[] {
       action: "view",
       section: "Account",
     },
-    {
-      id: "audit",
-      label: "Audit Logs",
-      href: `${base}/settings/audit-logs`,
-      icon: Shield,
-      resource: "audit",
-      action: "view",
-      section: "Account",
-    },
-  ], role);
+  ], role, permissions);
 }
 
-function filterNav(items: NavItem[], role: Role): NavItem[] {
+function filterNav(
+  items: NavItem[],
+  role: Role,
+  permissions?: string[],
+): NavItem[] {
   return items.filter((item) => {
     if (item.roles && !item.roles.includes(role)) return false;
-    if (item.resource && item.action) return can(role, item.resource, item.action);
+    if (item.resource && item.action) {
+      return can(role, item.resource, item.action, permissions);
+    }
     return true;
   });
 }

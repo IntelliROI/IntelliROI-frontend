@@ -15,7 +15,7 @@ export default function ProvidersPage() {
       <PageHeader
         eyebrow="Catalog"
         title="Global AI Providers"
-        description="Platform-wide provider catalog and health."
+        description="Seeded catalog from GET /providers (read-only). Company keys live on each tenant AI Providers screen."
       />
       {providers.isLoading ? (
         <LoadingBlock className="h-48" />

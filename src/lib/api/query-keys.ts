@@ -104,12 +104,18 @@ export const queryKeys = {
       ["company", companySlug, "benchmarks", status] as const,
     notifications: (companySlug: string, unreadOnly = false) =>
       ["company", companySlug, "notifications", unreadOnly] as const,
+    notificationPrefs: (companySlug: string) =>
+      ["company", companySlug, "notification-prefs"] as const,
+    alertRules: (companySlug: string) =>
+      ["company", companySlug, "alert-rules"] as const,
     templates: (companySlug: string) =>
       ["company", companySlug, "prompt-templates"] as const,
     audit: (companySlug: string) =>
       ["company", companySlug, "audit"] as const,
     importJob: (companySlug: string, uuid: string) =>
       ["company", companySlug, "import", uuid] as const,
+    policies: (companySlug: string) =>
+      ["company", companySlug, "policies"] as const,
     importRows: (
       companySlug: string,
       uuid: string,

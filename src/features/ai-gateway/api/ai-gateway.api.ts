@@ -1,10 +1,16 @@
 import { apiRequest } from "@/lib/api/client";
 
+export type ProviderModel = {
+  id: number;
+  name: string;
+};
+
 export type Provider = {
   id: number;
   name: string;
   display_name: string;
   models: string[];
+  model_entries: ProviderModel[];
   status: string;
   latency_ms: number;
 };
@@ -108,14 +114,21 @@ function asList<T>(raw: unknown): T[] {
 }
 
 function toProvider(p: ProviderDto): Provider {
-  const models = Array.isArray(p.models)
-    ? p.models.map((m) => (typeof m === "string" ? m : (m.model_name ?? "")))
+  const model_entries: ProviderModel[] = Array.isArray(p.models)
+    ? p.models
+        .map((m) =>
+          typeof m === "string"
+            ? { id: 0, name: m }
+            : { id: m.id ?? 0, name: m.model_name ?? "" },
+        )
+        .filter((m) => m.name)
     : [];
   return {
     id: p.id ?? 0,
     name: p.provider_name ?? p.name ?? "",
     display_name: p.display_name ?? p.provider_name ?? p.name ?? "",
-    models: models.filter(Boolean),
+    models: model_entries.map((m) => m.name),
+    model_entries,
     status: p.status ?? "unknown",
     latency_ms: 0,
   };
@@ -218,5 +231,21 @@ export const aiGatewayApi = {
         content: m.content,
       })),
     };
+  },
+
+  async updateConversation(
+    uuid: string,
+    input: { title?: string; pinned?: boolean },
+  ): Promise<Conversation> {
+    const raw = await apiRequest<ConversationDto>(
+      "ai",
+      `/conversations/${uuid}`,
+      { method: "PATCH", body: input },
+    );
+    return toConversation(raw);
+  },
+
+  async deleteConversation(uuid: string): Promise<void> {
+    await apiRequest("ai", `/conversations/${uuid}`, { method: "DELETE" });
   },
 };

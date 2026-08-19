@@ -12,8 +12,9 @@ export default function SuperAdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const role = useAuthStore((s) => s.user?.role) ?? ROLES.SUPER_ADMIN;
-  const nav = getPlatformNav(role);
+  const user = useAuthStore((s) => s.user);
+  const role = user?.role ?? ROLES.SUPER_ADMIN;
+  const nav = getPlatformNav(role, user?.permissions);
 
   return (
     <RequireAuth roles={[ROLES.SUPER_ADMIN]}>

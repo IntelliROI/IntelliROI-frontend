@@ -7,7 +7,7 @@ import {
   teamSchema,
   type TeamSchema,
 } from "@/features/organization/schemas/organization.schema";
-import type { Department, Employee } from "@/features/organization/types";
+import type { Department, Employee, Team } from "@/features/organization/types";
 import { lineManagers } from "@/lib/org/line-managers";
 
 type Props = {
