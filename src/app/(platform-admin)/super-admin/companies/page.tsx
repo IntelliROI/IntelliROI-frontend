@@ -54,7 +54,7 @@ export default function CompaniesPage() {
   const rows = (companies.data ?? []).map((c) => ({
     name: <span className="font-medium text-text-primary">{c.name}</span>,
     plan: planBadge(c.plan),
-    status: statusBadge(c.status),
+    status: statusBadge(c.status ?? "unknown"),
     industry: c.industry ?? "—",
     action: (
       <Link
@@ -69,10 +69,10 @@ export default function CompaniesPage() {
   const cards: GridCard[] = (companies.data ?? []).map((c) => ({
     title: c.name,
     subtitle: c.industry ?? "—",
-    badge: statusBadge(c.status),
+    badge: statusBadge(c.status ?? "unknown"),
     metrics: [
       { label: "Plan", value: planBadge(c.plan) },
-      { label: "Status", value: statusBadge(c.status) },
+      { label: "Status", value: statusBadge(c.status ?? "unknown") },
     ],
     action: (
       <Link

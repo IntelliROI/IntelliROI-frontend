@@ -17,7 +17,7 @@ export default function PlatformAnalyticsPage() {
   if (!metrics.data) {
     return (
       <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
-        Could not load platform analytics from the live service.
+        Could not load tenant counts from /platform/metrics.
       </p>
     );
   }
@@ -29,13 +29,13 @@ export default function PlatformAnalyticsPage() {
       <PageHeader
         eyebrow="Analytics"
         title="Platform Analytics"
-        description="Cross-tenant usage and revenue signals."
+        description="Tenant counts from GET /platform/metrics. Cross-tenant AI spend and MRR are not on the API yet."
       />
       <Mosaic cols={4}>
-        <KpiTile label="Companies" value={m.active_companies} format="number" />
-        <KpiTile label="MRR" value={m.mrr} format="currency" accent />
-        <KpiTile label="AI spend" value={m.platform_ai_spend} format="currency" />
-        <KpiTile label="Employees" value={m.active_employees} format="number" />
+        <KpiTile label="Companies" value={m.tenant_count} format="number" />
+        <KpiTile label="Active" value={m.active_companies} format="number" accent />
+        <KpiTile label="Suspended" value={m.suspended_companies} format="number" />
+        <KpiTile label="Seated users" value={m.seated_users} format="number" />
       </Mosaic>
     </div>
   );

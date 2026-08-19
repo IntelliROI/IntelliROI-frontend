@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Check, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,8 +9,46 @@ export type ChatMessageView = {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  /** True while waiting on the provider — no content yet. Not real token streaming. */
+  thinking?: boolean;
   stopped?: boolean;
 };
+
+/**
+ * Bouncing-dot "thinking" indicator shown while the gateway waits on the
+ * full provider response (up to ~120s). Ticks an elapsed-seconds label so a
+ * slow reply doesn't look frozen.
+ */
+function ThinkingIndicator() {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="flex items-center gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 rounded-full bg-accent/70"
+            style={{
+              animation: "bounce-dot 1.1s ease-in-out infinite",
+              animationDelay: `${i * 0.15}s`,
+            }}
+          />
+        ))}
+      </span>
+      <span className="text-[12px] text-text-secondary/70">
+        Thinking{elapsed > 2 ? ` \u00b7 ${elapsed}s` : ""}
+      </span>
+    </div>
+  );
+}
 
 /**
  * ChatGPT-style message row — user right-aligned bubble, assistant left prose.
@@ -76,7 +114,7 @@ export function ChatMessageBubble({
             {modelLabel && (
               <span className="text-[11px] text-text-secondary/70">{modelLabel}</span>
             )}
-            {message.isStreaming && (
+            {message.isStreaming && !message.thinking && (
               <span className="text-[11px] text-accent animate-pulse">
                 Generating…
               </span>
@@ -86,17 +124,21 @@ export function ChatMessageBubble({
             )}
           </div>
 
-          <div
-            className={cn(
-              "whitespace-pre-wrap text-[15px] leading-7 text-text-primary",
-              message.isStreaming && !message.content && "min-h-[1.75rem]",
-            )}
-          >
-            {message.content || (message.isStreaming ? "" : "—")}
-            {message.isStreaming && (
-              <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-accent align-middle" />
-            )}
-          </div>
+          {message.thinking ? (
+            <ThinkingIndicator />
+          ) : (
+            <div
+              className={cn(
+                "whitespace-pre-wrap text-[15px] leading-7 text-text-primary",
+                message.isStreaming && !message.content && "min-h-[1.75rem]",
+              )}
+            >
+              {message.content || (message.isStreaming ? "" : "—")}
+              {message.isStreaming && (
+                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-accent align-middle" />
+              )}
+            </div>
+          )}
 
           {message.content && !message.isStreaming && (
             <div className="mt-2.5 flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">

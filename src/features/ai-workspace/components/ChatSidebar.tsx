@@ -7,9 +7,11 @@ import {
   MessageSquare,
   MessageSquarePlus,
   PanelLeft,
+  Pencil,
   Pin,
   Search,
   SquarePen,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AiMark } from "@/features/ai-workspace/components/AiMark";
@@ -26,6 +28,8 @@ type Props = {
   activeId?: string;
   pinnedIds: string[];
   onTogglePin: (uuid: string) => void;
+  onRename: (uuid: string, title: string) => void;
+  onDelete: (uuid: string) => void;
   onNewChat: () => void;
   expanded: boolean;
   onExpandedChange: (open: boolean) => void;
@@ -41,6 +45,8 @@ export function ChatSidebar({
   activeId,
   pinnedIds,
   onTogglePin,
+  onRename,
+  onDelete,
   onNewChat,
   expanded,
   onExpandedChange,
@@ -210,6 +216,8 @@ export function ChatSidebar({
                   activeId={activeId}
                   pinnedIds={pinnedIds}
                   onTogglePin={onTogglePin}
+                  onRename={onRename}
+                  onDelete={onDelete}
                 />
               )
             ) : filtered.length === 0 ? (
@@ -224,6 +232,8 @@ export function ChatSidebar({
                     activeId={activeId}
                     pinnedIds={pinnedIds}
                     onTogglePin={onTogglePin}
+                    onRename={onRename}
+                    onDelete={onDelete}
                   />
                 )}
                 <ConversationGroup
@@ -233,6 +243,8 @@ export function ChatSidebar({
                   activeId={activeId}
                   pinnedIds={pinnedIds}
                   onTogglePin={onTogglePin}
+                  onRename={onRename}
+                  onDelete={onDelete}
                 />
               </>
             )}
@@ -297,6 +309,8 @@ function ConversationGroup({
   activeId,
   pinnedIds,
   onTogglePin,
+  onRename,
+  onDelete,
 }: {
   companySlug: string;
   title: string;
@@ -304,6 +318,8 @@ function ConversationGroup({
   activeId?: string;
   pinnedIds: string[];
   onTogglePin: (uuid: string) => void;
+  onRename: (uuid: string, title: string) => void;
+  onDelete: (uuid: string) => void;
 }) {
   if (items.length === 0) return null;
   return (
@@ -319,7 +335,7 @@ function ConversationGroup({
               <Link
                 href={`/${companySlug}/ai-workspace/${c.uuid}`}
                 className={cn(
-                  "block truncate rounded-[10px] py-2.5 pl-3 pr-9 text-[13px] transition-colors",
+                  "block truncate rounded-[10px] py-2.5 pl-3 pr-[5.5rem] text-[13px] transition-colors",
                   activeId === c.uuid
                     ? "bg-accent/10 text-accent"
                     : "text-text-secondary hover:bg-surface/60 hover:text-text-primary",
@@ -327,24 +343,51 @@ function ConversationGroup({
               >
                 {c.title}
               </Link>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onTogglePin(c.uuid);
-                }}
-                className={cn(
-                  "absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-text-secondary opacity-0 transition-opacity hover:bg-surface-2 hover:text-text-primary group-hover/item:opacity-100",
-                  pinned && "opacity-100 text-accent",
-                )}
-                aria-label={pinned ? "Unpin" : "Pin"}
-                title={pinned ? "Unpin" : "Pin"}
-              >
-                <Pin
-                  className={cn("h-3.5 w-3.5", pinned && "fill-current")}
-                  strokeWidth={1.5}
-                />
-              </button>
+              <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-hover/item:opacity-100">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const next = window.prompt("Rename chat", c.title);
+                    if (next && next.trim()) onRename(c.uuid, next.trim());
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+                  aria-label="Rename"
+                  title="Rename"
+                >
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onTogglePin(c.uuid);
+                  }}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-text-secondary hover:bg-surface-2 hover:text-text-primary",
+                    pinned && "text-accent",
+                  )}
+                  aria-label={pinned ? "Unpin" : "Pin"}
+                  title={pinned ? "Unpin" : "Pin"}
+                >
+                  <Pin
+                    className={cn("h-3.5 w-3.5", pinned && "fill-current")}
+                    strokeWidth={1.5}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (window.confirm(`Delete “${c.title}”?`)) onDelete(c.uuid);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-text-secondary hover:bg-danger/10 hover:text-danger"
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+              </div>
             </li>
           );
         })}

@@ -1,5 +1,5 @@
-import { apiRequest, getStoredCompany } from "@/lib/api/client";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { apiRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
 import type { JobRole } from "@/features/organization/types";
 
 export type TaskCategory = {
@@ -22,29 +22,11 @@ export type Benchmark = {
 export type { JobRole };
 
 export const businessContextApi = {
-  async listJobRoles(): Promise<JobRole[]> {
-    return apiRequest<JobRole[]>("bc", "/job-roles");
-  },
-
-  async createJobRole(input: {
-    role_name: string;
-    hourly_cost: number;
-    currency?: string;
-  }): Promise<JobRole> {
-    const company = getStoredCompany();
-    return apiRequest<JobRole>("bc", "/job-roles", {
-      method: "POST",
-      body: {
-        ...input,
-        currency: input.currency ?? DEFAULT_CURRENCY,
-        ...(company?.id != null ? { company_id: company.id } : {}),
-        ...(company?.uuid ? { company_uuid: company.uuid } : {}),
-      },
-    });
-  },
-
   async listTaskCategories(): Promise<TaskCategory[]> {
-    return apiRequest<TaskCategory[]>("bc", "/task-categories");
+    return apiRequest<TaskCategory[]>(
+      "bc",
+      withQuery("/task-categories", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
   },
 
   async createTaskCategory(input: {
@@ -58,7 +40,10 @@ export const businessContextApi = {
   },
 
   async listBenchmarks(): Promise<Benchmark[]> {
-    return apiRequest<Benchmark[]>("bc", "/task-benchmarks");
+    return apiRequest<Benchmark[]>(
+      "bc",
+      withQuery("/task-benchmarks", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
   },
 
   async createBenchmark(input: {
@@ -83,5 +68,19 @@ export const businessContextApi = {
     return apiRequest("bc", `/task-benchmarks/${id}/reject`, {
       method: "PATCH",
     });
+  },
+
+  async roleAssignments(
+    userUuid: string,
+  ): Promise<{ id: number; job_role_id: number; effective_from?: string }[]> {
+    const raw = await apiRequest<
+      { id: number; job_role_id: number; effective_from?: string }[]
+    >(
+      "bc",
+      withQuery(`/employees/${userUuid}/role-assignments`, {
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
+    );
+    return Array.isArray(raw) ? raw : [];
   },
 };

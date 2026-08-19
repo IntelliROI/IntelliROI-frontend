@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Mosaic } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
+import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
@@ -19,6 +21,8 @@ export function DepartmentDashboard({
   companySlug: string;
   departmentId: number;
 }) {
+  const [period, setPeriod] = useState<RoiPeriod>("month");
+
   const department = useQuery({
     queryKey: ["company", companySlug, "department", departmentId],
     queryFn: () => organizationApi.getDepartment(departmentId),
@@ -29,14 +33,14 @@ export function DepartmentDashboard({
   });
   const teamRoi = useQueries({
     queries: (teams.data ?? []).map((t) => ({
-      queryKey: ["company", companySlug, "roi", "team", t.id],
-      queryFn: () => roiApi.team(t.id),
+      queryKey: ["company", companySlug, "roi", "team", t.id, period],
+      queryFn: () => roiApi.team(t.id, period),
       enabled: Boolean(teams.data?.length),
     })),
   });
   const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "department", departmentId],
-    queryFn: () => roiApi.department(departmentId),
+    queryKey: ["company", companySlug, "roi", "department", departmentId, period],
+    queryFn: () => roiApi.department(departmentId, period),
   });
   const benchmarks = useQuery({
     queryKey: ["company", companySlug, "benchmarks", "pending"],
@@ -64,6 +68,7 @@ export function DepartmentDashboard({
         eyebrow="Department"
         title={d.department_name}
         description="Team performance, budget burn, and benchmark approvals."
+        actions={<PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />}
       />
 
       <Mosaic cols={4}>

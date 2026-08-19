@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-keys";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
@@ -13,6 +13,24 @@ export function useDepartments(companySlug: string) {
     queryKey: queryKeys.company.departments(companySlug),
     queryFn: () => organizationApi.listDepartments(),
     staleTime: 60_000,
+  });
+}
+
+export function useDepartmentsPage(
+  companySlug: string,
+  query: { page: number; pageSize: number; q: string; status: string },
+) {
+  return useQuery({
+    queryKey: queryKeys.company.departmentsPage(companySlug, query),
+    queryFn: () =>
+      organizationApi.listDepartmentsPage({
+        page: query.page,
+        page_size: query.pageSize,
+        q: query.q,
+        status: query.status,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 }
 
@@ -32,11 +50,138 @@ export function useTeams(companySlug: string, departmentId?: number) {
   });
 }
 
+export function useTeamsPage(
+  companySlug: string,
+  query: {
+    page: number;
+    pageSize: number;
+    q: string;
+    status: string;
+    departmentId: number | "";
+  },
+) {
+  return useQuery({
+    queryKey: queryKeys.company.teamsPage(companySlug, query),
+    queryFn: () =>
+      organizationApi.listTeamsPage({
+        page: query.page,
+        page_size: query.pageSize,
+        q: query.q,
+        status: query.status,
+        department_id: query.departmentId === "" ? undefined : query.departmentId,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+export function useProjectsPage(
+  companySlug: string,
+  query: {
+    page: number;
+    pageSize: number;
+    q: string;
+    status: string;
+    departmentId: number | "";
+    teamId: number | "";
+  },
+) {
+  return useQuery({
+    queryKey: queryKeys.company.projectsPage(companySlug, query),
+    queryFn: () =>
+      organizationApi.listProjectsPage({
+        page: query.page,
+        page_size: query.pageSize,
+        q: query.q,
+        status: query.status,
+        department_id: query.departmentId === "" ? undefined : query.departmentId,
+        team_id: query.teamId === "" ? undefined : query.teamId,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
 export function useEmployees(companySlug: string) {
   return useQuery({
     queryKey: queryKeys.company.employees(companySlug),
     queryFn: () => organizationApi.listEmployees(),
     staleTime: 60_000,
+  });
+}
+
+export function useEmployeesPage(
+  companySlug: string,
+  query: {
+    page: number;
+    pageSize: number;
+    q: string;
+    status: string;
+    departmentId: number | "";
+    teamId: number | "";
+  },
+) {
+  return useQuery({
+    queryKey: queryKeys.company.employeesPage(companySlug, query),
+    queryFn: () =>
+      organizationApi.listEmployeesPage({
+        page: query.page,
+        page_size: query.pageSize,
+        q: query.q,
+        status: query.status,
+        department_id: query.departmentId === "" ? undefined : query.departmentId,
+        team_id: query.teamId === "" ? undefined : query.teamId,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+export function useJobRolesPage(
+  companySlug: string,
+  query: { page: number; pageSize: number; q: string; status: string },
+) {
+  return useQuery({
+    queryKey: queryKeys.company.jobRolesPage(companySlug, query),
+    queryFn: () =>
+      organizationApi.listJobRolesPage({
+        page: query.page,
+        page_size: query.pageSize,
+        q: query.q,
+        status: query.status,
+      }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+export function useImportJob(companySlug: string, uuid: string | null) {
+  return useQuery({
+    queryKey: queryKeys.company.importJob(companySlug, uuid ?? ""),
+    queryFn: () => organizationApi.getImportJob(uuid as string),
+    enabled: Boolean(uuid),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "queued" || status === "running" ? 2000 : false;
+    },
+  });
+}
+
+export function useImportRows(
+  companySlug: string,
+  uuid: string | null,
+  query: { page: number; pageSize: number; status: string },
+) {
+  return useQuery({
+    queryKey: queryKeys.company.importRows(companySlug, uuid ?? "", query),
+    queryFn: () =>
+      organizationApi.listImportRows(uuid as string, {
+        page: query.page,
+        page_size: query.pageSize,
+        status: query.status || undefined,
+      }),
+    enabled: Boolean(uuid),
+    placeholderData: keepPreviousData,
   });
 }
 

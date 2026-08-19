@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -13,6 +13,7 @@ import {
 } from "@/components/dashboard/DashboardChrome";
 import { Panel, Provenance, LiveDot } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { TrendAreaChart, ProviderDonut } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
 import { roiApi } from "@/features/roi/api/roi.api";
@@ -22,6 +23,11 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
+
+/** Analytics has no "week" period_type — fold week into day for that call. */
+function toAnalyticsPeriod(period: RoiPeriod): "day" | "month" {
+  return period === "week" ? "day" : period;
+}
 
 function sparkFromSeries(
   series: { roi_pct?: number; requests?: number; cost?: number }[],
@@ -37,18 +43,20 @@ function sparkFromSeries(
 export function CeoDashboard({ companySlug }: { companySlug: string }) {
   const company = useAuthStore((s) => s.company);
   const user = useAuthStore((s) => s.user);
+  const [period, setPeriod] = useState<RoiPeriod>("month");
+  const analyticsPeriod = toAnalyticsPeriod(period);
 
   const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "summary"],
-    queryFn: () => roiApi.company("month"),
+    queryKey: ["company", companySlug, "roi", "summary", period],
+    queryFn: () => roiApi.company(period),
   });
   const analytics = useQuery({
-    queryKey: ["company", companySlug, "analytics"],
-    queryFn: () => analyticsApi.company("day"),
+    queryKey: ["company", companySlug, "analytics", analyticsPeriod],
+    queryFn: () => analyticsApi.company(analyticsPeriod),
   });
   const costs = useQuery({
-    queryKey: ["company", companySlug, "costs"],
-    queryFn: () => costApi.summary("company", "month"),
+    queryKey: ["company", companySlug, "costs", period],
+    queryFn: () => costApi.summary("company", period === "week" ? "month" : period),
   });
   const departments = useQuery({
     queryKey: ["company", companySlug, "departments"],
@@ -59,13 +67,13 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
     queryFn: () => roiApi.recommendations("open"),
   });
   const providerMix = useQuery({
-    queryKey: ["company", companySlug, "analytics", "providers"],
-    queryFn: () => analyticsApi.providers("month"),
+    queryKey: ["company", companySlug, "analytics", "providers", period],
+    queryFn: () => analyticsApi.providers(analyticsPeriod),
   });
   const deptRoi = useQueries({
     queries: (departments.data ?? []).map((d) => ({
-      queryKey: ["company", companySlug, "roi", "department", d.id],
-      queryFn: () => roiApi.department(d.id),
+      queryKey: ["company", companySlug, "roi", "department", d.id, period],
+      queryFn: () => roiApi.department(d.id, period),
       enabled: Boolean(departments.data?.length),
     })),
   });
@@ -120,7 +128,8 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
         description={`${company?.name ?? "Company"} — is AI investment producing Estimated ROI?`}
         actions={
           <div className="flex items-center gap-2">
-            <LiveDot label="Live MTD" />
+            <LiveDot label="Live" />
+            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
             <Button asChild variant="secondary" size="sm">
               <Link href={`/${companySlug}/roi`}>
                 Full ROI

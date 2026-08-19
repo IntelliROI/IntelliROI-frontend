@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel, Provenance } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
+import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { TrendAreaChart, SimpleBarChart } from "@/components/charts/Charts";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
@@ -14,13 +16,20 @@ export default function RoiPage({
 }: {
   params: { companySlug: string };
 }) {
+  const [period, setPeriod] = useState<RoiPeriod>("month");
+  const analyticsPeriod = period === "week" ? "day" : period;
+
   const roi = useQuery({
-    queryKey: ["company", params.companySlug, "roi", "summary"],
-    queryFn: () => roiApi.company("month"),
+    queryKey: ["company", params.companySlug, "roi", "summary", period],
+    queryFn: () => roiApi.company(period),
+  });
+  const formulas = useQuery({
+    queryKey: ["company", params.companySlug, "roi", "formula-versions"],
+    queryFn: () => roiApi.formulaVersions(),
   });
   const analytics = useQuery({
-    queryKey: ["company", params.companySlug, "analytics"],
-    queryFn: () => analyticsApi.company("day"),
+    queryKey: ["company", params.companySlug, "analytics", analyticsPeriod],
+    queryFn: () => analyticsApi.company(analyticsPeriod),
   });
   const departments = useQuery({
     queryKey: ["company", params.companySlug, "departments"],
@@ -28,8 +37,8 @@ export default function RoiPage({
   });
   const deptRoi = useQueries({
     queries: (departments.data ?? []).map((d) => ({
-      queryKey: ["company", params.companySlug, "roi", "department", d.id],
-      queryFn: () => roiApi.department(d.id),
+      queryKey: ["company", params.companySlug, "roi", "department", d.id, period],
+      queryFn: () => roiApi.department(d.id, period),
       enabled: Boolean(departments.data?.length),
     })),
   });
@@ -45,6 +54,10 @@ export default function RoiPage({
   }
 
   const r = roi.data;
+  const formulaVersion =
+    r.formula_version ||
+    formulas.data?.[formulas.data.length - 1]?.version ||
+    undefined;
 
   return (
     <div>
@@ -52,6 +65,7 @@ export default function RoiPage({
         eyebrow="Financial"
         title="ROI Analysis"
         description="Investment vs business value — recomputable with formula provenance."
+        actions={<PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />}
       />
       <Mosaic cols={4}>
         <KpiTile label="Spend" value={r.total_spend} format="currency" />
@@ -66,7 +80,7 @@ export default function RoiPage({
             <h2 className="font-medium text-text-primary">ROI over time</h2>
             <Provenance
               computedAt={r.computed_at}
-              formulaVersion={r.formula_version}
+              formulaVersion={formulaVersion}
             />
           </div>
           <TrendAreaChart

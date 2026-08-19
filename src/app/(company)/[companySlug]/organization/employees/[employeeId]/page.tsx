@@ -13,6 +13,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { EditEmployeeForm } from "@/features/organization/components/EditEmployeeForm";
 import { roiApi } from "@/features/roi/api/roi.api";
+import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { ROLE_LABELS } from "@/constants/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
@@ -85,6 +86,11 @@ export default function EmployeeDetailPage({
     queryFn: () => roiApi.employee(employeeQ.data!.id),
     enabled:
       Boolean(employeeQ.data?.id) && employeeQ.data?.status !== "invited",
+  });
+  const roleHistory = useQuery({
+    queryKey: ["company", params.companySlug, "role-assignments", params.employeeId],
+    queryFn: () => businessContextApi.roleAssignments(employeeQ.data!.uuid),
+    enabled: Boolean(employeeQ.data?.uuid),
   });
 
   const employee = employeeQ.data;
@@ -226,6 +232,21 @@ export default function EmployeeDetailPage({
                 : "—"
             }
           />
+          {(roleHistory.data ?? []).length > 0 ? (
+            <div className="border-b border-hairline px-5 py-3 last:border-b-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/70">
+                Role assignment history
+              </p>
+              <ul className="mt-2 space-y-1 text-[13px] text-text-primary">
+                {(roleHistory.data ?? []).map((row) => (
+                  <li key={row.id}>
+                    Job role #{row.job_role_id}
+                    {row.effective_from ? ` · ${row.effective_from}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </Panel>
       </div>
 

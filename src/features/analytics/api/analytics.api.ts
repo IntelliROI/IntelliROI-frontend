@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
 
 export type AnalyticsPoint = {
   date: string;
@@ -13,6 +14,9 @@ export type AnalyticsSummary = {
   tokens_in: number;
   tokens_out: number;
   active_users: number;
+  total_cost: number;
+  total_business_value: number;
+  roi_pct: number;
   series?: AnalyticsPoint[];
 };
 
@@ -73,6 +77,10 @@ function toSummary(raw: unknown, period: string): AnalyticsSummary {
     }),
     { requests: 0, cost: 0 },
   );
+  const businessValue = rows.reduce(
+    (sum, r) => sum + Number(r.total_business_value ?? 0),
+    0,
+  );
   const tokens = rows.reduce((sum, r) => sum + (r.total_tokens ?? 0), 0);
   return {
     period,
@@ -80,6 +88,9 @@ function toSummary(raw: unknown, period: string): AnalyticsSummary {
     tokens_in: tokens,
     tokens_out: 0,
     active_users: 0,
+    total_cost: totals.cost,
+    total_business_value: businessValue,
+    roi_pct: estimatedRoiPct(businessValue, totals.cost),
     series,
   };
 }
@@ -95,7 +106,10 @@ export const analyticsApi = {
   async company(period = "day"): Promise<AnalyticsSummary> {
     const raw = await apiRequest(
       "analytics",
-      `/analytics/company?period=${period}`,
+      withQuery("/analytics/company", {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return toSummary(raw, period);
   },
@@ -103,7 +117,10 @@ export const analyticsApi = {
   async department(id: number, period = "day"): Promise<AnalyticsSummary> {
     const raw = await apiRequest(
       "analytics",
-      `/analytics/department/${id}?period=${period}`,
+      withQuery(`/analytics/department/${id}`, {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return toSummary(raw, period);
   },
@@ -111,7 +128,10 @@ export const analyticsApi = {
   async team(id: number, period = "day"): Promise<AnalyticsSummary> {
     const raw = await apiRequest(
       "analytics",
-      `/analytics/team/${id}?period=${period}`,
+      withQuery(`/analytics/team/${id}`, {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return toSummary(raw, period);
   },
@@ -126,7 +146,21 @@ export const analyticsApi = {
     }
     const raw = await apiRequest(
       "analytics",
-      `/analytics/employee/${numeric}?period=${period}`,
+      withQuery(`/analytics/employee/${numeric}`, {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
+    );
+    return toSummary(raw, period);
+  },
+
+  async project(id: number, period = "day"): Promise<AnalyticsSummary> {
+    const raw = await apiRequest(
+      "analytics",
+      withQuery(`/analytics/project/${id}`, {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return toSummary(raw, period);
   },
@@ -134,7 +168,10 @@ export const analyticsApi = {
   async providers(period = "day"): Promise<ProviderAnalytics[]> {
     const raw = await apiRequest<SnapshotDto[]>(
       "analytics",
-      `/analytics/providers?period=${period}`,
+      withQuery("/analytics/providers", {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return asList<SnapshotDto>(raw).map((r) => ({
       provider: r.provider ?? (r.scope_id ? `Provider ${r.scope_id}` : "Unknown"),
@@ -147,7 +184,10 @@ export const analyticsApi = {
   async models(period = "day"): Promise<ModelAnalytics[]> {
     const raw = await apiRequest<SnapshotDto[]>(
       "analytics",
-      `/analytics/models?period=${period}`,
+      withQuery("/analytics/models", {
+        period,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return asList<SnapshotDto>(raw).map((r) => ({
       model: r.model ?? (r.scope_id ? `Model ${r.scope_id}` : "Unknown"),

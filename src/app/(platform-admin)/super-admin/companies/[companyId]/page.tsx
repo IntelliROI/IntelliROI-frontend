@@ -1,9 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
+import { Button } from "@/components/ui/button";
 import { platformApi } from "@/features/system-config/api/platform.api";
 
 export default function CompanyDetailPage({
@@ -11,35 +13,70 @@ export default function CompanyDetailPage({
 }: {
   params: { companyId: string };
 }) {
-  const companies = useQuery({
-    queryKey: ["platform", "companies"],
-    queryFn: () => platformApi.companies(),
+  const queryClient = useQueryClient();
+  const company = useQuery({
+    queryKey: ["platform", "company", params.companyId],
+    queryFn: () => platformApi.company(params.companyId),
   });
 
-  const company = companies.data?.find((c) => c.uuid === params.companyId);
+  const patch = useMutation({
+    mutationFn: (status: "active" | "suspended") =>
+      platformApi.patchCompanyStatus(params.companyId, status),
+    onSuccess: async (row) => {
+      toast.success(
+        row.status === "suspended" ? "Tenant suspended" : "Tenant reactivated",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["platform", "companies"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["platform", "company", params.companyId],
+      });
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    },
+  });
 
-  if (companies.isLoading) return <LoadingBlock className="h-64" />;
+  if (company.isLoading) return <LoadingBlock className="h-64" />;
+
+  const c = company.data;
+  if (!c) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Tenant not found.
+      </p>
+    );
+  }
+
+  const nextStatus = c.status === "suspended" ? "active" : "suspended";
 
   return (
     <div>
       <PageHeader
         eyebrow="Tenant"
-        title={company?.name ?? params.companyId}
-        description="Impersonation, billing, and health for this company."
+        title={c.name}
+        description={`${c.company_code ?? c.slug} · ${c.industry ?? "—"}`}
       />
       <Mosaic cols={3}>
-        <KpiTile label="Plan" value={company?.plan ?? "—"} />
-        <KpiTile label="Status" value={company?.status ?? "—"} accent />
-        <KpiTile label="Slug" value={company?.slug ?? "—"} />
+        <KpiTile label="Status" value={c.status ?? "—"} accent />
+        <KpiTile label="Seated users" value={c.user_count ?? 0} format="number" />
+        <KpiTile label="Country" value={c.country ?? "—"} />
       </Mosaic>
       <Panel className="mt-6 p-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
           Support actions
         </p>
         <p className="mt-3 text-sm text-text-secondary">
-          Impersonate owner, suspend tenant, and review subscription — wire to
-          billing + auth admin endpoints when gateway Phase 10 is live.
+          Suspended companies cannot log in or chat. Impersonation is not available.
         </p>
+        <Button
+          className="mt-4"
+          size="sm"
+          variant={nextStatus === "suspended" ? "danger" : "primary"}
+          disabled={patch.isPending}
+          onClick={() => patch.mutate(nextStatus)}
+        >
+          {nextStatus === "suspended" ? "Suspend tenant" : "Reactivate tenant"}
+        </Button>
       </Panel>
     </div>
   );

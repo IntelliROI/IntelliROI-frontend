@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowUpRight, MessageSquare, Sparkles } from "lucide-react";
@@ -9,6 +9,7 @@ import { MetricTile } from "@/components/dashboard/KpiTile";
 import { SectionLabel } from "@/components/dashboard/DashboardChrome";
 import { Panel, LiveDot } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { Button } from "@/components/ui/button";
 import { TrendAreaChart } from "@/components/charts/Charts";
 import { roiApi } from "@/features/roi/api/roi.api";
@@ -25,10 +26,12 @@ import { cn } from "@/lib/utils";
 export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
   const employeeId = user?.id ?? user?.scope?.user_id;
+  const [period, setPeriod] = useState<RoiPeriod>("month");
+  const analyticsPeriod = period === "week" ? "day" : period;
 
   const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "employee", employeeId ?? "self"],
-    queryFn: () => roiApi.employee(employeeId!),
+    queryKey: ["company", companySlug, "roi", "employee", employeeId ?? "self", period],
+    queryFn: () => roiApi.employee(employeeId!, period),
     enabled: typeof employeeId === "number" && employeeId > 0,
   });
   const analytics = useQuery({
@@ -38,8 +41,9 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
       "analytics",
       "employee",
       employeeId ?? "self",
+      analyticsPeriod,
     ],
-    queryFn: () => analyticsApi.employee(employeeId!),
+    queryFn: () => analyticsApi.employee(employeeId!, analyticsPeriod),
     enabled: typeof employeeId === "number" && employeeId > 0,
   });
   const conversations = useQuery({
@@ -96,13 +100,16 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
         title={`${user?.first_name ?? "You"}'s AI pulse`}
         description="Personal usage, time saved, and Estimated ROI — only your data."
         actions={
-          <Button asChild>
-            <Link href={`/${companySlug}/ai-workspace`}>
-              <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Open AI Workspace
-              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
+            <Button asChild>
+              <Link href={`/${companySlug}/ai-workspace`}>
+                <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Open AI Workspace
+                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Link>
+            </Button>
+          </div>
         }
       />
 

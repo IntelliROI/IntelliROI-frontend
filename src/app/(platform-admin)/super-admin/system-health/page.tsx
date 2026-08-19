@@ -1,37 +1,44 @@
-import { PageHeader } from "@/components/feedback/States";
-import { Mosaic, Panel, LiveDot } from "@/components/ui/panel";
+"use client";
 
-const SERVICES = [
-  "auth :8081",
-  "organization :8082",
-  "business-context :8083",
-  "ai-gateway :8084",
-  "usage-cost :8085",
-  "roi-engine :8086",
-  "analytics :8087",
-  "notification :8088",
-  "billing :8089",
-];
+import { useQuery } from "@tanstack/react-query";
+import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { Mosaic, Panel, LiveDot } from "@/components/ui/panel";
+import { platformApi } from "@/features/system-config/api/platform.api";
 
 export default function SystemHealthPage() {
+  const health = useQuery({
+    queryKey: ["platform", "gateway-health"],
+    queryFn: () => platformApi.gatewayHealth(),
+    refetchInterval: 30_000,
+  });
+
   return (
     <div>
       <PageHeader
         eyebrow="Ops"
         title="System Health"
-        description="Gateway uptime, queue depth, and service readiness."
+        description="Public api-gateway liveness and readiness. Per-service /healthz is not proxied."
       />
-      <Mosaic cols={3}>
-        {SERVICES.map((s) => (
-          <Panel key={s} className="border-0 bg-ink p-6">
-            <LiveDot label="Healthy" />
-            <p className="mt-4 font-mono text-sm text-text-primary">{s}</p>
+      {health.isLoading ? (
+        <LoadingBlock className="h-32" />
+      ) : (
+        <Mosaic cols={2}>
+          <Panel className="border-0 bg-ink p-6">
+            <LiveDot label={health.data?.live ? "Live" : "Down"} />
+            <p className="mt-4 font-mono text-sm text-text-primary">GET /healthz</p>
             <p className="mt-2 text-xs text-text-secondary">
-              /healthz · /readyz
+              {health.data?.detail ?? "—"}
             </p>
           </Panel>
-        ))}
-      </Mosaic>
+          <Panel className="border-0 bg-ink p-6">
+            <LiveDot label={health.data?.ready ? "Ready" : "Not ready"} />
+            <p className="mt-4 font-mono text-sm text-text-primary">GET /readyz</p>
+            <p className="mt-2 text-xs text-text-secondary">
+              Redis + Postgres on the gateway
+            </p>
+          </Panel>
+        </Mosaic>
+      )}
     </div>
   );
 }

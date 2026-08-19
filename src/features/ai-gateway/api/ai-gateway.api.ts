@@ -1,10 +1,17 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
+
+export type ProviderModel = {
+  id: number;
+  name: string;
+};
 
 export type Provider = {
   id: number;
   name: string;
   display_name: string;
   models: string[];
+  model_entries: ProviderModel[];
   status: string;
   latency_ms: number;
 };
@@ -103,19 +110,22 @@ type ConversationDto = {
   messages?: MessageDto[];
 };
 
-function asList<T>(raw: unknown): T[] {
-  return Array.isArray(raw) ? (raw as T[]) : [];
-}
-
 function toProvider(p: ProviderDto): Provider {
-  const models = Array.isArray(p.models)
-    ? p.models.map((m) => (typeof m === "string" ? m : (m.model_name ?? "")))
+  const model_entries: ProviderModel[] = Array.isArray(p.models)
+    ? p.models
+        .map((m) =>
+          typeof m === "string"
+            ? { id: 0, name: m }
+            : { id: m.id ?? 0, name: m.model_name ?? "" },
+        )
+        .filter((m) => m.name)
     : [];
   return {
     id: p.id ?? 0,
     name: p.provider_name ?? p.name ?? "",
     display_name: p.display_name ?? p.provider_name ?? p.name ?? "",
-    models: models.filter(Boolean),
+    models: model_entries.map((m) => m.name),
+    model_entries,
     status: p.status ?? "unknown",
     latency_ms: 0,
   };
@@ -156,13 +166,22 @@ function toChat(r: ChatDto): ChatResponse {
 
 export const aiGatewayApi = {
   async listProviders(): Promise<Provider[]> {
-    const raw = await apiRequest<ProviderDto[]>("ai", "/providers");
-    return asList<ProviderDto>(raw).map(toProvider);
+    const page = await pagedRequest<ProviderDto>(
+      "ai",
+      withQuery("/providers", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
+    );
+    return page.items.map(toProvider);
   },
 
   async listConfigured(): Promise<ConfiguredProvider[]> {
-    const raw = await apiRequest<ConfiguredDto[]>("ai", "/providers/configured");
-    return asList<ConfiguredDto>(raw).map(toConfigured);
+    const page = await pagedRequest<ConfiguredDto>(
+      "ai",
+      withQuery("/providers/configured", {
+        page: 1,
+        page_size: LIST_PAGE_SIZE_MAX,
+      }),
+    );
+    return page.items.map(toConfigured);
   },
 
   async addKey(
@@ -203,8 +222,11 @@ export const aiGatewayApi = {
   },
 
   async listConversations(): Promise<Conversation[]> {
-    const raw = await apiRequest<ConversationDto[]>("ai", "/conversations");
-    return asList<ConversationDto>(raw).map(toConversation);
+    const page = await pagedRequest<ConversationDto>(
+      "ai",
+      withQuery("/conversations", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
+    );
+    return page.items.map(toConversation);
   },
 
   async getConversation(uuid: string): Promise<ConversationDetail> {
@@ -218,5 +240,21 @@ export const aiGatewayApi = {
         content: m.content,
       })),
     };
+  },
+
+  async updateConversation(
+    uuid: string,
+    input: { title?: string; pinned?: boolean },
+  ): Promise<Conversation> {
+    const raw = await apiRequest<ConversationDto>(
+      "ai",
+      `/conversations/${uuid}`,
+      { method: "PATCH", body: input },
+    );
+    return toConversation(raw);
+  },
+
+  async deleteConversation(uuid: string): Promise<void> {
+    await apiRequest("ai", `/conversations/${uuid}`, { method: "DELETE" });
   },
 };
