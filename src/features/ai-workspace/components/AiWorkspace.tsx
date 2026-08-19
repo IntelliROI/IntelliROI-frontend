@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { ApiError } from "@/lib/api/client";
@@ -22,6 +23,7 @@ import { ChatSidebar } from "@/features/ai-workspace/components/ChatSidebar";
 import { AiChatLoader, AiMark } from "@/features/ai-workspace/components/AiMark";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
+import { useConfiguredProviders } from "@/features/organization/hooks/useOrganizationQueries";
 
 const SUGGESTIONS = [
   "Draft an API design for Invoice Builder with auth middleware",
@@ -58,16 +60,23 @@ export function AiWorkspace({
   const abortRef = useRef<AbortController | null>(null);
   const stopStreamRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const providerAutoSelectedRef = useRef(false);
 
   const catalog = useQuery({
     queryKey: queryKeys.company.providers(companySlug),
     queryFn: () => aiGatewayApi.listProviders(),
   });
 
+  const configuredProviders = useConfiguredProviders(companySlug);
+  const configuredProviderNames = new Set(
+    (configuredProviders.data ?? []).map((c) => c.provider),
+  );
+
   const providerOptions = (catalog.data ?? []).map((p) => ({
     id: p.name,
     label: p.display_name || p.name,
     models: p.models.map((m) => ({ id: m, label: m })),
+    configured: configuredProviderNames.has(p.name),
   }));
 
   const conversations = useQuery({
@@ -142,14 +151,23 @@ export function AiWorkspace({
     setMessages([]);
   }, [conversationId]);
 
+  // Auto-select once: prefer a provider the company has actually configured
+  // a key for, so we never silently pick an unconfigured provider (which
+  // only surfaces as a PROVIDER_NOT_CONFIGURED error on send). Wait for the
+  // configured-providers query to settle before picking, and never override
+  // a provider the user picked manually.
   useEffect(() => {
-    const first = catalog.data?.[0];
-    if (!first) return;
-    if (!provider || !catalog.data?.some((p) => p.name === provider)) {
-      setProvider(first.name);
-      setModel(first.models[0] ?? "");
-    }
-  }, [catalog.data, provider]);
+    if (providerAutoSelectedRef.current) return;
+    if (!catalog.data || catalog.data.length === 0) return;
+    if (configuredProviders.isLoading) return;
+    const preferred =
+      catalog.data.find((p) => configuredProviderNames.has(p.name)) ??
+      catalog.data[0];
+    if (!preferred) return;
+    providerAutoSelectedRef.current = true;
+    setProvider(preferred.name);
+    setModel(preferred.models[0] ?? "");
+  }, [catalog.data, configuredProviders.isLoading, configuredProviders.data]);
 
   // Prefill draft from templates (?prompt=)
   useEffect(() => {
@@ -314,9 +332,15 @@ export function AiWorkspace({
             ? "This request is blocked by an AI policy (provider, model, or daily token cap)."
             : err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED"
               ? "This provider has no company API key. Ask an owner to add one under AI Providers."
-              : err instanceof Error
-                ? err.message
-                : "Request failed";
+              : err instanceof ApiError && err.code === "INTERNAL_ERROR"
+                // Surface the backend's own message (e.g. "failed to decrypt
+                // provider key" / "provider chat failed" / "failed to persist
+                // chat outcome") instead of a bare "Request failed" so the
+                // real cause is visible instead of a generic 500.
+                ? `Gateway error: ${err.message || "internal server error"}`
+                : err instanceof Error
+                  ? err.message
+                  : "Request failed";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
@@ -367,6 +391,8 @@ export function AiWorkspace({
   }`;
 
   const empty = displayMessages.length === 0;
+  const noProviderConfigured =
+    !configuredProviders.isLoading && configuredProviderNames.size === 0;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-0 w-full bg-ink">
@@ -427,6 +453,19 @@ export function AiWorkspace({
           )}
         </div>
 
+        {noProviderConfigured && (
+          <div className="mx-3 mb-2 rounded-[12px] border border-warning/30 bg-warning/5 px-4 py-2.5 text-[12.5px] text-text-secondary md:mx-6">
+            No AI provider has a company API key yet, so any send will fail.{" "}
+            <Link
+              href={`/${companySlug}/ai-providers`}
+              className="font-medium text-text-primary underline underline-offset-2"
+            >
+              Add one under AI Providers
+            </Link>
+            .
+          </div>
+        )}
+
         <ChatComposer
           value={draft}
           onChange={setDraft}
@@ -438,6 +477,7 @@ export function AiWorkspace({
           provider={provider}
           model={model}
           onProviderChange={(p) => {
+            providerAutoSelectedRef.current = true;
             setProvider(p);
             const next = providerOptions.find((row) => row.id === p);
             setModel(next?.models[0]?.id ?? model);

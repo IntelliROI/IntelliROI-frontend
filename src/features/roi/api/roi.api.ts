@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
 
 export type RoiSummary = {
   period: string;
@@ -177,7 +178,10 @@ export const roiApi = {
   async recommendations(status = "open"): Promise<Recommendation[]> {
     const raw = await apiRequest<RecommendationDto[]>(
       "roi",
-      `/roi/recommendations?status=${status}`,
+      withQuery("/roi/recommendations", {
+        status,
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
     );
     return asList<RecommendationDto>(raw).map(toRecommendation);
   },
@@ -195,23 +199,14 @@ export const roiApi = {
   },
 
   async formulaVersions(): Promise<{ version: string; effective_from: string }[]> {
-    const raw = await apiRequest<FormulaDto[]>("roi", "/roi/formula-versions");
+    const raw = await apiRequest<FormulaDto[]>(
+      "roi",
+      withQuery("/roi/formula-versions", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
     return asList<FormulaDto>(raw).map((f) => ({
       version: f.version_name ?? f.version ?? "",
       effective_from: f.effective_from ?? "",
     }));
   },
 
-  async submitFeedback(
-    requestUuid: string,
-    input: { useful: boolean; notes?: string },
-  ): Promise<void> {
-    await apiRequest("roi", `/requests/${requestUuid}/feedback`, {
-      method: "POST",
-      body: {
-        was_helpful: input.useful,
-        comment: input.notes || null,
-      },
-    });
-  },
 };

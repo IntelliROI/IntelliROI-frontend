@@ -14,27 +14,6 @@ export type PlatformMetrics = {
   seated_users: number;
 };
 
-export type Subscription = {
-  plan?: string;
-  status: string;
-  seats: number;
-  renews_at: string;
-};
-
-export type BillingUsage = {
-  seats_used: number;
-  seats_limit: number;
-  requests_month: number;
-  requests_limit: number;
-};
-
-export type Plan = {
-  id: number;
-  name: string;
-  price_monthly: number;
-  seats: number;
-};
-
 export type GatewayHealth = {
   live: boolean;
   ready: boolean;
@@ -79,20 +58,6 @@ function toTenant(c: TenantDto): PlatformTenant {
     created_at: c.created_at,
   };
 }
-
-export const billingApi = {
-  async plans(): Promise<Plan[]> {
-    return apiRequest<Plan[]>("billing", "/subscription-plans");
-  },
-
-  async mySubscription(): Promise<Subscription> {
-    return apiRequest<Subscription>("billing", "/companies/me/subscription");
-  },
-
-  async myUsage(): Promise<BillingUsage> {
-    return apiRequest<BillingUsage>("billing", "/companies/me/usage");
-  },
-};
 
 export const platformApi = {
   async companies(): Promise<PlatformTenant[]> {

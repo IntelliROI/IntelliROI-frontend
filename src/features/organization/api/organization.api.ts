@@ -1,6 +1,5 @@
 import {
   apiRequest,
-  getStoredCompany,
   pagedRequest,
   withQuery,
   ApiError,
@@ -414,17 +413,12 @@ async function listJobRoles(): Promise<JobRole[]> {
 }
 
 async function createJobRole(input: CreateJobRoleInput): Promise<JobRole> {
-  const company = getStoredCompany();
-  const company_id = input.company_id ?? company?.id;
-  const company_uuid = input.company_uuid ?? company?.uuid;
   const res = await apiRequest<JobRoleDto>("bc", "/job-roles", {
     method: "POST",
     body: {
       role_name: input.role_name,
       hourly_cost: input.hourly_cost,
       currency: input.currency ?? DEFAULT_CURRENCY,
-      ...(company_id != null ? { company_id } : {}),
-      ...(company_uuid ? { company_uuid } : {}),
     },
   });
   return toJobRole(res);

@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
 
 export type CostSummary = {
   scope: string;
@@ -124,7 +125,10 @@ export const costApi = {
   },
 
   async listBudgets(): Promise<Budget[]> {
-    const raw = await apiRequest<BudgetDto[]>("cost", "/budgets");
+    const raw = await apiRequest<BudgetDto[]>(
+      "cost",
+      withQuery("/budgets", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
     const rows = asList<BudgetDto>(raw);
     return Promise.all(
       rows.map(async (b) => {
@@ -165,16 +169,11 @@ export const costApi = {
     return toBudget(raw);
   },
 
-  async budgetConsumption(id: number, period?: string) {
-    const periodMonth = toCostPeriodMonth(period);
-    return apiRequest<ConsumptionDto>(
-      "cost",
-      `/budgets/${id}/consumption?period=${periodMonth}`,
-    );
-  },
-
   async costAlerts(): Promise<CostAlert[]> {
-    const raw = await apiRequest<AlertDto[]>("cost", "/cost-alerts");
+    const raw = await apiRequest<AlertDto[]>(
+      "cost",
+      withQuery("/cost-alerts", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
     return asList<AlertDto>(raw).map((a) => {
       const pct = a.threshold_percentage ?? 0;
       return {

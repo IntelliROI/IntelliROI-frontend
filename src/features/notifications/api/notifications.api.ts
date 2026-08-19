@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
+import { apiRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
 
 export type NotificationItem = {
   id: number;
@@ -37,7 +38,13 @@ export const notificationsApi = {
         read_at?: string | null;
         created_at: string;
       }[]
-    >("notify", `/notifications?unread_only=${unreadOnly ? "true" : "false"}`);
+    >(
+      "notify",
+      withQuery("/notifications", {
+        unread_only: unreadOnly ? "true" : "false",
+        page_size: LIST_DROPDOWN_PAGE_SIZE,
+      }),
+    );
     return asList<{
       id: number;
       title: string;
@@ -81,7 +88,10 @@ export const notificationsApi = {
   },
 
   async listAlertRules(): Promise<AlertRule[]> {
-    const raw = await apiRequest<AlertRule[]>("notify", "/alert-rules");
+    const raw = await apiRequest<AlertRule[]>(
+      "notify",
+      withQuery("/alert-rules", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
     return asList<AlertRule>(raw);
   },
 

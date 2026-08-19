@@ -3,6 +3,7 @@
  */
 import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
 import {
+  LIST_DROPDOWN_PAGE_SIZE,
   LIST_PAGE_SIZE_DEFAULT,
   type ListQuery,
   type Paged,
@@ -265,15 +266,6 @@ export const authApi = {
     return toUser(res.user, company, res.scope, res.permissions);
   },
 
-  async refresh(refreshToken: string): Promise<AuthSession> {
-    const res = await apiRequest<TokenResponse>("auth", "/auth/refresh", {
-      method: "POST",
-      body: { refresh_token: refreshToken },
-      token: null,
-    });
-    return enrichWithMe(toSession(res));
-  },
-
   async logout(refreshToken?: string | null, revokeAll = false): Promise<void> {
     await apiRequest("auth", "/auth/logout", {
       method: "POST",
@@ -345,7 +337,10 @@ export const authApi = {
   },
 
   async listEmployees(): Promise<{ user: User; job_role?: JobRoleDto }[]> {
-    const res = await apiRequest<EmployeeProfileDto[]>("auth", "/auth/users");
+    const res = await apiRequest<EmployeeProfileDto[]>(
+      "auth",
+      withQuery("/auth/users", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
     return res.map((p) => ({ user: toUser(p.user), job_role: p.job_role }));
   },
 

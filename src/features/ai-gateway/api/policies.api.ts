@@ -93,18 +93,6 @@ export const policiesApi = {
     return toPolicy(raw);
   },
 
-  async update(id: number, input: Partial<CreatePolicyInput>): Promise<AiPolicy> {
-    const raw = await apiRequest<PolicyDto>("ai", `/policies/${id}`, {
-      method: "PATCH",
-      body: toBody({
-        scope_type: input.scope_type ?? "company",
-        effect: input.effect ?? "allow",
-        ...input,
-      }),
-    });
-    return toPolicy(raw);
-  },
-
   async remove(id: number): Promise<void> {
     await apiRequest("ai", `/policies/${id}`, { method: "DELETE" });
   },
