@@ -17,7 +17,7 @@ export default function PlatformAnalyticsPage() {
   if (!metrics.data) {
     return (
       <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
-        Could not load tenant counts from /platform/companies.
+        Could not load tenant counts from /platform/metrics.
       </p>
     );
   }
@@ -29,7 +29,7 @@ export default function PlatformAnalyticsPage() {
       <PageHeader
         eyebrow="Analytics"
         title="Platform Analytics"
-        description="Derived from the customer-tenant list. Cross-tenant AI spend and MRR are not on the API yet."
+        description="Tenant counts from GET /platform/metrics. Cross-tenant AI spend and MRR are not on the API yet."
       />
       <Mosaic cols={4}>
         <KpiTile label="Companies" value={m.tenant_count} format="number" />

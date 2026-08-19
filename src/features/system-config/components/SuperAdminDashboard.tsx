@@ -15,24 +15,30 @@ export function SuperAdminDashboard() {
     queryKey: ["platform", "companies"],
     queryFn: () => platformApi.companies(),
   });
+  const metrics = useQuery({
+    queryKey: ["platform", "metrics"],
+    queryFn: () => platformApi.metrics(),
+  });
   const providers = useQuery({
     queryKey: ["platform", "providers"],
     queryFn: () => aiGatewayApi.listProviders(),
   });
 
-  if (companies.isLoading) return <LoadingBlock className="h-96" />;
+  if (companies.isLoading || metrics.isLoading) return <LoadingBlock className="h-96" />;
 
   const tenants = companies.data ?? [];
-  const active = tenants.filter((c) => c.status === "active").length;
-  const suspended = tenants.filter((c) => c.status === "suspended").length;
-  const seats = tenants.reduce((sum, c) => sum + (c.user_count ?? 0), 0);
+  const m = metrics.data;
+  const active = m?.active_companies ?? 0;
+  const suspended = m?.suspended_companies ?? 0;
+  const seats = m?.seated_users ?? 0;
+  const tenantCount = m?.tenant_count ?? tenants.length;
 
   return (
     <div>
       <PageHeader
         eyebrow="Platform"
         title="Super Admin Control Plane"
-        description="Customer tenants on this IntelliROI instance. Revenue and platform-wide AI spend are not available until billing and platform metrics APIs ship."
+        description="Customer tenants on this IntelliROI instance. Revenue and platform-wide AI spend wait on billing."
         actions={
           <Button asChild size="sm">
             <Link href="/super-admin/companies">
@@ -44,7 +50,7 @@ export function SuperAdminDashboard() {
       />
 
       <Mosaic cols={4}>
-        <KpiTile label="Customer companies" value={tenants.length} format="number" />
+        <KpiTile label="Customer companies" value={tenantCount} format="number" />
         <KpiTile label="Active" value={active} format="number" accent />
         <KpiTile label="Suspended" value={suspended} format="number" />
         <KpiTile label="Seated users" value={seats} format="number" hint="from tenant roster" />

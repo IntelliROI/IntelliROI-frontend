@@ -80,15 +80,6 @@ function toTenant(c: TenantDto): PlatformTenant {
   };
 }
 
-function deriveMetrics(tenants: PlatformTenant[]): PlatformMetrics {
-  return {
-    tenant_count: tenants.length,
-    active_companies: tenants.filter((t) => t.status === "active").length,
-    suspended_companies: tenants.filter((t) => t.status === "suspended").length,
-    seated_users: tenants.reduce((sum, t) => sum + (t.user_count ?? 0), 0),
-  };
-}
-
 export const billingApi = {
   async plans(): Promise<Plan[]> {
     return apiRequest<Plan[]>("billing", "/subscription-plans");
@@ -130,10 +121,9 @@ export const platformApi = {
     });
   },
 
-  /** Tenant counts only — no platform-wide MRR/spend API yet. */
+  /** Tenant counts from GET /platform/metrics (no MRR/spend). */
   async metrics(): Promise<PlatformMetrics> {
-    const tenants = await platformApi.companies();
-    return deriveMetrics(tenants);
+    return apiRequest<PlatformMetrics>("auth", "/platform/metrics");
   },
 
   async gatewayHealth(): Promise<GatewayHealth> {

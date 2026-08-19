@@ -349,6 +349,11 @@ async function listProjects(): Promise<Project[]> {
   return page.items;
 }
 
+async function getProject(id: number): Promise<Project> {
+  const res = await apiRequest<ProjectDto>("org", `/projects/${id}`);
+  return toProject(res);
+}
+
 async function createProject(input: CreateProjectInput): Promise<Project> {
   const res = await apiRequest<ProjectDto>("org", "/projects", {
     method: "POST",
@@ -920,6 +925,7 @@ export const organizationApi = {
   removeTeamMember,
   listProjects,
   listProjectsPage,
+  getProject,
   createProject,
   addProjectMember,
   listEmployees,

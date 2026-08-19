@@ -26,9 +26,9 @@ export function ProjectMonitor({
 }) {
   const [period, setPeriod] = useState<"day" | "month">("month");
 
-  const projects = useQuery({
-    queryKey: ["company", companySlug, "projects"],
-    queryFn: () => organizationApi.listProjects(),
+  const projectQuery = useQuery({
+    queryKey: ["company", companySlug, "projects", projectId],
+    queryFn: () => organizationApi.getProject(projectId),
   });
   const departments = useQuery({
     queryKey: ["company", companySlug, "departments"],
@@ -43,7 +43,7 @@ export function ProjectMonitor({
     queryFn: () => analyticsApi.project(projectId, period),
   });
 
-  const project = projects.data?.find((p) => p.id === projectId);
+  const project = projectQuery.data;
   const deptName = project?.department_id
     ? departments.data?.find((d) => d.id === project.department_id)?.department_name
     : undefined;
@@ -51,7 +51,7 @@ export function ProjectMonitor({
     ? teams.data?.find((t) => t.id === project.team_id)?.team_name
     : undefined;
 
-  if (analytics.isLoading) {
+  if (analytics.isLoading || projectQuery.isLoading) {
     return <LoadingBlock className="h-80" />;
   }
 

@@ -79,6 +79,15 @@ const platformNav: NavItem[] = [
     section: "Intelligence",
   },
   {
+    id: "audit",
+    label: "Audit Logs",
+    href: "/super-admin/audit-logs",
+    icon: ClipboardList,
+    resource: "audit",
+    action: "view",
+    section: "Ops",
+  },
+  {
     id: "settings",
     label: "Settings",
     href: "/super-admin/settings",
@@ -470,6 +479,16 @@ export function getCompanyNav(
       icon: Settings,
       resource: "settings",
       action: "view",
+      section: "Account",
+    },
+    {
+      id: "audit",
+      label: "Audit Logs",
+      href: `${base}/settings/audit-logs`,
+      icon: ClipboardList,
+      resource: "audit",
+      action: "view",
+      roles: [ROLES.COMPANY_OWNER],
       section: "Account",
     },
   ], role, permissions);
