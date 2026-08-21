@@ -5,11 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { Chapter } from "@/components/ui/panel";
 import { authApi } from "@/features/auth/api/auth.api";
 import { registerSchema } from "@/features/auth/schemas/auth.schema";
 import { useAuthStore } from "@/stores/auth-store";
+import { getHomePath } from "@/lib/rbac/route-access";
+import { ROLES } from "@/constants/roles";
+import { CURRENCIES, DEFAULT_CURRENCY } from "@/constants/locale";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -23,7 +26,7 @@ export function RegisterForm() {
     company_size: "1-50",
     country: "India",
     timezone: "Asia/Kolkata",
-    currency: "USD",
+    currency: DEFAULT_CURRENCY,
     website: "",
     email: "",
     first_name: "",
@@ -51,10 +54,15 @@ export function RegisterForm() {
         company: session.company,
         accessToken: session.access_token,
         refreshToken: session.refresh_token,
-        onboardingComplete: false,
+        onboardingComplete: true,
       });
-      toast.success("Company registered — complete onboarding");
-      router.replace("/onboarding/company-profile");
+      toast.success("Company registered");
+      if (session.user.role === ROLES.SUPER_ADMIN) {
+        router.replace("/super-admin/dashboard");
+      } else {
+        const slug = session.company?.slug ?? session.user.company?.slug ?? "";
+        router.replace(getHomePath(session.user.role, slug));
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -64,13 +72,13 @@ export function RegisterForm() {
 
   return (
     <div className="w-full max-w-xl">
-      <Chapter number="02" label="Onboard" />
+      <Chapter number="02" label="Register" />
       <h1 className="mt-8 text-3xl font-light tracking-tight text-text-primary">
         Register your company
       </h1>
       <p className="mt-3 text-sm text-text-secondary">
-        Creates the tenant and Company Owner (CEO). Next: settings → job roles →
-        departments → teams → providers → employees.
+        Creates the tenant and Company Owner. You land on the dashboard — add a
+        manager later from Organization.
       </p>
 
       <form onSubmit={onSubmit} className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -102,28 +110,43 @@ export function RegisterForm() {
             }`}
           >
             <Label htmlFor={key}>{label}</Label>
-            <Input
-              id={key}
-              type={
-                key === "password"
-                  ? "password"
-                  : key === "email"
-                    ? "email"
+            {key === "currency" ? (
+              <Select
+                id={key}
+                value={form.currency}
+                onChange={(e) => update("currency", e.target.value)}
+                required
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Input
+                id={key}
+                type={
+                  key === "password"
+                    ? "password"
+                    : key === "email"
+                      ? "email"
+                      : key === "website"
+                        ? "url"
+                        : "text"
+                }
+                value={form[key]}
+                onChange={(e) => update(key, e.target.value)}
+                required={key !== "website"}
+                placeholder={
+                  key === "company_code"
+                    ? "PENGWIN"
                     : key === "website"
-                      ? "url"
-                      : "text"
-              }
-              value={form[key]}
-              onChange={(e) => update(key, e.target.value)}
-              required={key !== "website"}
-              placeholder={
-                key === "company_code"
-                  ? "PENGWIN"
-                  : key === "website"
-                    ? "https://"
-                    : undefined
-              }
-            />
+                      ? "https://"
+                      : undefined
+                }
+              />
+            )}
           </div>
         ))}
         {fieldError && (

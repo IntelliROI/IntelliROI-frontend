@@ -7,10 +7,10 @@ import {
   canAccessCompanyPath,
   getHomePath,
 } from "@/lib/rbac/route-access";
-import { LoadingBlock } from "@/components/feedback/States";
 
 /**
- * Client-side route ACL — employees/managers cannot deep-link into forbidden pages.
+ * Client ACL for tenant routes. Middleware already checked cookies;
+ * this covers client-side clicks without a second loading screen.
  */
 export function RouteGuard({
   companySlug,
@@ -22,22 +22,17 @@ export function RouteGuard({
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const isHydrated = useAuthStore((s) => s.isHydrated);
+
+  const allowed =
+    Boolean(user) && canAccessCompanyPath(user!.role, companySlug, pathname);
 
   useEffect(() => {
-    if (!isHydrated || !user) return;
+    if (!user) return;
     if (!canAccessCompanyPath(user.role, companySlug, pathname)) {
       router.replace(getHomePath(user.role, companySlug));
     }
-  }, [isHydrated, user, companySlug, pathname, router]);
+  }, [user, companySlug, pathname, router]);
 
-  if (!isHydrated || !user) {
-    return <LoadingBlock className="h-40" />;
-  }
-
-  if (!canAccessCompanyPath(user.role, companySlug, pathname)) {
-    return <LoadingBlock className="h-40" />;
-  }
-
+  if (!allowed) return null;
   return <>{children}</>;
 }

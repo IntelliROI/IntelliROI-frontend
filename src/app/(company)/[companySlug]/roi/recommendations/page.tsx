@@ -17,6 +17,48 @@ import { roiApi } from "@/features/roi/api/roi.api";
 import { toast } from "sonner";
 import { useState } from "react";
 
+function RecActions({
+  id,
+  onDone,
+}: {
+  id: number;
+  onDone: () => void;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Button
+        size="sm"
+        onClick={async () => {
+          try {
+            await roiApi.updateRecommendation(id, "accepted");
+            toast.success("Accepted");
+            onDone();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Request failed");
+          }
+        }}
+      >
+        Accept
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={async () => {
+          try {
+            await roiApi.updateRecommendation(id, "dismissed");
+            toast.success("Dismissed");
+            onDone();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Request failed");
+          }
+        }}
+      >
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
 export default function RecommendationsPage({
   params,
 }: {
@@ -42,18 +84,7 @@ export default function RecommendationsPage({
         {r.scope}
       </span>
     ),
-    action: (
-      <Button
-        size="sm"
-        onClick={async () => {
-          await roiApi.updateRecommendation(r.id, "accepted");
-          toast.success("Accepted");
-          recommendations.refetch();
-        }}
-      >
-        Accept
-      </Button>
-    ),
+    action: <RecActions id={r.id} onDone={() => recommendations.refetch()} />,
   }));
 
   const cards: GridCard[] = (recommendations.data ?? []).map((r) => ({
@@ -73,18 +104,7 @@ export default function RecommendationsPage({
         ),
       },
     ],
-    action: (
-      <Button
-        size="sm"
-        onClick={async () => {
-          await roiApi.updateRecommendation(r.id, "accepted");
-          toast.success("Accepted");
-          recommendations.refetch();
-        }}
-      >
-        Accept
-      </Button>
-    ),
+    action: <RecActions id={r.id} onDone={() => recommendations.refetch()} />,
     accent: true,
   }));
 

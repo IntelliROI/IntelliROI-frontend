@@ -13,6 +13,7 @@ type CanProps = {
 
 export function Can({ resource, action, children, fallback = null }: CanProps) {
   const role = useAuthStore((s) => s.user?.role);
-  if (!can(role, resource, action)) return <>{fallback}</>;
+  const permissions = useAuthStore((s) => s.user?.permissions);
+  if (!can(role, resource, action, permissions)) return <>{fallback}</>;
   return <>{children}</>;
 }

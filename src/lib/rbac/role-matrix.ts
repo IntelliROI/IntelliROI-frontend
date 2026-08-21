@@ -1,4 +1,5 @@
 import { type Role, ROLES } from "@/constants/roles";
+import { permissionAllows } from "@/lib/rbac/permission-keys";
 
 export type Resource =
   | "companies"
@@ -14,6 +15,7 @@ export type Resource =
   | "usage"
   | "analytics"
   | "roi"
+  | "policies"
   | "reports"
   | "notifications"
   | "settings"
@@ -55,12 +57,13 @@ const matrix: Record<Role, PermissionMap> = {
     projects: { view: true, create: true, edit: true, manage: true },
     providers_company: { view: true, manage: true },
     budgets: { view: true, create: true, edit: true, manage: true },
-    benchmarks: { view: true, approve: true, manage: true },
+    benchmarks: { view: true, approve: true, create: true, manage: true },
     job_roles: { view: true, create: true, edit: true, manage: true },
     workspace: { use: true, view: true },
     usage: { view: true },
     analytics: { view: true },
     roi: { view: true },
+    policies: { view: true, create: true, edit: true, delete: true, manage: true },
     reports: { view: true, create: true },
     notifications: { view: true },
     settings: { view: true, manage: true },
@@ -118,9 +121,11 @@ export function can(
   role: Role | null | undefined,
   resource: Resource,
   action: Action,
+  permissions?: string[],
 ): boolean {
   if (!role) return false;
-  return Boolean(matrix[role]?.[resource]?.[action]);
+  if (!matrix[role]?.[resource]?.[action]) return false;
+  return permissionAllows(permissions, resource, action);
 }
 
 export function getRoleMatrix(role: Role): PermissionMap {

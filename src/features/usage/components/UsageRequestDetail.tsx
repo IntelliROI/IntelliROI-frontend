@@ -15,19 +15,28 @@ export function UsageRequestDetail({
   const detail = useUsageRequest(companySlug, requestId);
 
   if (detail.isLoading) return <LoadingBlock className="h-64" />;
-  const r = detail.data!;
+
+  if (!detail.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load this usage request from the live service.
+      </p>
+    );
+  }
+
+  const r = detail.data;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Request"
-        title={r.id}
-        description={`${r.user} · ${r.provider}/${r.model}`}
+        eyebrow="Period"
+        title={r.created_at || r.id}
+        description="Company daily totals from analytics snapshots (request-level list is not on the cost service)."
       />
       <Mosaic cols={4}>
-        <KpiTile label="Tokens in" value={r.tokens_in} format="number" />
-        <KpiTile label="Tokens out" value={r.tokens_out} format="number" />
-        <KpiTile label="Latency" value={`${r.latency_ms}ms`} />
+        <KpiTile label="Requests" value={r.requests} format="number" />
+        <KpiTile label="Cost" value={r.cost} format="currency" />
+        <KpiTile label="Tokens" value={r.tokens_in} format="number" />
         <KpiTile label="Status" value={r.status} accent />
       </Mosaic>
       <Panel className="mt-6 p-6">

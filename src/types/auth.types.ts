@@ -16,6 +16,16 @@ export type Company = {
   plan?: string;
 };
 
+/** Org window from GET /auth/me — drives manager/lead dashboard routing. */
+export type AuthScope = {
+  level: "company" | "department" | "team" | "self" | "platform";
+  experience?: string;
+  department_id?: number | null;
+  team_id?: number | null;
+  user_id?: number;
+  company_id?: number;
+};
+
 export type User = {
   uuid: string;
   id?: number;
@@ -25,6 +35,7 @@ export type User = {
   role: Role;
   roles?: string[];
   permissions?: string[];
+  scope?: AuthScope;
   status?: "active" | "invited" | "suspended" | "deactivated";
   company?: Company;
   department_id?: number | null;

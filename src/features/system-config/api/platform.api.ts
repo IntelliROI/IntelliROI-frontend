@@ -1,83 +1,117 @@
-import { apiRequest, useMocks } from "@/lib/api/client";
-import {
-  delay,
-  mockCompany,
-  mockCompanies,
-  mockPlatformMetrics,
-} from "@/lib/mocks/data";
+import { apiRequest, pagedRequest } from "@/lib/api/client";
 import { type Company } from "@/types/auth.types";
+import { slugify } from "@/lib/utils";
 
-export type PlatformMetrics = typeof mockPlatformMetrics;
+export type PlatformTenant = Company & {
+  user_count?: number;
+  created_at?: string;
+};
 
-export type Subscription = {
-  plan?: string;
+export type PlatformMetrics = {
+  tenant_count: number;
+  active_companies: number;
+  suspended_companies: number;
+  seated_users: number;
+};
+
+export type GatewayHealth = {
+  live: boolean;
+  ready: boolean;
+  detail: string;
+};
+
+type TenantDto = {
+  uuid: string;
+  id?: number;
+  company_name: string;
+  company_code?: string;
+  industry?: string;
+  company_size?: string;
+  country?: string;
+  timezone?: string;
+  currency?: string;
   status: string;
-  seats: number;
-  renews_at: string;
+  user_count?: number;
+  created_at?: string;
 };
 
-export type BillingUsage = {
-  seats_used: number;
-  seats_limit: number;
-  requests_month: number;
-  requests_limit: number;
+type HealthDto = {
+  status?: string;
+  service?: string;
+  time?: string;
 };
 
-export type Plan = {
-  id: number;
-  name: string;
-  price_monthly: number;
-  seats: number;
-};
-
-export const billingApi = {
-  async plans(): Promise<Plan[]> {
-    if (useMocks) {
-      return delay([
-        { id: 1, name: "Free", price_monthly: 0, seats: 5 },
-        { id: 2, name: "Pro", price_monthly: 499, seats: 50 },
-        { id: 3, name: "Enterprise", price_monthly: 2499, seats: 500 },
-      ]);
-    }
-    return apiRequest<Plan[]>("billing", "/subscription-plans");
-  },
-
-  async mySubscription(): Promise<Subscription> {
-    if (useMocks) {
-      return delay({
-        plan: mockCompany.plan,
-        status: "active",
-        seats: 116,
-        renews_at: "2026-09-01",
-      });
-    }
-    return apiRequest<Subscription>("billing", "/companies/me/subscription");
-  },
-
-  async myUsage(): Promise<BillingUsage> {
-    if (useMocks) {
-      return delay({
-        seats_used: 86,
-        seats_limit: 116,
-        requests_month: 4820,
-        requests_limit: 100000,
-      });
-    }
-    return apiRequest<BillingUsage>("billing", "/companies/me/usage");
-  },
-};
+function toTenant(c: TenantDto): PlatformTenant {
+  return {
+    uuid: c.uuid,
+    id: c.id,
+    name: c.company_name,
+    slug: slugify(c.company_name || c.company_code || c.uuid),
+    company_code: c.company_code,
+    industry: c.industry,
+    company_size: c.company_size,
+    country: c.country,
+    timezone: c.timezone,
+    currency: c.currency,
+    status: (c.status as Company["status"]) ?? "active",
+    user_count: c.user_count,
+    created_at: c.created_at,
+  };
+}
 
 export const platformApi = {
-  async metrics(): Promise<PlatformMetrics> {
-    if (useMocks) return delay(mockPlatformMetrics);
-    return apiRequest<PlatformMetrics>(
-      "analytics",
-      "/analytics/company?period=month",
-    );
+  async companies(): Promise<PlatformTenant[]> {
+    const page = await pagedRequest<TenantDto>("auth", "/platform/companies");
+    return page.items.map(toTenant);
   },
 
-  async companies(): Promise<Company[]> {
-    if (useMocks) return delay(mockCompanies);
-    return apiRequest<Company[]>("auth", "/companies");
+  async company(uuid: string): Promise<PlatformTenant> {
+    const raw = await apiRequest<TenantDto>("auth", `/platform/companies/${uuid}`);
+    return toTenant(raw);
+  },
+
+  async patchCompanyStatus(
+    uuid: string,
+    status: "active" | "suspended",
+  ): Promise<PlatformTenant> {
+    const raw = await apiRequest<TenantDto>(
+      "auth",
+      `/platform/companies/${uuid}`,
+      { method: "PATCH", body: { status } },
+    );
+    return toTenant({
+      ...raw,
+      company_name: raw.company_name || uuid,
+      status: raw.status,
+    });
+  },
+
+  /** Tenant counts from GET /platform/metrics (no MRR/spend). */
+  async metrics(): Promise<PlatformMetrics> {
+    return apiRequest<PlatformMetrics>("auth", "/platform/metrics");
+  },
+
+  async gatewayHealth(): Promise<GatewayHealth> {
+    try {
+      const live = await apiRequest<HealthDto>("auth", "/healthz");
+      let ready = false;
+      try {
+        await apiRequest<HealthDto>("auth", "/readyz");
+        ready = true;
+      } catch {
+        ready = false;
+      }
+      return {
+        live: live.status === "ok" || Boolean(live.service),
+        ready,
+        detail: live.service ?? live.status ?? "gateway",
+      };
+    } catch (err) {
+      return {
+        live: false,
+        ready: false,
+        detail: err instanceof Error ? err.message : "unreachable",
+      };
+    }
   },
 };

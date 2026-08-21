@@ -13,19 +13,11 @@ import { ROLES } from "@/constants/roles";
 import { Chapter } from "@/components/ui/panel";
 import { getHomePath } from "@/lib/rbac/route-access";
 
-const DEMO_ACCOUNTS = [
-  { email: "super@intelliroi.com", label: "Super Admin" },
-  { email: "ceo@acme.test", label: "Company Owner" },
-  { email: "dept@acme.test", label: "Department Head" },
-  { email: "lead@acme.test", label: "Team Lead" },
-  { email: "emp@acme.test", label: "Employee" },
-];
-
 export function LoginForm() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
-  const [email, setEmail] = useState("ceo@acme.test");
-  const [password, setPassword] = useState("Password123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -40,7 +32,6 @@ export function LoginForm() {
     setLoading(true);
     try {
       const session = await authApi.login(parsed.data);
-      // Demo accounts are treated as already onboarded
       setSession({
         user: session.user,
         company: session.company ?? session.user.company,
@@ -53,8 +44,11 @@ export function LoginForm() {
       if (session.user.role === ROLES.SUPER_ADMIN) {
         router.replace("/super-admin/dashboard");
       } else {
-        const slug =
-          session.company?.slug ?? session.user.company?.slug ?? "acme";
+        const slug = session.company?.slug ?? session.user.company?.slug;
+        if (!slug) {
+          toast.error("No company on this account");
+          return;
+        }
         router.replace(getHomePath(session.user.role, slug));
       }
     } catch (err) {
@@ -102,24 +96,6 @@ export function LoginForm() {
           {loading ? "Authenticating…" : "Enter platform"}
         </Button>
       </form>
-
-      <div className="mt-8 border border-hairline p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-          Demo personas · password Password123!
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {DEMO_ACCOUNTS.map((a) => (
-            <button
-              key={a.email}
-              type="button"
-              onClick={() => setEmail(a.email)}
-              className="border border-hairline px-2 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-text-secondary transition-colors hover:border-accent/50 hover:text-accent"
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <p className="mt-6 text-sm text-text-secondary">
         <Link href="/forgot-password" className="text-accent hover:underline">

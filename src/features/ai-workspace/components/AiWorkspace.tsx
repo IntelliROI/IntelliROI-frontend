@@ -8,7 +8,10 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { toast } from "sonner";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
+import { ApiError } from "@/lib/api/client";
 import { useChatStore } from "@/stores/chat-store";
 import { queryKeys } from "@/lib/api/query-keys";
 import {
@@ -20,6 +23,7 @@ import { ChatSidebar } from "@/features/ai-workspace/components/ChatSidebar";
 import { AiChatLoader, AiMark } from "@/features/ai-workspace/components/AiMark";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
+import { useConfiguredProviders } from "@/features/organization/hooks/useOrganizationQueries";
 
 const SUGGESTIONS = [
   "Draft an API design for Invoice Builder with auth middleware",
@@ -27,37 +31,6 @@ const SUGGESTIONS = [
   "Write SQL to roll up AI cost by department and team",
   "Refactor this auth flow for clearer error handling",
 ];
-
-const MODELS: Record<
-  string,
-  { label: string; models: { id: string; label: string }[] }
-> = {
-  openai: {
-    label: "OpenAI",
-    models: [
-      { id: "gpt-4o-mini", label: "GPT-4o mini" },
-      { id: "gpt-4o", label: "GPT-4o" },
-    ],
-  },
-  anthropic: {
-    label: "Anthropic",
-    models: [{ id: "claude-sonnet-4-20250514", label: "Claude Sonnet" }],
-  },
-  google: {
-    label: "Google",
-    models: [{ id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }],
-  },
-};
-
-const PROVIDERS = Object.entries(MODELS).map(([id, meta]) => ({
-  id,
-  label: meta.label,
-  models: meta.models,
-}));
-
-function pinnedStorageKey(slug: string) {
-  return `intelliroi.pinned-chats.${slug}`;
-}
 
 /**
  * OpenAI / Claude-class enterprise chat workspace.
@@ -76,49 +49,86 @@ export function AiWorkspace({
     useChatStore();
 
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
-  const [provider, setProvider] = useState("openai");
-  const [model, setModel] = useState("gpt-4o-mini");
+  const [provider, setProvider] = useState("");
+  const [model, setModel] = useState("");
   const [projectId, setProjectId] = useState("");
   const [taskId, setTaskId] = useState("");
   const [busy, setBusy] = useState(false);
   const [activeId, setActiveId] = useState(conversationId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
   const stopStreamRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const providerAutoSelectedRef = useRef(false);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(pinnedStorageKey(companySlug));
-      if (raw) setPinnedIds(JSON.parse(raw) as string[]);
-    } catch {
-      /* ignore */
-    }
-  }, [companySlug]);
+  const catalog = useQuery({
+    queryKey: queryKeys.company.providers(companySlug),
+    queryFn: () => aiGatewayApi.listProviders(),
+  });
 
-  function persistPins(next: string[]) {
-    setPinnedIds(next);
-    try {
-      localStorage.setItem(pinnedStorageKey(companySlug), JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-  }
+  const configuredProviders = useConfiguredProviders(companySlug);
+  const configuredProviderNames = new Set(
+    (configuredProviders.data ?? []).map((c) => c.provider),
+  );
 
-  function togglePin(uuid: string) {
-    persistPins(
-      pinnedIds.includes(uuid)
-        ? pinnedIds.filter((id) => id !== uuid)
-        : [...pinnedIds, uuid],
-    );
-  }
+  const providerOptions = (catalog.data ?? []).map((p) => ({
+    id: p.name,
+    label: p.display_name || p.name,
+    models: p.models.map((m) => ({ id: m, label: m })),
+    configured: configuredProviderNames.has(p.name),
+  }));
 
   const conversations = useQuery({
     queryKey: queryKeys.company.conversations(companySlug),
     queryFn: () => aiGatewayApi.listConversations(),
   });
+
+  const pinnedIds = (conversations.data ?? [])
+    .filter((c) => c.pinned)
+    .map((c) => c.uuid);
+
+  async function togglePin(uuid: string) {
+    const current = conversations.data?.find((c) => c.uuid === uuid);
+    try {
+      await aiGatewayApi.updateConversation(uuid, {
+        pinned: !current?.pinned,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.conversations(companySlug),
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update pin");
+    }
+  }
+
+  async function renameConversation(uuid: string, title: string) {
+    try {
+      await aiGatewayApi.updateConversation(uuid, { title });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.conversations(companySlug),
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not rename");
+    }
+  }
+
+  async function deleteConversation(uuid: string) {
+    try {
+      await aiGatewayApi.deleteConversation(uuid);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.conversations(companySlug),
+      });
+      if (activeId === uuid) {
+        setMessages([]);
+        setActiveId(undefined);
+        router.push(`/${companySlug}/ai-workspace`);
+      }
+      toast.success("Chat deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete");
+    }
+  }
 
   const conversation = useQuery({
     queryKey: queryKeys.company.conversation(companySlug, activeId ?? ""),
@@ -140,6 +150,24 @@ export function AiWorkspace({
     setActiveId(conversationId);
     setMessages([]);
   }, [conversationId]);
+
+  // Auto-select once: prefer a provider the company has actually configured
+  // a key for, so we never silently pick an unconfigured provider (which
+  // only surfaces as a PROVIDER_NOT_CONFIGURED error on send). Wait for the
+  // configured-providers query to settle before picking, and never override
+  // a provider the user picked manually.
+  useEffect(() => {
+    if (providerAutoSelectedRef.current) return;
+    if (!catalog.data || catalog.data.length === 0) return;
+    if (configuredProviders.isLoading) return;
+    const preferred =
+      catalog.data.find((p) => configuredProviderNames.has(p.name)) ??
+      catalog.data[0];
+    if (!preferred) return;
+    providerAutoSelectedRef.current = true;
+    setProvider(preferred.name);
+    setModel(preferred.models[0] ?? "");
+  }, [catalog.data, configuredProviders.isLoading, configuredProviders.data]);
 
   // Prefill draft from templates (?prompt=)
   useEffect(() => {
@@ -168,7 +196,9 @@ export function AiWorkspace({
     setBusy(false);
     setMessages((prev) =>
       prev.map((m) =>
-        m.isStreaming ? { ...m, isStreaming: false, stopped: true } : m,
+        m.isStreaming
+          ? { ...m, isStreaming: false, thinking: false, stopped: true }
+          : m,
       ),
     );
     clearStreaming();
@@ -178,6 +208,16 @@ export function AiWorkspace({
     async (promptOverride?: string) => {
       const prompt = (promptOverride ?? draft).trim();
       if (!prompt || busy) return;
+      if (!projectId || !taskId) {
+        toast.error(
+          "Select a project and task so this request can roll up to Estimated ROI",
+        );
+        return;
+      }
+      if (!provider || !model) {
+        toast.error("Select a provider and model");
+        return;
+      }
 
       setDraft("");
       setBusy(true);
@@ -194,19 +234,27 @@ export function AiWorkspace({
       setMessages((prev) => [
         ...prev,
         userMsg,
-        { id: assistantId, role: "assistant", content: "", isStreaming: true },
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          isStreaming: true,
+          thinking: true,
+        },
       ]);
       clearStreaming();
 
       try {
+        // Gateway waits for the full provider response (no token streaming yet);
+        // this call resolves only once OpenAI/Anthropic has finished.
         const res = await aiGatewayApi.chat(
           {
             provider,
             model,
             prompt,
-            conversation_uuid: activeId || "",
-            project_id: projectId ? Number(projectId) : null,
-            task_category_id: taskId ? Number(taskId) : null,
+            conversation_uuid: activeId || undefined,
+            project_id: Number(projectId),
+            task_category_id: Number(taskId),
           },
           { signal: controller.signal },
         );
@@ -220,9 +268,20 @@ export function AiWorkspace({
           );
         }
 
-        const chunks = res.content.match(/.{1,10}/g) ?? [res.content];
+        // Full reply is in hand — type it out ChatGPT-style (word chunks,
+        // faster than real token streaming since there's nothing left to wait for).
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, thinking: false } : m,
+          ),
+        );
+
+        const words = res.content.match(/\S+\s*|\s+/g) ?? [res.content];
+        const TARGET_MS = 1400;
+        const perWordDelay = Math.min(30, Math.max(10, TARGET_MS / Math.max(words.length, 1)));
+
         let assembled = "";
-        for (const chunk of chunks) {
+        for (const word of words) {
           if (stopStreamRef.current || controller.signal.aborted) {
             setMessages((prev) =>
               prev.map((m) =>
@@ -231,6 +290,7 @@ export function AiWorkspace({
                       ...m,
                       content: assembled || m.content,
                       isStreaming: false,
+                      thinking: false,
                       stopped: true,
                     }
                   : m,
@@ -238,8 +298,8 @@ export function AiWorkspace({
             );
             return;
           }
-          assembled += chunk;
-          appendStreamingBuffer(chunk);
+          assembled += word;
+          appendStreamingBuffer(word);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -247,7 +307,9 @@ export function AiWorkspace({
                 : m,
             ),
           );
-          await new Promise((r) => setTimeout(r, 12));
+          // Punctuation / line breaks get a slightly longer beat, like natural typing.
+          const beat = /[.!?\n]\s*$/.test(word) ? perWordDelay * 2.2 : perWordDelay;
+          await new Promise((r) => setTimeout(r, beat));
         }
 
         setMessages((prev) =>
@@ -265,15 +327,29 @@ export function AiWorkspace({
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
+        const message =
+          err instanceof ApiError && err.code === "POLICY_DENIED"
+            ? "This request is blocked by an AI policy (provider, model, or daily token cap)."
+            : err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED"
+              ? "This provider has no company API key. Ask an owner to add one under AI Providers."
+              : err instanceof ApiError && err.code === "INTERNAL_ERROR"
+                // Surface the backend's own message (e.g. "failed to decrypt
+                // provider key" / "provider chat failed" / "failed to persist
+                // chat outcome") instead of a bare "Request failed" so the
+                // real cause is visible instead of a generic 500.
+                ? `Gateway error: ${err.message || "internal server error"}`
+                : err instanceof Error
+                  ? err.message
+                  : "Request failed";
+        toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
-                  content:
-                    m.content ||
-                    "Something went wrong reaching the gateway. Try again.",
+                  content: m.content || message,
                   isStreaming: false,
+                  thinking: false,
                 }
               : m,
           ),
@@ -309,11 +385,14 @@ export function AiWorkspace({
     router.push(`/${companySlug}/ai-workspace`);
   }
 
-  const modelLabel = `${MODELS[provider]?.label ?? provider} · ${
-    MODELS[provider]?.models.find((m) => m.id === model)?.label ?? model
+  const activeProvider = providerOptions.find((p) => p.id === provider);
+  const modelLabel = `${activeProvider?.label ?? provider} · ${
+    activeProvider?.models.find((m) => m.id === model)?.label ?? model
   }`;
 
   const empty = displayMessages.length === 0;
+  const noProviderConfigured =
+    !configuredProviders.isLoading && configuredProviderNames.size === 0;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-0 w-full bg-ink">
@@ -324,6 +403,8 @@ export function AiWorkspace({
         activeId={activeId}
         pinnedIds={pinnedIds}
         onTogglePin={togglePin}
+        onRename={renameConversation}
+        onDelete={deleteConversation}
         onNewChat={newChat}
         expanded={sidebarOpen}
         onExpandedChange={setSidebarOpen}
@@ -372,6 +453,19 @@ export function AiWorkspace({
           )}
         </div>
 
+        {noProviderConfigured && (
+          <div className="mx-3 mb-2 rounded-[12px] border border-warning/30 bg-warning/5 px-4 py-2.5 text-[12.5px] text-text-secondary md:mx-6">
+            No AI provider has a company API key yet, so any send will fail.{" "}
+            <Link
+              href={`/${companySlug}/ai-providers`}
+              className="font-medium text-text-primary underline underline-offset-2"
+            >
+              Add one under AI Providers
+            </Link>
+            .
+          </div>
+        )}
+
         <ChatComposer
           value={draft}
           onChange={setDraft}
@@ -379,12 +473,14 @@ export function AiWorkspace({
           onStop={stop}
           busy={busy}
           companySlug={companySlug}
-          providers={PROVIDERS}
+          providers={providerOptions}
           provider={provider}
           model={model}
           onProviderChange={(p) => {
+            providerAutoSelectedRef.current = true;
             setProvider(p);
-            setModel(MODELS[p]?.models[0]?.id ?? model);
+            const next = providerOptions.find((row) => row.id === p);
+            setModel(next?.models[0]?.id ?? model);
           }}
           onModelChange={setModel}
           projects={(projects.data ?? []).map((p) => ({

@@ -20,7 +20,6 @@ const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
     "roi",
     "budgets",
     "business-context",
-    "reports",
     "notifications",
     "my-workspace",
   ],
@@ -51,6 +50,7 @@ const ROLE_DENIED_PREFIXES: Partial<Record<Role, string[]>> = {
     "ai-providers",
     "organization/job-roles",
     "settings",
+    "governance",
   ],
   [ROLES.TEAM_LEAD]: [
     "ai-providers",
@@ -61,6 +61,7 @@ const ROLE_DENIED_PREFIXES: Partial<Record<Role, string[]>> = {
     "business-context",
     "reports",
     "settings",
+    "governance",
     "roi/recommendations",
   ],
   [ROLES.EMPLOYEE]: [
@@ -76,6 +77,7 @@ const ROLE_DENIED_PREFIXES: Partial<Record<Role, string[]>> = {
     "business-context",
     "reports",
     "settings",
+    "governance",
   ],
 };
 

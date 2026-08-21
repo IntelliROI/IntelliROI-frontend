@@ -92,6 +92,7 @@ export type Employee = {
   team_name: string;
   job_role_name: string;
   hourly_cost: number;
+  currency: string;
   /** Rollup metrics — default 0 until usage/cost/ROI APIs are wired. */
   spend: number;
   roi_pct: number;
@@ -121,10 +122,10 @@ export type CreateEmployeeInput = {
   display_name?: string;
   email: string;
   phone?: string;
-  employee_code: string;
-  department_id: number;
+  employee_code?: string;
+  department_id?: number | null;
   team_id?: number | null;
-  job_role_id: number;
+  job_role_id?: number | null;
   manager_employee_id?: number | null;
   designation?: string;
   joining_date?: string;
@@ -136,6 +137,48 @@ export type CreateJobRoleInput = {
   role_name: string;
   hourly_cost: number;
   currency?: string;
+};
+
+export type UpdateDepartmentInput = {
+  department_name?: string;
+  department_code?: string;
+  description?: string;
+  manager_employee_id?: number | null;
+  status?: "active" | "inactive";
+};
+
+export type UpdateTeamInput = {
+  team_name?: string;
+  team_code?: string;
+  description?: string;
+  team_lead_employee_id?: number | null;
+  status?: "active" | "inactive";
+};
+
+export type UpdateJobRoleInput = {
+  role_name?: string;
+  hourly_cost?: number;
+  currency?: string;
+  status?: "active" | "inactive";
+};
+
+export type UpdateEmployeeOrgInput = {
+  employee_code?: string;
+  phone?: string;
+  designation?: string;
+  department_id?: number | null;
+  team_id?: number | null;
+  manager_employee_id?: number | null;
+  joining_date?: string;
+  job_role_id?: number | null;
+  previous_team_id?: number | null;
+};
+
+export type CreateProjectInput = {
+  project_name: string;
+  description?: string;
+  department_id?: number | null;
+  team_id?: number | null;
 };
 
 export type UpdateCompanySettingsInput = Partial<

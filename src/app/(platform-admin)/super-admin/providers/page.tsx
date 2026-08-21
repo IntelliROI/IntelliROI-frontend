@@ -15,7 +15,7 @@ export default function ProvidersPage() {
       <PageHeader
         eyebrow="Catalog"
         title="Global AI Providers"
-        description="Platform-wide provider catalog and health."
+        description="Seeded catalog from GET /providers (read-only). Company keys live on each tenant AI Providers screen."
       />
       {providers.isLoading ? (
         <LoadingBlock className="h-48" />
@@ -31,7 +31,7 @@ export default function ProvidersPage() {
             name: p.display_name,
             models: p.models.join(", "),
             status: p.status,
-            latency: `${p.latency_ms}ms`,
+            latency: p.latency_ms > 0 ? `${p.latency_ms}ms` : "—",
           }))}
         />
       )}

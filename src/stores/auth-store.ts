@@ -18,6 +18,7 @@ type AuthState = {
     onboardingComplete?: boolean;
   }) => void;
   setUser: (user: User | null) => void;
+  setTokens: (payload: { accessToken: string; refreshToken: string }) => void;
   setOnboardingComplete: (value: boolean) => void;
   clearSession: () => void;
   setHydrated: (value: boolean) => void;
@@ -61,7 +62,27 @@ export const useAuthStore = create<AuthState>()(
           onboardingComplete: complete,
         });
       },
-      setUser: (user) => set({ user }),
+      setUser: (user) =>
+        set({
+          user,
+          company: user?.company ?? get().company,
+        }),
+      setTokens: ({ accessToken, refreshToken }) => {
+        const { user, company, onboardingComplete } = get();
+        if (typeof window !== "undefined") {
+          localStorage.setItem("intelliroi_access_token", accessToken);
+          localStorage.setItem("intelliroi_refresh_token", refreshToken);
+        }
+        if (user) {
+          syncAuthCookies({
+            accessToken,
+            role: user.role,
+            companySlug: company?.slug,
+            onboardingComplete,
+          });
+        }
+        set({ accessToken, refreshToken });
+      },
       setOnboardingComplete: (value) => {
         const state = get();
         if (state.accessToken && state.user) {
@@ -107,6 +128,12 @@ export const useAuthStore = create<AuthState>()(
               "intelliroi_access_token",
               state.accessToken,
             );
+            if (state.refreshToken) {
+              localStorage.setItem(
+                "intelliroi_refresh_token",
+                state.refreshToken,
+              );
+            }
           }
           syncAuthCookies({
             accessToken: state.accessToken,

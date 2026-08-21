@@ -18,8 +18,13 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 /** API role_name values → app Role. */
 const ROLE_ALIASES: Record<string, Role> = {
+  super_admin: ROLES.SUPER_ADMIN,
+  "super-admin": ROLES.SUPER_ADMIN,
+  superadmin: ROLES.SUPER_ADMIN,
+  company_owner: ROLES.COMPANY_OWNER,
   owner: ROLES.COMPANY_OWNER,
   admin: ROLES.COMPANY_OWNER,
+  department_head: ROLES.DEPARTMENT_HEAD,
   department_manager: ROLES.DEPARTMENT_HEAD,
   manager: ROLES.DEPARTMENT_HEAD,
   team_lead: ROLES.TEAM_LEAD,
@@ -28,6 +33,7 @@ const ROLE_ALIASES: Record<string, Role> = {
 
 /** Highest-privilege role wins when a user has more than one. */
 const ROLE_PRIORITY: Role[] = [
+  ROLES.SUPER_ADMIN,
   ROLES.COMPANY_OWNER,
   ROLES.DEPARTMENT_HEAD,
   ROLES.TEAM_LEAD,

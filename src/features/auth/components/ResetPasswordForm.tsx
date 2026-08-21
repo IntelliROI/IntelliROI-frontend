@@ -16,6 +16,26 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
 
+  if (!token) {
+    return (
+      <div className="w-full max-w-md">
+        <Chapter number="04" label="Reset" />
+        <h1 className="mt-8 text-3xl font-light tracking-tight text-text-primary">
+          Link expired or invalid
+        </h1>
+        <p className="mt-3 text-sm text-text-secondary">
+          This reset link is missing its token. Request a new one from the
+          forgot password page.
+        </p>
+        <p className="mt-6 text-sm text-text-secondary">
+          <Link href="/forgot-password" className="text-accent hover:underline">
+            Request a new link
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const parsed = resetPasswordSchema.safeParse({

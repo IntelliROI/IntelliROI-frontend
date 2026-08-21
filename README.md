@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). With `NEXT_PUBLIC_USE_MOCKS=true`, UI runs without backends.
+Open [http://localhost:3000](http://localhost:3000). The app calls live Go services on `:8081`–`:8089`. All of those must be running.
 
 ## Stack
 

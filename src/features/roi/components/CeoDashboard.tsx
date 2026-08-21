@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Check, X } from "lucide-react";
@@ -13,6 +13,7 @@ import {
 } from "@/components/dashboard/DashboardChrome";
 import { Panel, Provenance, LiveDot } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { TrendAreaChart, ProviderDonut } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
 import { roiApi } from "@/features/roi/api/roi.api";
@@ -22,6 +23,11 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
+
+/** Analytics has no "week" period_type — fold week into day for that call. */
+function toAnalyticsPeriod(period: RoiPeriod): "day" | "month" {
+  return period === "week" ? "day" : period;
+}
 
 function sparkFromSeries(
   series: { roi_pct?: number; requests?: number; cost?: number }[],
@@ -37,18 +43,20 @@ function sparkFromSeries(
 export function CeoDashboard({ companySlug }: { companySlug: string }) {
   const company = useAuthStore((s) => s.company);
   const user = useAuthStore((s) => s.user);
+  const [period, setPeriod] = useState<RoiPeriod>("month");
+  const analyticsPeriod = toAnalyticsPeriod(period);
 
   const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "summary"],
-    queryFn: () => roiApi.company("month"),
+    queryKey: ["company", companySlug, "roi", "summary", period],
+    queryFn: () => roiApi.company(period),
   });
   const analytics = useQuery({
-    queryKey: ["company", companySlug, "analytics"],
-    queryFn: () => analyticsApi.company("day"),
+    queryKey: ["company", companySlug, "analytics", analyticsPeriod],
+    queryFn: () => analyticsApi.company(analyticsPeriod),
   });
   const costs = useQuery({
-    queryKey: ["company", companySlug, "costs"],
-    queryFn: () => costApi.summary("company", "month"),
+    queryKey: ["company", companySlug, "costs", period],
+    queryFn: () => costApi.summary("company", period === "week" ? "month" : period),
   });
   const departments = useQuery({
     queryKey: ["company", companySlug, "departments"],
@@ -58,20 +66,26 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
     queryKey: ["company", companySlug, "roi", "recommendations"],
     queryFn: () => roiApi.recommendations("open"),
   });
+  const providerMix = useQuery({
+    queryKey: ["company", companySlug, "analytics", "providers", period],
+    queryFn: () => analyticsApi.providers(analyticsPeriod),
+  });
+  const deptRoi = useQueries({
+    queries: (departments.data ?? []).map((d) => ({
+      queryKey: ["company", companySlug, "roi", "department", d.id, period],
+      queryFn: () => roiApi.department(d.id, period),
+      enabled: Boolean(departments.data?.length),
+    })),
+  });
 
   const series = useMemo(
     () =>
-      analytics.data?.series.map((p) => ({
+      analytics.data?.series?.map((p) => ({
         date: p.date.slice(5),
         value: p.roi_pct,
         secondary: p.cost / 100,
       })) ?? [],
     [analytics.data],
-  );
-
-  const deptMax = Math.max(
-    ...(departments.data?.map((d) => d.roi_pct) ?? [1]),
-    1,
   );
 
   if (roi.isLoading || analytics.isLoading) {
@@ -88,8 +102,23 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
     );
   }
 
-  const roiData = roi.data!;
+  if (!roi.data) {
+    return (
+      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+        Could not load Estimated ROI from the live service.
+      </p>
+    );
+  }
+
+  const roiData = roi.data;
   const rawSeries = analytics.data?.series ?? [];
+  const deptRows = (departments.data ?? []).map((d, i) => ({
+    ...d,
+    roi_pct: deptRoi[i]?.data?.roi_pct ?? 0,
+    monthly_spend: deptRoi[i]?.data?.total_spend ?? 0,
+  }));
+  const deptMax = Math.max(...deptRows.map((d) => d.roi_pct), 1);
+  const mix = providerMix.data ?? [];
 
   return (
     <div>
@@ -99,7 +128,8 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
         description={`${company?.name ?? "Company"} — is AI investment producing Estimated ROI?`}
         actions={
           <div className="flex items-center gap-2">
-            <LiveDot label="Live MTD" />
+            <LiveDot label="Live" />
+            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
             <Button asChild variant="secondary" size="sm">
               <Link href={`/${companySlug}/roi`}>
                 Full ROI
@@ -128,8 +158,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             label="AI spend MTD"
             value={roiData.total_spend}
             format="currency"
-            delta={-4.2}
-            hint="vs last month"
+            hint={`${formatNumber(roiData.requests)} requests`}
             spark={sparkFromSeries(rawSeries, "cost")}
             delay={0.05}
           />
@@ -149,10 +178,10 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             delay={0.11}
           />
           <MetricTile
-            label="Adoption"
-            value={Math.round(roiData.adoption_rate * 100)}
-            format="percent"
-            hint={`${roiData.active_employees}/${roiData.total_seats} seats active`}
+            label="Requests"
+            value={analytics.data?.requests ?? roiData.requests}
+            format="number"
+            hint="this period"
             spark={sparkFromSeries(rawSeries, "requests")}
             delay={0.14}
           />
@@ -186,13 +215,13 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
         <Panel className="border-0 bg-ink p-5 md:p-6 lg:col-span-4">
           <SectionLabel title="Provider mix" meta="Cost share" />
           <ProviderDonut
-            data={(costs.data?.by_provider ?? []).map((p) => ({
+            data={mix.map((p) => ({
               name: p.provider,
               value: p.cost,
             }))}
           />
           <ul className="mt-1 space-y-2.5">
-            {(costs.data?.by_provider ?? []).map((p, i) => (
+            {mix.map((p, i) => (
               <li
                 key={p.provider}
                 className="flex items-center justify-between gap-3"
@@ -236,11 +265,11 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             }
           />
           <div className="divide-y divide-hairline">
-            {(departments.data ?? []).map((d) => (
+            {(deptRows).map((d) => (
               <RankBar
                 key={d.id}
                 label={d.department_name}
-                valueLabel={`${d.roi_pct}% · ${formatCurrency(d.monthly_spend, "USD", true)}`}
+                valueLabel={`${d.roi_pct.toFixed(0)}% · ${formatCurrency(d.monthly_spend, "USD", true)}`}
                 percent={(d.roi_pct / deptMax) * 100}
                 href={`/${companySlug}/organization/departments/${d.id}`}
               />
@@ -253,18 +282,18 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             <SectionLabel title="Executive signals" className="mb-0" />
           </div>
           <InsightRow tone="good" code="TOP">
-            Engineering leads Estimated ROI at{" "}
-            {departments.data?.[0]?.roi_pct ?? "—"}%.
+            {deptRows[0]
+              ? `${deptRows[0].department_name} leads Estimated ROI at ${deptRows[0].roi_pct.toFixed(0)}%.`
+              : "Chat from AI Workspace with a project and task to populate Estimated ROI."}
           </InsightRow>
-          <InsightRow tone="warn" code="WATCH">
-            Marketing spend rising faster than value — review model mix.
-          </InsightRow>
-          <InsightRow tone="info" code="ADOPT">
-            {Math.round(roiData.adoption_rate * 100)}% seat adoption ·{" "}
-            {formatNumber(roiData.active_employees)} active.
+          <InsightRow tone="info" code="COST">
+            {formatCurrency(costs.data?.total_cost ?? roiData.total_spend)} AI
+            spend this period · {formatNumber(costs.data?.event_count ?? 0)}{" "}
+            cost events.
           </InsightRow>
           <InsightRow tone="info" code="REQ">
-            {formatNumber(analytics.data?.requests ?? 0)} AI requests in window.
+            {formatNumber(analytics.data?.requests ?? 0)} AI requests in
+            analytics window.
           </InsightRow>
         </Panel>
 

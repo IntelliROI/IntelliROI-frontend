@@ -1,5 +1,5 @@
-import { delay } from "@/lib/mocks/data";
-import { useMocks } from "@/lib/api/client";
+import { pagedRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE, type Paged } from "@/lib/api/types";
 
 export type AuditEntry = {
   id: string;
@@ -7,62 +7,42 @@ export type AuditEntry = {
   actor: string;
   action: string;
   target: string;
-  scope: "platform" | "tenant";
 };
 
-const TENANT_LOGS: AuditEntry[] = [
-  {
-    id: "a1",
-    time: "2026-08-06 16:20",
-    actor: "ceo@acme.test",
-    action: "budget.update",
-    target: "Engineering",
-    scope: "tenant",
-  },
-  {
-    id: "a2",
-    time: "2026-08-06 12:05",
-    actor: "dept@acme.test",
-    action: "benchmark.approve",
-    target: "Code Generation",
-    scope: "tenant",
-  },
-  {
-    id: "a3",
-    time: "2026-08-05 18:44",
-    actor: "ceo@acme.test",
-    action: "provider.key_added",
-    target: "openai",
-    scope: "tenant",
-  },
-];
+type AuditDto = {
+  id: string | number;
+  time: string;
+  actor?: string;
+  action?: string;
+  target?: string;
+};
 
-const PLATFORM_LOGS: AuditEntry[] = [
-  {
-    id: "p1",
-    time: "2026-08-06 14:02",
-    actor: "nova@intelliroi.com",
-    action: "company.suspend",
-    target: "Peak Finance",
-    scope: "platform",
-  },
-  {
-    id: "p2",
-    time: "2026-08-06 11:18",
-    actor: "system",
-    action: "pricing.sync",
-    target: "openai",
-    scope: "platform",
-  },
-];
+function toEntry(row: AuditDto): AuditEntry {
+  return {
+    id: String(row.id),
+    time: row.time,
+    actor: row.actor ?? "",
+    action: row.action ?? "",
+    target: row.target ?? "",
+  };
+}
+
+async function listPath(path: string): Promise<Paged<AuditEntry>> {
+  const page = await pagedRequest<AuditDto>(
+    "auth",
+    withQuery(path, { page: 1, page_size: LIST_DROPDOWN_PAGE_SIZE }),
+  );
+  return {
+    items: page.items.map(toEntry),
+    meta: page.meta,
+  };
+}
 
 export const auditApi = {
-  async listTenant(): Promise<AuditEntry[]> {
-    if (useMocks) return delay(TENANT_LOGS);
-    return delay(TENANT_LOGS);
+  listTenant(): Promise<Paged<AuditEntry>> {
+    return listPath("/audit-logs");
   },
-  async listPlatform(): Promise<AuditEntry[]> {
-    if (useMocks) return delay(PLATFORM_LOGS);
-    return delay(PLATFORM_LOGS);
+  listPlatform(): Promise<Paged<AuditEntry>> {
+    return listPath("/platform/audit-logs");
   },
 };

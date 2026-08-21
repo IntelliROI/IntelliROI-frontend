@@ -1,8 +1,19 @@
 /**
  * Auth API client (:8081) — live HTTP only, no mocks.
  */
-import { apiRequest } from "@/lib/api/client";
-import { type AuthSession, type Company, type User } from "@/types/auth.types";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import {
+  LIST_DROPDOWN_PAGE_SIZE,
+  LIST_PAGE_SIZE_DEFAULT,
+  type ListQuery,
+  type Paged,
+} from "@/lib/api/types";
+import {
+  type AuthScope,
+  type AuthSession,
+  type Company,
+  type User,
+} from "@/types/auth.types";
 import { resolveRole, toInviteRole, type Role } from "@/constants/roles";
 import { slugify } from "@/lib/utils";
 
@@ -42,10 +53,6 @@ export type UpdateEmployeeProfileInput = {
   employee_code?: string | null;
   phone?: string | null;
   designation?: string | null;
-  department_id?: number | null;
-  clear_department_id?: boolean;
-  team_id?: number | null;
-  clear_team_id?: boolean;
   manager_user_id?: number | null;
   clear_manager_user_id?: boolean;
   joining_date?: string | null;
@@ -86,12 +93,12 @@ type CompanyDto = {
 };
 
 type ScopeDto = {
-  level: "company" | "department" | "team" | "self";
-  experience: string;
-  department_id?: number;
-  team_id?: number;
-  user_id: number;
-  company_id: number;
+  level: "company" | "department" | "team" | "self" | "platform";
+  experience?: string;
+  department_id?: number | null;
+  team_id?: number | null;
+  user_id?: number;
+  company_id?: number;
 };
 
 type TokenResponse = {
@@ -120,6 +127,22 @@ type JobRoleDto = {
 type EmployeeProfileDto = {
   user: UserDto;
   job_role?: JobRoleDto;
+};
+
+type InviteResponseDto = {
+  user: UserDto;
+  email_sent: boolean;
+  message: string;
+  invite_expires_at?: string;
+  invite_token?: string; 
+  invite_url?: string;
+};
+
+export type InviteResult = {
+  user: User;
+  emailSent: boolean;
+  message: string;
+  inviteUrl?: string;
 };
 
 export type CompanySettingsDto = {
@@ -151,19 +174,38 @@ function toCompany(c: CompanyDto): Company {
   };
 }
 
-function toUser(u: UserDto, company?: Company): User {
+function toScope(s: ScopeDto): AuthScope {
+  return {
+    level: s.level,
+    experience: s.experience,
+    department_id: s.department_id ?? null,
+    team_id: s.team_id ?? null,
+    user_id: s.user_id,
+    company_id: s.company_id,
+  };
+}
+
+function toUser(
+  u: UserDto,
+  company?: Company,
+  scope?: ScopeDto,
+  permissions?: string[],
+): User {
+  const mappedScope = scope ? toScope(scope) : undefined;
   return {
     uuid: u.uuid,
-    id: u.id,
+    id: u.id ?? mappedScope?.user_id,
     email: u.email,
     first_name: u.first_name,
     last_name: u.last_name,
     role: resolveRole(u.roles),
     roles: u.roles,
+    permissions,
+    scope: mappedScope,
     status: u.status as User["status"],
     company,
-    department_id: u.department_id ?? null,
-    team_id: u.team_id ?? null,
+    department_id: u.department_id ?? mappedScope?.department_id ?? null,
+    team_id: u.team_id ?? mappedScope?.team_id ?? null,
     manager_user_id: u.manager_user_id ?? null,
     employee_code: u.employee_code,
     phone: u.phone,
@@ -182,6 +224,23 @@ function toSession(res: TokenResponse): AuthSession {
   };
 }
 
+/** Login/refresh tokens omit scope — /auth/me is the session source of truth. */
+async function enrichWithMe(session: AuthSession): Promise<AuthSession> {
+  try {
+    const res = await apiRequest<MeResponse>("auth", "/auth/me", {
+      token: session.access_token,
+    });
+    const company = toCompany(res.company);
+    return {
+      ...session,
+      company,
+      user: toUser(res.user, company, res.scope, res.permissions),
+    };
+  } catch {
+    return session;
+  }
+}
+
 export const authApi = {
   async login(input: LoginInput): Promise<AuthSession> {
     const res = await apiRequest<TokenResponse>("auth", "/auth/login", {
@@ -189,7 +248,7 @@ export const authApi = {
       body: input,
       token: null,
     });
-    return toSession(res);
+    return enrichWithMe(toSession(res));
   },
 
   async register(input: RegisterInput): Promise<AuthSession> {
@@ -198,24 +257,13 @@ export const authApi = {
       body: input,
       token: null,
     });
-    return toSession(res);
+    return enrichWithMe(toSession(res));
   },
 
   async me(): Promise<User> {
     const res = await apiRequest<MeResponse>("auth", "/auth/me");
     const company = toCompany(res.company);
-    const user = toUser(res.user, company);
-    user.permissions = res.permissions;
-    return user;
-  },
-
-  async refresh(refreshToken: string): Promise<AuthSession> {
-    const res = await apiRequest<TokenResponse>("auth", "/auth/refresh", {
-      method: "POST",
-      body: { refresh_token: refreshToken },
-      token: null,
-    });
-    return toSession(res);
+    return toUser(res.user, company, res.scope, res.permissions);
   },
 
   async logout(refreshToken?: string | null, revokeAll = false): Promise<void> {
@@ -241,36 +289,77 @@ export const authApi = {
     });
   },
 
-  /** Invite an employee — creates the user + returns a temporary password. */
-  async invite(
-    input: InviteEmployeeInput,
-  ): Promise<{ user: User; temporary_password: string }> {
-    const res = await apiRequest<{ user: UserDto; temporary_password: string }>(
-      "auth",
-      "/auth/invite",
-      {
-        method: "POST",
-        body: {
-          email: input.email,
-          first_name: input.first_name,
-          last_name: input.last_name,
-          role_name: toInviteRole(input.role),
-          employee_code: input.employee_code,
-          phone: input.phone,
-          designation: input.designation,
-          department_id: input.department_id ?? undefined,
-          team_id: input.team_id ?? undefined,
-          manager_user_id: input.manager_user_id ?? undefined,
-          joining_date: input.joining_date,
-        },
+  /**
+   * Invite an employee. The backend never issues a temporary password —
+   * the invited user is created with status "invited" and must set their
+   * own password from the emailed accept-invite link (same mechanism as
+   * forgot/reset password). In development, `invite_url` is echoed back so
+   * the inviter can share it without a mail provider configured.
+   */
+  async invite(input: InviteEmployeeInput): Promise<InviteResult> {
+    const res = await apiRequest<InviteResponseDto>("auth", "/auth/invite", {
+      method: "POST",
+      body: {
+        email: input.email,
+        first_name: input.first_name,
+        last_name: input.last_name,
+        role_name: toInviteRole(input.role),
+        employee_code: input.employee_code,
+        phone: input.phone,
+        designation: input.designation,
+        department_id: input.department_id ?? undefined,
+        team_id: input.team_id ?? undefined,
+        manager_user_id: input.manager_user_id ?? undefined,
+        joining_date: input.joining_date,
       },
+    });
+    return {
+      user: toUser(res.user),
+      emailSent: res.email_sent,
+      message: res.message,
+      inviteUrl: res.invite_url,
+    };
+  },
+
+  /** Resend an invite (new token + email) for a user still pending activation. */
+  async resendInvite(email: string): Promise<InviteResult> {
+    const res = await apiRequest<InviteResponseDto>(
+      "auth",
+      "/auth/invite/resend",
+      { method: "POST", body: { email } },
     );
-    return { user: toUser(res.user), temporary_password: res.temporary_password };
+    return {
+      user: toUser(res.user),
+      emailSent: res.email_sent,
+      message: res.message,
+      inviteUrl: res.invite_url,
+    };
   },
 
   async listEmployees(): Promise<{ user: User; job_role?: JobRoleDto }[]> {
-    const res = await apiRequest<EmployeeProfileDto[]>("auth", "/auth/users");
+    const res = await apiRequest<EmployeeProfileDto[]>(
+      "auth",
+      withQuery("/auth/users", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
     return res.map((p) => ({ user: toUser(p.user), job_role: p.job_role }));
+  },
+
+  async listEmployeesPage(
+    query: ListQuery & { department_id?: number; team_id?: number } = {},
+  ): Promise<Paged<{ user: User; job_role?: JobRoleDto }>> {
+    const path = withQuery("/auth/users", {
+      page: query.page ?? 1,
+      page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
+      q: query.q,
+      status: query.status,
+      department_id: query.department_id,
+      team_id: query.team_id,
+    });
+    const page = await pagedRequest<EmployeeProfileDto>("auth", path);
+    return {
+      items: page.items.map((p) => ({ user: toUser(p.user), job_role: p.job_role })),
+      meta: page.meta,
+    };
   },
 
   async getEmployee(
