@@ -515,7 +515,7 @@ export function GridView({
       <div className="flex flex-col items-center justify-center border border-dashed border-hairline bg-surface/10 px-8 py-16 text-center">
         <Database className="mb-3 h-8 w-8 text-text-secondary/30" strokeWidth={1} />
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/50">
-          No data
+          {emptyTitle}
         </p>
         <p className="mt-1 text-[13px] text-text-secondary/60">
           {emptyDescription ?? "No records found for this view"}

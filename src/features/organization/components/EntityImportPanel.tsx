@@ -19,7 +19,6 @@ import { ApiError } from "@/lib/api/client";
 import {
   organizationApi,
   type ImportEntity,
-  type ImportJob,
   type ImportPreview,
   type ImportPreviewAction,
 } from "@/features/organization/api/organization.api";
