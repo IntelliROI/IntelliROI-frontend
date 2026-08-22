@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useState, type FormEvent, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import anime from "animejs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -42,7 +41,6 @@ type FormState = {
 export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
-  const panelRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -63,41 +61,44 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
 
   function update(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    if (fieldError) setFieldError(null);
   }
-
-  useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    anime.remove(el);
-    anime.set(el, { opacity: 0, translateX: step === 1 ? -16 : 16 });
-    anime({
-      targets: el,
-      opacity: 1,
-      translateX: 0,
-      duration: 360,
-      easing: "easeOutExpo",
-    });
-  }, [step]);
 
   function goToStep(next: 1 | 2) {
     setFieldError(null);
     setStep(next);
   }
 
-  function handleBack(e: MouseEvent<HTMLButtonElement>) {
-    e.preventDefault();
-    e.stopPropagation();
+  function handleBack(e?: MouseEvent<HTMLButtonElement>) {
+    e?.preventDefault();
+    e?.stopPropagation();
     goToStep(1);
   }
 
-  function handleNext() {
-    const parsed = registerCompanyStepSchema.safeParse(form);
+  function handleNext(e?: MouseEvent<HTMLButtonElement>) {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    const parsed = registerCompanyStepSchema.safeParse({
+      ...form,
+      company_name: form.company_name.trim(),
+      company_code: form.company_code.trim(),
+      industry: form.industry.trim(),
+      company_size: form.company_size.trim(),
+      country: form.country.trim(),
+      timezone: form.timezone.trim(),
+      website: form.website.trim(),
+    });
     if (!parsed.success) {
-      setFieldError(parsed.error.errors[0]?.message ?? "Invalid company details");
+      const msg =
+        parsed.error.errors[0]?.message ?? "Fill company details to continue";
+      setFieldError(msg);
+      toast.error(msg);
       return;
     }
     setForm((f) => ({
       ...f,
+      company_name: parsed.data.company_name,
       company_code: parsed.data.company_code,
       website: parsed.data.website,
     }));
@@ -105,15 +106,30 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
   }
 
   async function handleSignUp() {
-    const admin = registerAdminStepSchema.safeParse(form);
+    const admin = registerAdminStepSchema.safeParse({
+      ...form,
+      email: form.email.trim(),
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+    });
     if (!admin.success) {
-      setFieldError(admin.error.errors[0]?.message ?? "Invalid admin details");
+      const msg =
+        admin.error.errors[0]?.message ?? "Invalid admin details";
+      setFieldError(msg);
+      toast.error(msg);
       return;
     }
 
-    const parsed = registerSchema.safeParse(form);
+    const parsed = registerSchema.safeParse({
+      ...form,
+      email: form.email.trim(),
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+    });
     if (!parsed.success) {
-      setFieldError(parsed.error.errors[0]?.message ?? "Invalid input");
+      const msg = parsed.error.errors[0]?.message ?? "Invalid input";
+      setFieldError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -155,7 +171,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-            // Register
+            {"// Register"}
           </p>
           <h1 className="mt-1 text-2xl font-light tracking-tight text-text-primary">
             Sign Up
@@ -175,12 +191,10 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
           <span className="h-px w-4 bg-hairline" />
           <button
             type="button"
-            onClick={() => {
-              if (step === 1) handleNext();
-            }}
+            onClick={handleNext}
             className={cn(
               "font-mono text-[10px] uppercase tracking-[0.18em] transition-colors",
-              step === 2 ? "text-accent" : "text-text-secondary/60",
+              step === 2 ? "text-accent" : "text-text-secondary/60 hover:text-accent",
             )}
           >
             02
@@ -194,179 +208,179 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
       </p>
 
       <form onSubmit={onSubmit} noValidate className="mt-3">
-        <div ref={panelRef}>
-          {step === 1 ? (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="company_name" className="mb-0.5">
-                  Company name*
-                </Label>
-                <Input
-                  id="company_name"
-                  className={fieldClass}
-                  value={form.company_name}
-                  onChange={(e) => update("company_name", e.target.value)}
-                  placeholder="Company name"
-                  autoComplete="organization"
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="company_code" className="mb-0.5">
-                  Company code*
-                </Label>
-                <Input
-                  id="company_code"
-                  className={fieldClass}
-                  value={form.company_code}
-                  onChange={(e) => update("company_code", e.target.value)}
-                  placeholder="PENGWIN"
-                  autoComplete="off"
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="industry" className="mb-0.5">
-                  Industry*
-                </Label>
-                <Input
-                  id="industry"
-                  className={fieldClass}
-                  value={form.industry}
-                  onChange={(e) => update("industry", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="company_size" className="mb-0.5">
-                  Company size*
-                </Label>
-                <Input
-                  id="company_size"
-                  className={fieldClass}
-                  value={form.company_size}
-                  onChange={(e) => update("company_size", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="country" className="mb-0.5">
-                  Country*
-                </Label>
-                <Input
-                  id="country"
-                  className={fieldClass}
-                  value={form.country}
-                  onChange={(e) => update("country", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="timezone" className="mb-0.5">
-                  Timezone*
-                </Label>
-                <Input
-                  id="timezone"
-                  className={fieldClass}
-                  value={form.timezone}
-                  onChange={(e) => update("timezone", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="currency" className="mb-0.5">
-                  Currency*
-                </Label>
-                <Select
-                  id="currency"
-                  className={fieldClass}
-                  value={form.currency}
-                  onChange={(e) => update("currency", e.target.value)}
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="website" className="mb-0.5">
-                  Website
-                </Label>
-                <Input
-                  id="website"
-                  type="text"
-                  inputMode="url"
-                  className={fieldClass}
-                  value={form.website}
-                  onChange={(e) => update("website", e.target.value)}
-                  placeholder="https://"
-                />
-              </div>
+        <div className={cn(step === 1 ? "block" : "hidden")}>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            <div className="col-span-2 space-y-0.5">
+              <Label htmlFor="company_name" className="mb-0.5">
+                Company name*
+              </Label>
+              <Input
+                id="company_name"
+                className={fieldClass}
+                value={form.company_name}
+                onChange={(e) => update("company_name", e.target.value)}
+                placeholder="Company name"
+                autoComplete="organization"
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="email" className="mb-0.5">
-                  Admin email*
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  className={fieldClass}
-                  value={form.email}
-                  onChange={(e) => update("email", e.target.value)}
-                  placeholder="Admin email"
-                  autoComplete="email"
-                />
-              </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="first_name" className="mb-0.5">
-                  First name*
-                </Label>
-                <Input
-                  id="first_name"
-                  className={fieldClass}
-                  value={form.first_name}
-                  onChange={(e) => update("first_name", e.target.value)}
-                  placeholder="First name"
-                  autoComplete="given-name"
-                />
-              </div>
-
-              <div className="space-y-0.5">
-                <Label htmlFor="last_name" className="mb-0.5">
-                  Last name*
-                </Label>
-                <Input
-                  id="last_name"
-                  className={fieldClass}
-                  value={form.last_name}
-                  onChange={(e) => update("last_name", e.target.value)}
-                  placeholder="Last name"
-                  autoComplete="family-name"
-                />
-              </div>
-
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="password" className="mb-0.5">
-                  Password*
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  className={fieldClass}
-                  value={form.password}
-                  onChange={(e) => update("password", e.target.value)}
-                  placeholder="Password"
-                  autoComplete="new-password"
-                />
-              </div>
+            <div className="space-y-0.5">
+              <Label htmlFor="company_code" className="mb-0.5">
+                Company code*
+              </Label>
+              <Input
+                id="company_code"
+                className={fieldClass}
+                value={form.company_code}
+                onChange={(e) => update("company_code", e.target.value)}
+                placeholder="PENGWIN"
+                autoComplete="off"
+              />
             </div>
-          )}
+
+            <div className="space-y-0.5">
+              <Label htmlFor="industry" className="mb-0.5">
+                Industry*
+              </Label>
+              <Input
+                id="industry"
+                className={fieldClass}
+                value={form.industry}
+                onChange={(e) => update("industry", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <Label htmlFor="company_size" className="mb-0.5">
+                Company size*
+              </Label>
+              <Input
+                id="company_size"
+                className={fieldClass}
+                value={form.company_size}
+                onChange={(e) => update("company_size", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <Label htmlFor="country" className="mb-0.5">
+                Country*
+              </Label>
+              <Input
+                id="country"
+                className={fieldClass}
+                value={form.country}
+                onChange={(e) => update("country", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <Label htmlFor="timezone" className="mb-0.5">
+                Timezone*
+              </Label>
+              <Input
+                id="timezone"
+                className={fieldClass}
+                value={form.timezone}
+                onChange={(e) => update("timezone", e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <Label htmlFor="currency" className="mb-0.5">
+                Currency*
+              </Label>
+              <Select
+                id="currency"
+                className={fieldClass}
+                value={form.currency}
+                onChange={(e) => update("currency", e.target.value)}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="col-span-2 space-y-0.5">
+              <Label htmlFor="website" className="mb-0.5">
+                Website
+              </Label>
+              <Input
+                id="website"
+                type="text"
+                inputMode="url"
+                className={fieldClass}
+                value={form.website}
+                onChange={(e) => update("website", e.target.value)}
+                placeholder="https://"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className={cn(step === 2 ? "block" : "hidden")}>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            <div className="col-span-2 space-y-0.5">
+              <Label htmlFor="email" className="mb-0.5">
+                Admin email*
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                className={fieldClass}
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                placeholder="Admin email"
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <Label htmlFor="first_name" className="mb-0.5">
+                First name*
+              </Label>
+              <Input
+                id="first_name"
+                className={fieldClass}
+                value={form.first_name}
+                onChange={(e) => update("first_name", e.target.value)}
+                placeholder="First name"
+                autoComplete="given-name"
+              />
+            </div>
+
+            <div className="space-y-0.5">
+              <Label htmlFor="last_name" className="mb-0.5">
+                Last name*
+              </Label>
+              <Input
+                id="last_name"
+                className={fieldClass}
+                value={form.last_name}
+                onChange={(e) => update("last_name", e.target.value)}
+                placeholder="Last name"
+                autoComplete="family-name"
+              />
+            </div>
+
+            <div className="col-span-2 space-y-0.5">
+              <Label htmlFor="password" className="mb-0.5">
+                Password*
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                className={fieldClass}
+                value={form.password}
+                onChange={(e) => update("password", e.target.value)}
+                placeholder="Password"
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
         </div>
 
         {fieldError ? (
@@ -390,7 +404,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
               </Button>
             </>
           ) : (
-            <Button type="submit" className="w-full">
+            <Button type="button" className="w-full" onClick={handleNext}>
               Next
             </Button>
           )}

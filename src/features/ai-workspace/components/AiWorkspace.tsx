@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -68,8 +69,10 @@ export function AiWorkspace({
   });
 
   const configuredProviders = useConfiguredProviders(companySlug);
-  const configuredProviderNames = new Set(
-    (configuredProviders.data ?? []).map((c) => c.provider),
+  const configuredProviderNames = useMemo(
+    () =>
+      new Set((configuredProviders.data ?? []).map((c) => c.provider)),
+    [configuredProviders.data],
   );
 
   const providerOptions = (catalog.data ?? []).map((p) => ({
@@ -167,7 +170,7 @@ export function AiWorkspace({
     providerAutoSelectedRef.current = true;
     setProvider(preferred.name);
     setModel(preferred.models[0] ?? "");
-  }, [catalog.data, configuredProviders.isLoading, configuredProviders.data]);
+  }, [catalog.data, configuredProviders.isLoading, configuredProviderNames]);
 
   // Prefill draft from templates (?prompt=)
   useEffect(() => {
@@ -180,10 +183,14 @@ export function AiWorkspace({
     }
   }, [companySlug, router, setDraft]);
 
-  const displayMessages: ChatMessageView[] =
-    messages.length > 0
-      ? messages
-      : ((conversation.data?.messages as ChatMessageView[] | undefined) ?? []);
+  const displayMessages: ChatMessageView[] = useMemo(
+    () =>
+      messages.length > 0
+        ? messages
+        : ((conversation.data?.messages as ChatMessageView[] | undefined) ??
+          []),
+    [messages, conversation.data?.messages],
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
