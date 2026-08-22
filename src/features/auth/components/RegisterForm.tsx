@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useState, type FormEvent, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import anime from "animejs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -48,7 +47,6 @@ type FormState = {
 export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
-  const panelRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -69,41 +67,44 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
 
   function update(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    if (fieldError) setFieldError(null);
   }
-
-  useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    anime.remove(el);
-    anime.set(el, { opacity: 0, translateX: step === 1 ? -16 : 16 });
-    anime({
-      targets: el,
-      opacity: 1,
-      translateX: 0,
-      duration: 360,
-      easing: "easeOutExpo",
-    });
-  }, [step]);
 
   function goToStep(next: 1 | 2) {
     setFieldError(null);
     setStep(next);
   }
 
-  function handleBack(e: MouseEvent<HTMLButtonElement>) {
-    e.preventDefault();
-    e.stopPropagation();
+  function handleBack(e?: MouseEvent<HTMLButtonElement>) {
+    e?.preventDefault();
+    e?.stopPropagation();
     goToStep(1);
   }
 
-  function handleNext() {
-    const parsed = registerCompanyStepSchema.safeParse(form);
+  function handleNext(e?: MouseEvent<HTMLButtonElement>) {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    const parsed = registerCompanyStepSchema.safeParse({
+      ...form,
+      company_name: form.company_name.trim(),
+      company_code: form.company_code.trim(),
+      industry: form.industry.trim(),
+      company_size: form.company_size.trim(),
+      country: form.country.trim(),
+      timezone: form.timezone.trim(),
+      website: form.website.trim(),
+    });
     if (!parsed.success) {
-      setFieldError(parsed.error.errors[0]?.message ?? "Invalid company details");
+      const msg =
+        parsed.error.errors[0]?.message ?? "Fill company details to continue";
+      setFieldError(msg);
+      toast.error(msg);
       return;
     }
     setForm((f) => ({
       ...f,
+      company_name: parsed.data.company_name,
       company_code: parsed.data.company_code,
       website: parsed.data.website,
     }));
@@ -111,15 +112,30 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
   }
 
   async function handleSignUp() {
-    const admin = registerAdminStepSchema.safeParse(form);
+    const admin = registerAdminStepSchema.safeParse({
+      ...form,
+      email: form.email.trim(),
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+    });
     if (!admin.success) {
-      setFieldError(admin.error.errors[0]?.message ?? "Invalid admin details");
+      const msg =
+        admin.error.errors[0]?.message ?? "Invalid admin details";
+      setFieldError(msg);
+      toast.error(msg);
       return;
     }
 
-    const parsed = registerSchema.safeParse(form);
+    const parsed = registerSchema.safeParse({
+      ...form,
+      email: form.email.trim(),
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+    });
     if (!parsed.success) {
-      setFieldError(parsed.error.errors[0]?.message ?? "Invalid input");
+      const msg = parsed.error.errors[0]?.message ?? "Invalid input";
+      setFieldError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -186,9 +202,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
           <span className="h-px w-6 bg-hairline" />
           <button
             type="button"
-            onClick={() => {
-              if (step === 1) handleNext();
-            }}
+            onClick={handleNext}
             className={cn(
               "font-mono text-[11px] uppercase tracking-[0.18em] transition-colors",
               step === 2 ? "text-accent" : "text-text-secondary/60",
@@ -391,7 +405,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {fieldError ? (
@@ -415,7 +429,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
               </Button>
             </>
           ) : (
-            <Button type="submit" className="w-full">
+            <Button type="button" className="w-full" onClick={handleNext}>
               Next
             </Button>
           )}
