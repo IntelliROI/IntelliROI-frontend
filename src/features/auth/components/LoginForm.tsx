@@ -65,7 +65,7 @@ export function LoginForm({ embedded, onNavigate }: LoginFormProps) {
   return (
     <div className="w-full">
       <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-        // Access
+        {"// Access"}
       </p>
       <h1 className="mt-4 text-3xl font-light tracking-tight text-text-primary">
         Login
