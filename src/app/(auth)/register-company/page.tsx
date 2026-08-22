@@ -1,9 +1,5 @@
-import { RegisterForm } from "@/features/auth/components/RegisterForm";
+import { redirect } from "next/navigation";
 
 export default function RegisterCompanyPage() {
-  return (
-    <div className="mx-auto flex justify-center">
-      <RegisterForm />
-    </div>
-  );
+  redirect("/login?mode=register");
 }

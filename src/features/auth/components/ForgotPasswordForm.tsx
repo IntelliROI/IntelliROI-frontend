@@ -1,15 +1,22 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { Chapter } from "@/components/ui/panel";
 import { authApi } from "@/features/auth/api/auth.api";
 import { forgotPasswordSchema } from "@/features/auth/schemas/auth.schema";
+import type { AuthMode } from "@/features/auth/types";
 
-export function ForgotPasswordForm() {
+type ForgotPasswordFormProps = {
+  embedded?: boolean;
+  onNavigate?: (mode: AuthMode) => void;
+};
+
+export function ForgotPasswordForm({
+  embedded,
+  onNavigate,
+}: ForgotPasswordFormProps) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -34,13 +41,15 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <div className="w-full max-w-md">
-      <Chapter number="03" label="Recovery" />
-      <h1 className="mt-8 text-3xl font-light tracking-tight text-text-primary">
-        Forgot password
+    <div className="w-full">
+      <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
+        // Recovery
+      </p>
+      <h1 className="mt-4 text-3xl font-light tracking-tight text-text-primary">
+        Forgot password?
       </h1>
-      <p className="mt-3 text-sm text-text-secondary">
-        We will email a link to reset your password.
+      <p className="mt-2 text-sm text-text-secondary">
+        Enter your registered email to reset your password.
       </p>
       {sent ? (
         <p className="mt-8 border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
@@ -49,10 +58,11 @@ export function ForgotPasswordForm() {
       ) : (
         <form onSubmit={onSubmit} className="mt-10 space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email*</Label>
             <Input
               id="email"
               type="email"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -63,11 +73,23 @@ export function ForgotPasswordForm() {
           </Button>
         </form>
       )}
-      <p className="mt-6 text-sm text-text-secondary">
-        <Link href="/login" className="text-accent hover:underline">
-          Back to login
-        </Link>
-      </p>
+      {embedded && onNavigate ? (
+        <div className="mt-8 border-t border-hairline pt-6 text-center text-sm text-text-secondary">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/50">
+            Or
+          </span>
+          <p className="mt-4">
+            Go back to{" "}
+            <button
+              type="button"
+              onClick={() => onNavigate("login")}
+              className="font-medium text-accent hover:underline"
+            >
+              Login
+            </button>
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

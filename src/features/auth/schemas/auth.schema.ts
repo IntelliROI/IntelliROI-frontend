@@ -10,24 +10,41 @@ export const loginSchema = z.object({
 
 export type LoginSchema = z.infer<typeof loginSchema>;
 
-export const registerSchema = z.object({
-  company_name: z.string().min(2),
+export const registerCompanyStepSchema = z.object({
+  company_name: z.string().min(2, "Company name required"),
   company_code: z
     .string()
-    .min(2)
+    .min(2, "Company code required")
     .max(16)
     .transform((v) => v.toUpperCase()),
-  industry: z.string().min(2),
-  company_size: z.string().min(1),
-  country: z.string().min(2),
-  timezone: z.string().min(1),
+  industry: z.string().min(2, "Industry required"),
+  company_size: z.string().min(1, "Company size required"),
+  country: z.string().min(2, "Country required"),
+  timezone: z.string().min(1, "Timezone required"),
   currency: z.enum(currencyCodes),
-  website: z.string().url().optional().or(z.literal("")),
-  email: z.string().email(),
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
-  password: z.string().min(8),
+  website: z
+    .string()
+    .transform((v) => {
+      const t = v.trim();
+      if (!t || t === "https://" || t === "http://") return "";
+      return t;
+    })
+    .refine(
+      (v) => v === "" || z.string().url().safeParse(v).success,
+      "Enter a valid website URL",
+    ),
 });
+
+export const registerAdminStepSchema = z.object({
+  email: z.string().email("Valid admin email required"),
+  first_name: z.string().min(1, "First name required"),
+  last_name: z.string().min(1, "Last name required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const registerSchema = registerCompanyStepSchema.merge(
+  registerAdminStepSchema,
+);
 
 export type RegisterSchema = z.infer<typeof registerSchema>;
 

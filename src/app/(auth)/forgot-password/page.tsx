@@ -1,9 +1,5 @@
-import { ForgotPasswordForm } from "@/features/auth/components/ForgotPasswordForm";
+import { redirect } from "next/navigation";
 
 export default function ForgotPasswordPage() {
-  return (
-    <div className="mx-auto flex justify-center">
-      <ForgotPasswordForm />
-    </div>
-  );
+  redirect("/login?mode=forgot");
 }

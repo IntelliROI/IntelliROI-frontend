@@ -13,7 +13,7 @@ function AcceptInviteContent() {
   const token = searchParams.get("token") ?? "";
 
   return (
-    <div className="mx-auto flex justify-center">
+    <div className="mx-auto flex min-h-screen items-center justify-center px-6 py-16">
       <AcceptInviteForm token={token} />
     </div>
   );
