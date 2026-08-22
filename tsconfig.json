@@ -26,6 +26,7 @@
     "global.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.jsx",
     "**/*.d.ts",
     ".next/types/**/*.ts"
   ],
