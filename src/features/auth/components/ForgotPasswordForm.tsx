@@ -43,7 +43,7 @@ export function ForgotPasswordForm({
   return (
     <div className="w-full">
       <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-        // Recovery
+        {"// Recovery"}
       </p>
       <h1 className="mt-4 text-3xl font-light tracking-tight text-text-primary">
         Forgot password?
@@ -56,7 +56,7 @@ export function ForgotPasswordForm({
           If an account exists for that email, a reset link was issued.
         </p>
       ) : (
-        <form onSubmit={onSubmit} className="mt-10 space-y-5">
+      <form onSubmit={onSubmit} className="mt-10 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email">Email*</Label>
             <Input
@@ -66,6 +66,7 @@ export function ForgotPasswordForm({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>

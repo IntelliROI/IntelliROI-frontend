@@ -6,6 +6,7 @@ import anime from "animejs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { authApi } from "@/features/auth/api/auth.api";
 import {
   registerAdminStepSchema,
@@ -15,7 +16,12 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { getHomePath } from "@/lib/rbac/route-access";
 import { ROLES } from "@/constants/roles";
-import { CURRENCIES, DEFAULT_CURRENCY } from "@/constants/locale";
+import { COUNTRIES, CURRENCIES } from "@/constants/locale";
+import {
+  COMPANY_INDUSTRIES,
+  COMPANY_SIZES,
+  COMPANY_TIMEZONES,
+} from "@/constants/company-profile";
 import type { AuthMode } from "@/features/auth/types";
 import { cn } from "@/lib/utils";
 
@@ -49,11 +55,11 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
   const [form, setForm] = useState<FormState>({
     company_name: "",
     company_code: "",
-    industry: "Software / Technology",
-    company_size: "1-50",
-    country: "India",
-    timezone: "Asia/Kolkata",
-    currency: DEFAULT_CURRENCY,
+    industry: "",
+    company_size: "",
+    country: "",
+    timezone: "",
+    currency: "",
     website: "",
     email: "",
     first_name: "",
@@ -148,59 +154,57 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
     else void handleSignUp();
   }
 
-  const fieldClass = "h-8";
+  const fieldClass = "h-10";
 
   return (
     <div className="w-full">
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-            // Register
+            {"// Register"}
           </p>
-          <h1 className="mt-1 text-2xl font-light tracking-tight text-text-primary">
+          <h1 className="mt-3 text-3xl font-light tracking-tight text-text-primary">
             Sign Up
           </h1>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            {step === 1
+              ? "Company details — then your admin account."
+              : "Admin account for this tenant."}
+          </p>
         </div>
-        <div className="flex items-center gap-2 pb-1">
+        <div className="flex items-center gap-3 pb-0.5">
           <button
             type="button"
             onClick={handleBack}
             className={cn(
-              "font-mono text-[10px] uppercase tracking-[0.18em] transition-colors",
+              "font-mono text-[11px] uppercase tracking-[0.18em] transition-colors",
               step === 1 ? "text-accent" : "text-text-secondary/60 hover:text-accent",
             )}
           >
-            01
+            01 Company
           </button>
-          <span className="h-px w-4 bg-hairline" />
+          <span className="h-px w-6 bg-hairline" />
           <button
             type="button"
             onClick={() => {
               if (step === 1) handleNext();
             }}
             className={cn(
-              "font-mono text-[10px] uppercase tracking-[0.18em] transition-colors",
+              "font-mono text-[11px] uppercase tracking-[0.18em] transition-colors",
               step === 2 ? "text-accent" : "text-text-secondary/60",
             )}
           >
-            02
+            02 Admin
           </button>
         </div>
       </div>
-      <p className="mt-1 text-xs text-text-secondary">
-        {step === 1
-          ? "Company details — then admin account."
-          : "Admin account for this tenant."}
-      </p>
 
-      <form onSubmit={onSubmit} noValidate className="mt-3">
+      <form onSubmit={onSubmit} noValidate className="mt-8">
         <div ref={panelRef}>
           {step === 1 ? (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="company_name" className="mb-0.5">
-                  Company name*
-                </Label>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="company_name">Company name*</Label>
                 <Input
                   id="company_name"
                   className={fieldClass}
@@ -211,10 +215,8 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="company_code" className="mb-0.5">
-                  Company code*
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="company_code">Company code*</Label>
                 <Input
                   id="company_code"
                   className={fieldClass}
@@ -225,64 +227,98 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="industry" className="mb-0.5">
-                  Industry*
-                </Label>
-                <Input
+              <div className="space-y-2">
+                <Label htmlFor="industry">Industry*</Label>
+                <Select
                   id="industry"
                   className={fieldClass}
                   value={form.industry}
                   onChange={(e) => update("industry", e.target.value)}
-                />
+                  required
+                >
+                  <option value="" disabled>
+                    Select industry
+                  </option>
+                  {COMPANY_INDUSTRIES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="company_size" className="mb-0.5">
-                  Company size*
-                </Label>
-                <Input
+              <div className="space-y-2">
+                <Label htmlFor="company_size">Company size*</Label>
+                <Select
                   id="company_size"
                   className={fieldClass}
                   value={form.company_size}
                   onChange={(e) => update("company_size", e.target.value)}
-                />
+                  required
+                >
+                  <option value="" disabled>
+                    Select company size
+                  </option>
+                  {COMPANY_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="country" className="mb-0.5">
-                  Country*
-                </Label>
-                <Input
+              <div className="space-y-2">
+                <Label htmlFor="country">Country*</Label>
+                <Select
                   id="country"
                   className={fieldClass}
                   value={form.country}
                   onChange={(e) => update("country", e.target.value)}
-                />
+                  required
+                >
+                  <option value="" disabled>
+                    Select country
+                  </option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.iso} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="timezone" className="mb-0.5">
-                  Timezone*
-                </Label>
-                <Input
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone*</Label>
+                <Select
                   id="timezone"
                   className={fieldClass}
                   value={form.timezone}
                   onChange={(e) => update("timezone", e.target.value)}
-                />
+                  required
+                >
+                  <option value="" disabled>
+                    Select timezone
+                  </option>
+                  {COMPANY_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="currency" className="mb-0.5">
-                  Currency*
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency*</Label>
                 <Select
                   id="currency"
                   className={fieldClass}
                   value={form.currency}
                   onChange={(e) => update("currency", e.target.value)}
+                  required
                 >
+                  <option value="" disabled>
+                    Select currency
+                  </option>
                   {CURRENCIES.map((c) => (
                     <option key={c.code} value={c.code}>
                       {c.label}
@@ -291,10 +327,8 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 </Select>
               </div>
 
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="website" className="mb-0.5">
-                  Website
-                </Label>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="website">Website</Label>
                 <Input
                   id="website"
                   type="text"
@@ -307,11 +341,9 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="email" className="mb-0.5">
-                  Admin email*
-                </Label>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="email">Admin email*</Label>
                 <Input
                   id="email"
                   type="email"
@@ -323,10 +355,8 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="first_name" className="mb-0.5">
-                  First name*
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="first_name">First name*</Label>
                 <Input
                   id="first_name"
                   className={fieldClass}
@@ -337,10 +367,8 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
 
-              <div className="space-y-0.5">
-                <Label htmlFor="last_name" className="mb-0.5">
-                  Last name*
-                </Label>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last name*</Label>
                 <Input
                   id="last_name"
                   className={fieldClass}
@@ -351,13 +379,10 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
 
-              <div className="col-span-2 space-y-0.5">
-                <Label htmlFor="password" className="mb-0.5">
-                  Password*
-                </Label>
-                <Input
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="password">Password*</Label>
+                <PasswordInput
                   id="password"
-                  type="password"
                   className={fieldClass}
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
@@ -370,10 +395,10 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
         </div>
 
         {fieldError ? (
-          <p className="mt-1.5 font-mono text-[11px] text-danger">{fieldError}</p>
+          <p className="mt-4 font-mono text-[11px] text-danger">{fieldError}</p>
         ) : null}
 
-        <div className="mt-3 flex gap-3">
+        <div className="mt-8 flex gap-3">
           {step === 2 ? (
             <>
               <Button
@@ -398,7 +423,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
       </form>
 
       {embedded && onNavigate ? (
-        <p className="mt-3 text-center text-sm text-text-secondary">
+        <p className="mt-8 border-t border-hairline pt-6 text-center text-sm text-text-secondary">
           Already have an account?{" "}
           <button
             type="button"

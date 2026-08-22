@@ -166,16 +166,16 @@ export function AuthMarketingPanel() {
 
   return (
     <aside className="relative hidden h-full min-h-0 w-full flex-col overflow-hidden border-r border-hairline bg-ink lg:flex">
-      <div className="pointer-events-none absolute inset-0 grid-backdrop opacity-50" />
+      <div className="pointer-events-none absolute inset-0 grid-backdrop opacity-40" />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at 30% 20%, rgba(0,229,168,0.14) 0%, transparent 55%)",
+            "radial-gradient(ellipse at 28% 18%, rgba(0,229,168,0.12) 0%, transparent 58%)",
         }}
       />
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col px-8 py-6 xl:px-12 xl:py-8">
+      <div className="relative z-10 flex h-full min-h-0 flex-col px-10 py-8 xl:px-16 xl:py-10">
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <span className="flex h-7 w-7 items-center justify-center border border-accent/60 bg-accent/10">
             <span className="h-2 w-2 bg-accent" />
@@ -185,59 +185,57 @@ export function AuthMarketingPanel() {
           </span>
         </Link>
 
-        <div className="flex min-h-0 flex-1 items-center justify-center py-4">
-          <div
-            id="auth-marketing-frame"
-            className="w-full max-w-md border border-hairline bg-surface/30 p-5 shadow-[0_0_60px_rgba(0,229,168,0.08)] xl:p-6"
-          >
-            <div ref={copyRef}>
-              {slide.kind === "roi" ? (
-                <>
-                  <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-                    {slide.eyebrow}
-                  </p>
-                  <CompanyRoiCard />
-                </>
-              ) : (
-                <>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-                    {slide.eyebrow}
-                  </p>
-                  <div className="mt-4 flex items-start gap-3">
-                    <slide.icon
-                      size={20}
-                      strokeWidth={1.5}
-                      className="mt-1 shrink-0 text-accent"
-                    />
-                    <div>
-                      <h2 className="text-xl font-light tracking-tight text-text-primary xl:text-2xl">
-                        {slide.title}
-                      </h2>
-                      <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                        {slide.body}
-                      </p>
-                    </div>
+        <div
+          id="auth-marketing-frame"
+          className="flex min-h-0 flex-1 flex-col justify-center py-10"
+        >
+          <div ref={copyRef} className="w-full max-w-xl">
+            {slide.kind === "roi" ? (
+              <>
+                <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.25em] text-accent">
+                  {slide.eyebrow}
+                </p>
+                <CompanyRoiCard />
+              </>
+            ) : (
+              <>
+                <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-accent">
+                  {slide.eyebrow}
+                </p>
+                <div className="mt-6 flex items-start gap-4">
+                  <slide.icon
+                    size={24}
+                    strokeWidth={1.5}
+                    className="mt-1.5 shrink-0 text-accent"
+                  />
+                  <div>
+                    <h2 className="text-3xl font-light tracking-tight text-text-primary xl:text-4xl">
+                      {slide.title}
+                    </h2>
+                    <p className="mt-4 max-w-md text-base leading-relaxed text-text-secondary">
+                      {slide.body}
+                    </p>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
+          </div>
 
-            <div className="mt-6 flex items-center gap-2">
-              {SLIDES.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`Slide ${i + 1}`}
-                  onClick={() => goTo(i)}
-                  className={cn(
-                    "h-1.5 transition-all duration-300",
-                    i === index
-                      ? "w-8 bg-accent"
-                      : "w-1.5 bg-text-secondary/30 hover:bg-text-secondary/50",
-                  )}
-                />
-              ))}
-            </div>
+          <div className="mt-12 flex items-center gap-2">
+            {SLIDES.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Slide ${i + 1}`}
+                onClick={() => goTo(i)}
+                className={cn(
+                  "h-1.5 transition-all duration-300",
+                  i === index
+                    ? "w-8 bg-accent"
+                    : "w-1.5 bg-text-secondary/30 hover:bg-text-secondary/50",
+                )}
+              />
+            ))}
           </div>
         </div>
       </div>

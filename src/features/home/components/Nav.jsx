@@ -15,6 +15,9 @@ const LINKS = [
   { label: "Pricing", hash: "#pricing" },
 ];
 
+const ghostCta =
+  "inline-flex h-10 items-center justify-center gap-2 border border-accent bg-transparent px-5 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-accent transition-colors duration-300 hover:bg-accent/10";
+
 const Nav = () => {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -40,12 +43,12 @@ const Nav = () => {
           : "border-b border-transparent bg-transparent"
       }`}
     >
-      <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between px-6 md:px-12">
+      <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between gap-8 px-6 md:px-12">
         <a
           href="#top"
           onClick={(e) => go(e, "#top")}
           data-testid="nav-logo"
-          className="flex items-center gap-3"
+          className="flex shrink-0 items-center gap-3"
         >
           <span className="flex h-7 w-7 items-center justify-center border border-accent/60 bg-accent/10">
             <span className="h-2 w-2 bg-accent" />
@@ -55,7 +58,10 @@ const Nav = () => {
           </span>
         </a>
 
-        <nav className="hidden items-center gap-8 lg:flex" data-testid="nav-links">
+        <nav
+          className="hidden flex-1 items-center justify-center gap-10 lg:flex"
+          data-testid="nav-links"
+        >
           {LINKS.map((l) => (
             <a
               key={l.hash}
@@ -69,25 +75,25 @@ const Nav = () => {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-4 lg:flex">
-          <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" />
-            Systems Operational
-          </span>
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
           <Link
             href="/login"
             data-testid="nav-login-link"
-            className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-text-secondary transition-colors duration-300 hover:text-text-primary"
+            className={ghostCta}
           >
             Login
           </Link>
           <Link
             href="/register-company"
             data-testid="nav-register-link"
-            className="group flex items-center gap-2 border border-accent bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-ink transition-colors duration-300 hover:bg-transparent hover:text-accent"
+            className={`group ${ghostCta}`}
           >
             Register
-            <ArrowUpRight size={14} strokeWidth={1.5} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <ArrowUpRight
+              size={14}
+              strokeWidth={1.5}
+              className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
           </Link>
         </div>
 
@@ -122,21 +128,23 @@ const Nav = () => {
                   {l.label}
                 </a>
               ))}
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="border-b border-hairline/50 py-3 font-mono text-xs uppercase tracking-[0.2em] text-text-secondary hover:text-accent"
-              >
-                Login
-              </Link>
-              <Link
-                href="/register-company"
-                onClick={() => setOpen(false)}
-                className="mt-4 flex items-center justify-center gap-2 border border-accent bg-accent px-5 py-3 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-ink"
-              >
-                Register
-                <ArrowUpRight size={14} strokeWidth={1.5} />
-              </Link>
+              <div className="mt-4 flex flex-col gap-3">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className={`${ghostCta} w-full`}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register-company"
+                  onClick={() => setOpen(false)}
+                  className={`group ${ghostCta} w-full`}
+                >
+                  Register
+                  <ArrowUpRight size={14} strokeWidth={1.5} />
+                </Link>
+              </div>
             </div>
           </motion.div>
         )}
