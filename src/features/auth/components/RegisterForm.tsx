@@ -214,7 +214,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
       </div>
 
       <form onSubmit={onSubmit} noValidate className="mt-8">
-        <div ref={panelRef}>
+        <div>
           {step === 1 ? (
             <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
@@ -405,7 +405,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
                 />
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {fieldError ? (
