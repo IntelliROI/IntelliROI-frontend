@@ -6,7 +6,7 @@ const LOGOS = [
 const Marquee = () => (
   <section className="border-y border-hairline py-10" data-testid="trusted-by-section">
     <p className="mb-8 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-text-secondary">
-      Trusted by enterprises running on the world's leading AI stack
+      Trusted by enterprises running on the world&apos;s leading AI stack
     </p>
     <div
       className="relative overflow-hidden"
@@ -23,7 +23,7 @@ const Marquee = () => (
             data-testid={i < LOGOS.length ? `marquee-logo-${logo.toLowerCase().replace(/\s+/g, "-")}` : undefined}
           >
             {logo}
-            <span className="ml-16 text-accent/30">//</span>
+            <span className="ml-16 text-accent/30">{`//`}</span>
           </span>
         ))}
       </div>
