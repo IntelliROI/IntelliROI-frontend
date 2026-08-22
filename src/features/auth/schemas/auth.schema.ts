@@ -1,7 +1,19 @@
 import { z } from "zod";
-import { CURRENCIES } from "@/constants/locale";
+import { COUNTRIES, CURRENCIES } from "@/constants/locale";
+import {
+  COMPANY_INDUSTRIES,
+  COMPANY_SIZES,
+  COMPANY_TIMEZONES,
+} from "@/constants/company-profile";
 
 const currencyCodes = CURRENCIES.map((c) => c.code) as [string, ...string[]];
+const industries = [...COMPANY_INDUSTRIES] as [string, ...string[]];
+const companySizes = [...COMPANY_SIZES] as [string, ...string[]];
+const countryNames = COUNTRIES.map((c) => c.name) as [string, ...string[]];
+const timezones = COMPANY_TIMEZONES.map((t) => t.value) as [
+  string,
+  ...string[],
+];
 
 export const loginSchema = z.object({
   email: z.string().email("Valid email required"),
@@ -17,11 +29,21 @@ export const registerCompanyStepSchema = z.object({
     .min(2, "Company code required")
     .max(16)
     .transform((v) => v.toUpperCase()),
-  industry: z.string().min(2, "Industry required"),
-  company_size: z.string().min(1, "Company size required"),
-  country: z.string().min(2, "Country required"),
-  timezone: z.string().min(1, "Timezone required"),
-  currency: z.enum(currencyCodes),
+  industry: z.enum(industries, {
+    errorMap: () => ({ message: "Select an industry" }),
+  }),
+  company_size: z.enum(companySizes, {
+    errorMap: () => ({ message: "Select a company size" }),
+  }),
+  country: z.enum(countryNames, {
+    errorMap: () => ({ message: "Select a country" }),
+  }),
+  timezone: z.enum(timezones, {
+    errorMap: () => ({ message: "Select a timezone" }),
+  }),
+  currency: z.enum(currencyCodes, {
+    errorMap: () => ({ message: "Select a currency" }),
+  }),
   website: z
     .string()
     .transform((v) => {

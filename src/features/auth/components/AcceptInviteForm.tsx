@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Chapter } from "@/components/ui/panel";
 import { authApi } from "@/features/auth/api/auth.api";
 import { resetPasswordSchema } from "@/features/auth/schemas/auth.schema";
@@ -76,22 +77,22 @@ export function AcceptInviteForm({ token }: { token: string }) {
       <form onSubmit={onSubmit} className="mt-10 space-y-5">
         <div className="space-y-2">
           <Label htmlFor="password">New password</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="new-password"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirm">Confirm password</Label>
-          <Input
+          <PasswordInput
             id="confirm"
-            type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
+            autoComplete="new-password"
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>

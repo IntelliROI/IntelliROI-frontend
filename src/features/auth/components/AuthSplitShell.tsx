@@ -72,8 +72,8 @@ export function AuthSplitShell() {
           <AuthRightHeader />
         </Suspense>
 
-        <div className="relative z-10 flex min-h-0 flex-1 items-start justify-center overflow-hidden px-6 pb-4 pt-1 md:px-10 lg:items-center lg:overflow-y-auto lg:px-12 lg:pb-6 lg:pt-0">
-          <div className="w-full max-w-xl">
+        <div className="relative z-10 flex min-h-0 flex-1 items-start justify-center overflow-y-auto px-6 py-6 md:px-10 lg:items-center lg:px-12 lg:py-10">
+          <div className="w-full max-w-xl py-2">
             <Suspense
               fallback={
                 <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-secondary/60">

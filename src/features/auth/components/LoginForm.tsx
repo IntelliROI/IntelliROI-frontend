@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { authApi } from "@/features/auth/api/auth.api";
 import { loginSchema } from "@/features/auth/schemas/auth.schema";
 import { useAuthStore } from "@/stores/auth-store";
@@ -99,13 +100,13 @@ export function LoginForm({ embedded, onNavigate }: LoginFormProps) {
               </button>
             ) : null}
           </div>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="current-password"
           />
         </div>
         {fieldError && (
