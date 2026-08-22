@@ -108,7 +108,7 @@ export function PromptTemplatesLibrary({
     });
   }, [templates, category, search]);
 
-  function useTemplate(t: Template) {
+  function applyTemplate(t: Template) {
     router.push(
       `/${companySlug}/ai-workspace?prompt=${encodeURIComponent(t.body)}`,
     );
@@ -288,7 +288,7 @@ export function PromptTemplatesLibrary({
                   <div className="mt-4 flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => useTemplate(t)}
+                      onClick={() => applyTemplate(t)}
                       className="h-8 flex-1 border border-accent bg-transparent font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-accent transition-colors hover:bg-accent/10"
                     >
                       Use in chat
