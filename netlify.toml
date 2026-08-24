@@ -1,0 +1,85 @@
+# IntelliROI — Netlify
+# Browser stays on HTTPS (same origin). Edge/Next rewrites proxy to HTTP backends.
+# Mixed Content cannot be "allowed"; this proxy is the supported workaround.
+#
+# Required Netlify env (Site settings → Environment variables), then trigger a redeploy:
+#   NEXT_PUBLIC_USE_API_PROXY = true
+#   AUTH_UPSTREAM             = http://YOUR_PUBLIC_OR_TUNNEL_HOST:8081
+#   ORG_UPSTREAM              = http://YOUR_PUBLIC_OR_TUNNEL_HOST:8082
+#   (same pattern for BC, AI, COST, ROI, ANALYTICS, NOTIFY, BILLING)
+#   NEXT_PUBLIC_APP_URL       = https://intelliroi-web.netlify.app
+#
+# Note: private LAN IPs (e.g. 192.168.x.x) are not reachable from Netlify's cloud.
+# Use a public IP, reverse proxy, or tunnel (ngrok / Cloudflare Tunnel) as AUTH_UPSTREAM.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Fallback proxies if Next rewrites are unavailable. Prefer AUTH_UPSTREAM via next.config.
+# Replace hosts below to match your reachable HTTP backends (same as *_UPSTREAM env).
+[[redirects]]
+  from = "/api-proxy/auth/*"
+  to = "http://192.168.10.37:8081/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/org/*"
+  to = "http://192.168.10.37:8082/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/bc/*"
+  to = "http://192.168.10.37:8083/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/ai/*"
+  to = "http://192.168.10.37:8084/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/cost/*"
+  to = "http://192.168.10.37:8085/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/roi/*"
+  to = "http://192.168.10.37:8086/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/analytics/*"
+  to = "http://192.168.10.37:8087/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/notify/*"
+  to = "http://192.168.10.37:8088/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/billing/*"
+  to = "http://192.168.10.37:8089/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api-proxy/gateway/*"
+  to = "http://192.168.10.37:8080/:splat"
+  status = 200
+  force = true

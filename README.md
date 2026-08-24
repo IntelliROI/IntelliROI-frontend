@@ -12,6 +12,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). The app calls live Go services on `:8081`–`:8089`. All of those must be running.
 
+## Netlify (HTTPS → HTTP backends)
+
+Browsers block Mixed Content (`https://` page → `http://` API). This repo uses a **same-origin proxy** instead:
+
+1. Add `netlify.toml` (already in repo) and set Netlify env:
+   - `NEXT_PUBLIC_USE_API_PROXY=true`
+   - `NEXT_PUBLIC_APP_URL=https://your-site.netlify.app`
+   - `AUTH_UPSTREAM` / `ORG_UPSTREAM` / … = reachable HTTP backends
+2. Remove or stop relying on baked-in `NEXT_PUBLIC_*_BASE=http://192.168…` for the browser.
+3. Redeploy.
+
+The browser calls `/api-proxy/auth/...` on your Netlify host; Next/Netlify forward to the HTTP upstream. **Private LAN IPs are not reachable from Netlify’s cloud** — use a public host or tunnel for `*_UPSTREAM`.
+
 ## Stack
 
 Next.js 14 (App Router) · React 18 · TypeScript · Tailwind · TanStack Query · Zustand · Zod · Framer Motion · Recharts
