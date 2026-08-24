@@ -11,6 +11,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { formatCurrency } from "@/lib/utils";
+import { AI_COST_CURRENCY } from "@/constants/locale";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -72,7 +73,12 @@ export function DepartmentDashboard({
       />
 
       <Mosaic cols={4}>
-        <KpiTile label="Spend" value={r.total_spend} format="currency" />
+        <KpiTile
+          label="Spend"
+          value={r.total_spend}
+          format="currency"
+          currency={AI_COST_CURRENCY}
+        />
         <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
         <KpiTile
           label="Budget remaining"
@@ -97,8 +103,7 @@ export function DepartmentDashboard({
               name: t.team_name,
               spend: formatCurrency(
                 teamRoi[i]?.data?.total_spend ?? 0,
-                "USD",
-                true,
+                AI_COST_CURRENCY,
               ),
               roi: (
                 <span className="text-accent">

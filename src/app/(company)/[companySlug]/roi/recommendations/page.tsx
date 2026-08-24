@@ -13,6 +13,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { AI_COST_CURRENCY } from "@/constants/locale";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -75,7 +76,7 @@ export default function RecommendationsPage({
     title: <span className="font-medium text-text-primary">{r.title}</span>,
     impact: (
       <span className="font-mono font-medium text-accent">
-        {formatCurrency(r.impact_monthly_usd)}
+        {formatCurrency(r.impact_monthly_usd, AI_COST_CURRENCY)}
         <span className="text-text-secondary/60">/mo</span>
       </span>
     ),
@@ -99,7 +100,7 @@ export default function RecommendationsPage({
         label: "Monthly Impact",
         value: (
           <span className="text-accent font-mono">
-            {formatCurrency(r.impact_monthly_usd)}
+            {formatCurrency(r.impact_monthly_usd, AI_COST_CURRENCY)}
           </span>
         ),
       },

@@ -111,7 +111,11 @@ function toRoiSummary(row: RoiSummaryDto, fallbackPeriod = "month"): RoiSummary 
 function latestRoi(raw: unknown, period: string): RoiSummary {
   const rows = asList<RoiSummaryDto>(raw);
   if (!rows.length) return { ...EMPTY_ROI, period };
-  const sorted = [...rows].sort((a, b) =>
+  const matching = rows.filter(
+    (r) => !r.period_type || r.period_type === period,
+  );
+  const pool = matching.length ? matching : rows;
+  const sorted = [...pool].sort((a, b) =>
     (a.period_start ?? "").localeCompare(b.period_start ?? ""),
   );
   return toRoiSummary(sorted[sorted.length - 1]!, period);

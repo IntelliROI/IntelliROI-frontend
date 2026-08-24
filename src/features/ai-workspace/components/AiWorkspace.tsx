@@ -35,7 +35,7 @@ const SUGGESTIONS = [
 
 /**
  * OpenAI / Claude-class enterprise chat workspace.
- * Pipeline 1 only — never blocked by cost/ROI.
+ * Mounted once from (chat)/layout so URL changes do not remount this tree.
  */
 export function AiWorkspace({
   companySlug,
@@ -46,22 +46,33 @@ export function AiWorkspace({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { draft, setDraft, clearStreaming, appendStreamingBuffer } =
-    useChatStore();
+  const {
+    draft,
+    setDraft,
+    clearStreaming,
+    projectId,
+    taskId,
+    provider,
+    model,
+    setProjectId,
+    setTaskId,
+    setProvider,
+    setModel,
+    setActiveConversationId,
+  } = useChatStore();
 
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
-  const [provider, setProvider] = useState("");
-  const [model, setModel] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [taskId, setTaskId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [activeId, setActiveId] = useState(conversationId);
+  const [activeId, setActiveId] = useState<string | undefined>(conversationId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  /** When true, load thread from API into local messages (sidebar switch). */
+  const [needsHydrate, setNeedsHydrate] = useState(Boolean(conversationId));
 
   const abortRef = useRef<AbortController | null>(null);
   const stopStreamRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const providerAutoSelectedRef = useRef(false);
+  const prevUrlIdRef = useRef<string | undefined>(conversationId);
 
   const catalog = useQuery({
     queryKey: queryKeys.company.providers(companySlug),
@@ -125,6 +136,8 @@ export function AiWorkspace({
       if (activeId === uuid) {
         setMessages([]);
         setActiveId(undefined);
+        setActiveConversationId(null);
+        setNeedsHydrate(false);
         router.push(`/${companySlug}/ai-workspace`);
       }
       toast.success("Chat deleted");
@@ -136,8 +149,23 @@ export function AiWorkspace({
   const conversation = useQuery({
     queryKey: queryKeys.company.conversation(companySlug, activeId ?? ""),
     queryFn: () => aiGatewayApi.getConversation(activeId!),
-    enabled: Boolean(activeId) && messages.length === 0,
+    enabled: Boolean(activeId) && needsHydrate,
   });
+
+  // Copy server history into local state so follow-ups append on the same array.
+  useEffect(() => {
+    if (!needsHydrate || !conversation.data?.messages) return;
+    setMessages(
+      conversation.data.messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({
+          id: m.id,
+          role: m.role as ChatMessageView["role"],
+          content: m.content,
+        })),
+    );
+    setNeedsHydrate(false);
+  }, [needsHydrate, conversation.data]);
 
   const projects = useQuery({
     queryKey: queryKeys.company.projects(companySlug),
@@ -149,18 +177,49 @@ export function AiWorkspace({
     queryFn: () => businessContextApi.listTaskCategories(),
   });
 
+  // Sync URL → active thread without wiping in-progress messages.
   useEffect(() => {
-    setActiveId(conversationId);
-    setMessages([]);
-  }, [conversationId]);
+    const prev = prevUrlIdRef.current;
+    prevUrlIdRef.current = conversationId;
 
-  // Auto-select once: prefer a provider the company has actually configured
-  // a key for, so we never silently pick an unconfigured provider (which
-  // only surfaces as a PROVIDER_NOT_CONFIGURED error on send). Wait for the
-  // configured-providers query to settle before picking, and never override
-  // a provider the user picked manually.
+    if (conversationId === prev) return;
+
+    // Soft replace after first reply: same thread we already have locally.
+    if (conversationId && conversationId === activeId && messages.length > 0) {
+      setActiveConversationId(conversationId);
+      return;
+    }
+
+    // New Chat
+    if (!conversationId) {
+      if (!busy) {
+        setActiveId(undefined);
+        setActiveConversationId(null);
+        setMessages([]);
+        setNeedsHydrate(false);
+      }
+      return;
+    }
+
+    // Sidebar / deep-link to another conversation
+    setActiveId(conversationId);
+    setActiveConversationId(conversationId);
+    setMessages([]);
+    setNeedsHydrate(true);
+  }, [
+    conversationId,
+    activeId,
+    messages.length,
+    busy,
+    setActiveConversationId,
+  ]);
+
   useEffect(() => {
     if (providerAutoSelectedRef.current) return;
+    if (provider && model) {
+      providerAutoSelectedRef.current = true;
+      return;
+    }
     if (!catalog.data || catalog.data.length === 0) return;
     if (configuredProviders.isLoading) return;
     const preferred =
@@ -168,11 +227,18 @@ export function AiWorkspace({
       catalog.data[0];
     if (!preferred) return;
     providerAutoSelectedRef.current = true;
-    setProvider(preferred.name);
-    setModel(preferred.models[0] ?? "");
-  }, [catalog.data, configuredProviders.isLoading, configuredProviderNames]);
+    if (!provider) setProvider(preferred.name);
+    if (!model) setModel(preferred.models[0] ?? "");
+  }, [
+    catalog.data,
+    configuredProviders.isLoading,
+    configuredProviderNames,
+    provider,
+    model,
+    setProvider,
+    setModel,
+  ]);
 
-  // Prefill draft from templates (?prompt=)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -183,18 +249,9 @@ export function AiWorkspace({
     }
   }, [companySlug, router, setDraft]);
 
-  const displayMessages: ChatMessageView[] = useMemo(
-    () =>
-      messages.length > 0
-        ? messages
-        : ((conversation.data?.messages as ChatMessageView[] | undefined) ??
-          []),
-    [messages, conversation.data?.messages],
-  );
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [displayMessages, busy]);
+  }, [messages, busy]);
 
   const stop = useCallback(() => {
     stopStreamRef.current = true;
@@ -217,14 +274,31 @@ export function AiWorkspace({
       if (!prompt || busy) return;
       if (!projectId || !taskId) {
         toast.error(
-          "Select a project and task so this request can roll up to Estimated ROI",
+          "Select a project and task once (via +) so requests roll up to Estimated ROI — they stick for follow-ups",
         );
+        return;
+      }
+      const projectNum = Number(projectId);
+      const taskNum = Number(taskId);
+      if (!Number.isFinite(projectNum) || projectNum <= 0) {
+        toast.error("Select a valid project");
+        return;
+      }
+      if (!Number.isFinite(taskNum) || taskNum <= 0) {
+        toast.error("Select a valid task category");
         return;
       }
       if (!provider || !model) {
         toast.error("Select a provider and model");
         return;
       }
+
+      // Prefer live activeId; fall back to URL / store so remount races never drop the thread.
+      const threadId =
+        activeId ||
+        conversationId ||
+        useChatStore.getState().activeConversationId ||
+        undefined;
 
       setDraft("");
       setBusy(true);
@@ -252,16 +326,14 @@ export function AiWorkspace({
       clearStreaming();
 
       try {
-        // Gateway waits for the full provider response (no token streaming yet);
-        // this call resolves only once OpenAI/Anthropic has finished.
         const res = await aiGatewayApi.chat(
           {
             provider,
             model,
             prompt,
-            conversation_uuid: activeId || undefined,
-            project_id: Number(projectId),
-            task_category_id: Number(taskId),
+            conversation_uuid: threadId || undefined,
+            project_id: projectNum,
+            task_category_id: taskNum,
           },
           { signal: controller.signal },
         );
@@ -269,66 +341,38 @@ export function AiWorkspace({
         if (stopStreamRef.current) return;
 
         setActiveId(res.conversation_uuid);
+        setActiveConversationId(res.conversation_uuid);
+
         if (!conversationId || conversationId !== res.conversation_uuid) {
+          // Soft URL update — layout stays mounted; keep local messages.
           router.replace(
             `/${companySlug}/ai-workspace/${res.conversation_uuid}`,
+            { scroll: false },
           );
-        }
-
-        // Full reply is in hand — type it out ChatGPT-style (word chunks,
-        // faster than real token streaming since there's nothing left to wait for).
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId ? { ...m, thinking: false } : m,
-          ),
-        );
-
-        const words = res.content.match(/\S+\s*|\s+/g) ?? [res.content];
-        const TARGET_MS = 1400;
-        const perWordDelay = Math.min(30, Math.max(10, TARGET_MS / Math.max(words.length, 1)));
-
-        let assembled = "";
-        for (const word of words) {
-          if (stopStreamRef.current || controller.signal.aborted) {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: assembled || m.content,
-                      isStreaming: false,
-                      thinking: false,
-                      stopped: true,
-                    }
-                  : m,
-              ),
-            );
-            return;
-          }
-          assembled += word;
-          appendStreamingBuffer(word);
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: assembled, isStreaming: true }
-                : m,
-            ),
-          );
-          // Punctuation / line breaks get a slightly longer beat, like natural typing.
-          const beat = /[.!?\n]\s*$/.test(word) ? perWordDelay * 2.2 : perWordDelay;
-          await new Promise((r) => setTimeout(r, beat));
         }
 
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: assembled, isStreaming: false }
+              ? {
+                  ...m,
+                  content: res.content,
+                  isStreaming: false,
+                  thinking: false,
+                }
               : m,
           ),
         );
         clearStreaming();
-        queryClient.invalidateQueries({
+
+        void queryClient.invalidateQueries({
           queryKey: queryKeys.company.conversations(companySlug),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.company.conversation(
+            companySlug,
+            res.conversation_uuid,
+          ),
         });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
@@ -340,10 +384,6 @@ export function AiWorkspace({
             : err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED"
               ? "This provider has no company API key. Ask an owner to add one under AI Providers."
               : err instanceof ApiError && err.code === "INTERNAL_ERROR"
-                // Surface the backend's own message (e.g. "failed to decrypt
-                // provider key" / "provider chat failed" / "failed to persist
-                // chat outcome") instead of a bare "Request failed" so the
-                // real cause is visible instead of a generic 500.
                 ? `Gateway error: ${err.message || "internal server error"}`
                 : err instanceof Error
                   ? err.message
@@ -379,8 +419,8 @@ export function AiWorkspace({
       conversationId,
       router,
       companySlug,
-      appendStreamingBuffer,
       queryClient,
+      setActiveConversationId,
     ],
   );
 
@@ -388,6 +428,8 @@ export function AiWorkspace({
     stop();
     setMessages([]);
     setActiveId(undefined);
+    setActiveConversationId(null);
+    setNeedsHydrate(false);
     setDraft("");
     router.push(`/${companySlug}/ai-workspace`);
   }
@@ -397,7 +439,9 @@ export function AiWorkspace({
     activeProvider?.models.find((m) => m.id === model)?.label ?? model
   }`;
 
-  const empty = displayMessages.length === 0;
+  const loadingThread =
+    needsHydrate && Boolean(activeId) && conversation.isLoading;
+  const empty = !loadingThread && messages.length === 0;
   const noProviderConfigured =
     !configuredProviders.isLoading && configuredProviderNames.size === 0;
 
@@ -419,7 +463,7 @@ export function AiWorkspace({
 
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {conversation.isLoading && activeId && messages.length === 0 ? (
+          {loadingThread ? (
             <AiChatLoader label="Loading conversation…" />
           ) : empty ? (
             <div className="flex h-full flex-col items-center justify-center px-4 pb-8 pt-12">
@@ -430,8 +474,8 @@ export function AiWorkspace({
                 How can I help you today?
               </h1>
               <p className="mt-2 max-w-md text-center text-[13px] text-text-secondary">
-                Enterprise chat through IntelliROI Gateway. Use + to pick model,
-                project, and task attribution.
+                Enterprise chat through IntelliROI Gateway. Pick project and task
+                once via + — they stick for follow-ups.
               </p>
               <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
                 {SUGGESTIONS.map((s) => (
@@ -448,7 +492,7 @@ export function AiWorkspace({
             </div>
           ) : (
             <div className="pb-6 pt-2">
-              {displayMessages.map((m) => (
+              {messages.map((m) => (
                 <ChatMessageBubble
                   key={m.id}
                   message={m}

@@ -7,11 +7,13 @@ import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 export function CountUp({
   value,
   format = "raw",
+  currency = "INR",
   className,
   duration = 900,
 }: {
   value: number;
   format?: "currency" | "number" | "percent" | "raw";
+  currency?: string;
   className?: string;
   duration?: number;
 }) {
@@ -41,7 +43,8 @@ export function CountUp({
 
   const text =
     format === "currency"
-      ? formatCurrency(display, "USD", true)
+      ? // Always two fraction digits for money KPIs (avoid $0.1 compact).
+        formatCurrency(display, currency, false)
       : format === "percent"
         ? `${display.toFixed(1)}%`
         : format === "number"

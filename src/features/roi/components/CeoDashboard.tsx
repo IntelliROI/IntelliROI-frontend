@@ -23,6 +23,8 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
+import { AI_COST_CURRENCY } from "@/constants/locale";
+import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSetupHint";
 
 /** Analytics has no "week" period_type — fold week into day for that call. */
 function toAnalyticsPeriod(period: RoiPeriod): "day" | "month" {
@@ -43,6 +45,7 @@ function sparkFromSeries(
 export function CeoDashboard({ companySlug }: { companySlug: string }) {
   const company = useAuthStore((s) => s.company);
   const user = useAuthStore((s) => s.user);
+  const companyCurrency = company?.currency || "INR";
   const [period, setPeriod] = useState<RoiPeriod>("month");
   const analyticsPeriod = toAnalyticsPeriod(period);
 
@@ -149,7 +152,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
           value={roiData.roi_pct}
           format="percent"
           delta={roiData.vs_last_month_pct}
-          hint={`${formatCurrency(roiData.business_value)} value · ${formatCurrency(roiData.total_spend)} spend`}
+          hint={`${formatCurrency(roiData.business_value, companyCurrency)} value · ${formatCurrency(roiData.total_spend, companyCurrency)} spend`}
           spark={sparkFromSeries(rawSeries, "roi_pct")}
           delay={0}
         />
@@ -158,7 +161,8 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             label="AI spend MTD"
             value={roiData.total_spend}
             format="currency"
-            hint={`${formatNumber(roiData.requests)} requests`}
+            currency={companyCurrency}
+            hint={`${formatNumber(roiData.requests)} requests · company currency`}
             spark={sparkFromSeries(rawSeries, "cost")}
             delay={0.05}
           />
@@ -166,6 +170,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             label="Business value"
             value={roiData.business_value}
             format="currency"
+            currency={companyCurrency}
             delta={roiData.vs_last_month_pct}
             hint="benchmark-based"
             delay={0.08}
@@ -187,6 +192,11 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
           />
         </div>
       </div>
+
+      <EstimatedRoiSetupHint
+        companySlug={companySlug}
+        visible={roiData.total_spend > 0 && roiData.business_value <= 0}
+      />
 
       {/* Trend + providers */}
       <div className="grid gap-px bg-hairline lg:grid-cols-12">
@@ -241,7 +251,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                   {p.provider}
                 </span>
                 <span className="font-mono text-[12px] text-text-primary">
-                  {formatCurrency(p.cost, "USD", true)}
+                  {formatCurrency(p.cost, AI_COST_CURRENCY)}
                 </span>
               </li>
             ))}
@@ -269,7 +279,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
               <RankBar
                 key={d.id}
                 label={d.department_name}
-                valueLabel={`${d.roi_pct.toFixed(0)}% · ${formatCurrency(d.monthly_spend, "USD", true)}`}
+                valueLabel={`${d.roi_pct.toFixed(0)}% · ${formatCurrency(d.monthly_spend, companyCurrency)}`}
                 percent={(d.roi_pct / deptMax) * 100}
                 href={`/${companySlug}/organization/departments/${d.id}`}
               />
@@ -287,7 +297,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
               : "Chat from AI Workspace with a project and task to populate Estimated ROI."}
           </InsightRow>
           <InsightRow tone="info" code="COST">
-            {formatCurrency(costs.data?.total_cost ?? roiData.total_spend)} AI
+            {formatCurrency(costs.data?.total_cost ?? roiData.total_spend, costs.data?.currency || AI_COST_CURRENCY)} AI
             spend this period · {formatNumber(costs.data?.event_count ?? 0)}{" "}
             cost events.
           </InsightRow>
@@ -323,7 +333,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                 className="px-5 py-4"
               >
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-                  Save {formatCurrency(rec.impact_monthly_usd)}/mo
+                  Save {formatCurrency(rec.impact_monthly_usd, AI_COST_CURRENCY)}/mo
                 </p>
                 <p className="mt-2 text-[13px] font-medium text-text-primary">
                   {rec.title}

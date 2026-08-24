@@ -12,6 +12,8 @@ import { TrendAreaChart } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
+import { AI_COST_CURRENCY, DEFAULT_CURRENCY } from "@/constants/locale";
+import { useAuthStore } from "@/stores/auth-store";
 
 /**
  * Project-wise AI usage monitor — GET /analytics/project/:id.
@@ -25,6 +27,8 @@ export function ProjectMonitor({
   projectId: number;
 }) {
   const [period, setPeriod] = useState<"day" | "month">("month");
+  const companyCurrency =
+    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
 
   const projectQuery = useQuery({
     queryKey: ["company", companySlug, "projects", projectId],
@@ -80,8 +84,18 @@ export function ProjectMonitor({
         <>
           <Mosaic cols={4}>
             <KpiTile label="Requests" value={a.requests} format="number" />
-            <KpiTile label="AI spend" value={a.total_cost} format="currency" />
-            <KpiTile label="Business value" value={a.total_business_value} format="currency" />
+            <KpiTile
+              label="AI spend"
+              value={a.total_cost}
+              format="currency"
+              currency={AI_COST_CURRENCY}
+            />
+            <KpiTile
+              label="Business value"
+              value={a.total_business_value}
+              format="currency"
+              currency={companyCurrency}
+            />
             <KpiTile label="Estimated ROI" value={a.roi_pct} format="percent" accent />
           </Mosaic>
 

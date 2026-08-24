@@ -4,6 +4,7 @@ import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel, Provenance } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { useUsageRequest } from "@/features/usage/hooks/useUsage";
+import { AI_COST_CURRENCY } from "@/constants/locale";
 
 export function UsageRequestDetail({
   companySlug,
@@ -16,10 +17,11 @@ export function UsageRequestDetail({
 
   if (detail.isLoading) return <LoadingBlock className="h-64" />;
 
-  if (!detail.data) {
+  if (detail.isError || !detail.data) {
     return (
       <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
-        Could not load this usage request from the live service.
+        Could not load this usage period from the live service.
+        {detail.error instanceof Error ? ` (${detail.error.message})` : null}
       </p>
     );
   }
@@ -35,8 +37,13 @@ export function UsageRequestDetail({
       />
       <Mosaic cols={4}>
         <KpiTile label="Requests" value={r.requests} format="number" />
-        <KpiTile label="Cost" value={r.cost} format="currency" />
-        <KpiTile label="Tokens" value={r.tokens_in} format="number" />
+        <KpiTile
+          label="Cost"
+          value={r.cost}
+          format="currency"
+          currency={AI_COST_CURRENCY}
+        />
+        <KpiTile label="Tokens" value={r.tokens} format="number" />
         <KpiTile label="Status" value={r.status} accent />
       </Mosaic>
       <Panel className="mt-6 p-6">

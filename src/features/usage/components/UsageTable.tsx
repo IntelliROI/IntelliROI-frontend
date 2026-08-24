@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
 import { useUsageRequests } from "@/features/usage/hooks/useUsage";
+import { encodeUsagePeriodId } from "@/features/usage/api/usage.api";
+import { formatCurrency } from "@/lib/utils";
+import { AI_COST_CURRENCY } from "@/constants/locale";
 
 export function UsageTable({ companySlug }: { companySlug: string }) {
   const usage = useUsageRequests(companySlug);
@@ -27,10 +30,10 @@ export function UsageTable({ companySlug }: { companySlug: string }) {
           rows={(usage.data ?? []).map((r) => ({
             id: r.created_at || r.id,
             requests: r.requests.toLocaleString(),
-            cost: r.cost.toFixed(2),
+            cost: formatCurrency(r.cost, AI_COST_CURRENCY),
             action: (
               <Link
-                href={`/${companySlug}/usage/${encodeURIComponent(r.id)}`}
+                href={`/${companySlug}/usage/${encodeUsagePeriodId(r.id)}`}
                 className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent"
               >
                 Detail
