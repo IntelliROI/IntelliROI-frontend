@@ -25,6 +25,7 @@ import { AiChatLoader, AiMark } from "@/features/ai-workspace/components/AiMark"
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { useConfiguredProviders } from "@/features/organization/hooks/useOrganizationQueries";
+import { Can } from "@/lib/rbac/Can";
 
 const SUGGESTIONS = [
   "Draft an API design for Invoice Builder with auth middleware",
@@ -65,7 +66,7 @@ export function AiWorkspace({
   const [busy, setBusy] = useState(false);
   const [activeId, setActiveId] = useState<string | undefined>(conversationId);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  /** When true, load thread from API into local messages (sidebar switch). */
+  /** When true, refresh thread from API (cache may already paint instantly). */
   const [needsHydrate, setNeedsHydrate] = useState(Boolean(conversationId));
 
   const abortRef = useRef<AbortController | null>(null);
@@ -73,6 +74,34 @@ export function AiWorkspace({
   const bottomRef = useRef<HTMLDivElement>(null);
   const providerAutoSelectedRef = useRef(false);
   const prevUrlIdRef = useRef<string | undefined>(conversationId);
+  /** In-memory thread cache so sidebar switches paint immediately. */
+  const threadCacheRef = useRef<Map<string, ChatMessageView[]>>(new Map());
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  function cacheThread(uuid: string | undefined, msgs: ChatMessageView[]) {
+    if (!uuid || msgs.length === 0) return;
+    threadCacheRef.current.set(
+      uuid,
+      msgs.map((m) => ({
+        ...m,
+        isStreaming: false,
+        thinking: false,
+      })),
+    );
+  }
+
+  function messagesFromDetail(
+    detail: { messages?: { id: string; role: string; content: string }[] },
+  ): ChatMessageView[] {
+    return (detail.messages ?? [])
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        id: m.id,
+        role: m.role as ChatMessageView["role"],
+        content: m.content,
+      }));
+  }
 
   const catalog = useQuery({
     queryKey: queryKeys.company.providers(companySlug),
@@ -150,22 +179,18 @@ export function AiWorkspace({
     queryKey: queryKeys.company.conversation(companySlug, activeId ?? ""),
     queryFn: () => aiGatewayApi.getConversation(activeId!),
     enabled: Boolean(activeId) && needsHydrate,
+    staleTime: 30_000,
   });
 
-  // Copy server history into local state so follow-ups append on the same array.
+  // Apply server history; prefer cache paint first so switches feel instant.
   useEffect(() => {
     if (!needsHydrate || !conversation.data?.messages) return;
-    setMessages(
-      conversation.data.messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({
-          id: m.id,
-          role: m.role as ChatMessageView["role"],
-          content: m.content,
-        })),
-    );
+    if (conversation.data.uuid && conversation.data.uuid !== activeId) return;
+    const next = messagesFromDetail(conversation.data);
+    cacheThread(activeId, next);
+    setMessages(next);
     setNeedsHydrate(false);
-  }, [needsHydrate, conversation.data]);
+  }, [needsHydrate, conversation.data, activeId]);
 
   const projects = useQuery({
     queryKey: queryKeys.company.projects(companySlug),
@@ -177,6 +202,18 @@ export function AiWorkspace({
     queryFn: () => businessContextApi.listTaskCategories(),
   });
 
+  const prefetchConversation = useCallback(
+    (uuid: string) => {
+      if (!uuid || uuid === activeId) return;
+      void queryClient.prefetchQuery({
+        queryKey: queryKeys.company.conversation(companySlug, uuid),
+        queryFn: () => aiGatewayApi.getConversation(uuid),
+        staleTime: 30_000,
+      });
+    },
+    [activeId, companySlug, queryClient],
+  );
+
   // Sync URL → active thread without wiping in-progress messages.
   useEffect(() => {
     const prev = prevUrlIdRef.current;
@@ -185,9 +222,15 @@ export function AiWorkspace({
     if (conversationId === prev) return;
 
     // Soft replace after first reply: same thread we already have locally.
-    if (conversationId && conversationId === activeId && messages.length > 0) {
+    if (conversationId && conversationId === activeId && messagesRef.current.length > 0) {
+      cacheThread(conversationId, messagesRef.current);
       setActiveConversationId(conversationId);
       return;
+    }
+
+    // Leaving a thread — keep its messages for instant return.
+    if (prev) {
+      cacheThread(prev, messagesRef.current);
     }
 
     // New Chat
@@ -201,16 +244,32 @@ export function AiWorkspace({
       return;
     }
 
-    // Sidebar / deep-link to another conversation
+    // Sidebar / deep-link: paint from memory or React Query cache immediately.
     setActiveId(conversationId);
     setActiveConversationId(conversationId);
-    setMessages([]);
-    setNeedsHydrate(true);
+
+    const mem = threadCacheRef.current.get(conversationId);
+    const cached = queryClient.getQueryData(
+      queryKeys.company.conversation(companySlug, conversationId),
+    ) as { messages?: { id: string; role: string; content: string }[] } | undefined;
+    if (mem && mem.length > 0) {
+      setMessages(mem);
+      setNeedsHydrate(true); // background refresh
+    } else if (cached?.messages?.length) {
+      const next = messagesFromDetail(cached);
+      cacheThread(conversationId, next);
+      setMessages(next);
+      setNeedsHydrate(true);
+    } else {
+      setMessages([]);
+      setNeedsHydrate(true);
+    }
   }, [
     conversationId,
     activeId,
-    messages.length,
     busy,
+    companySlug,
+    queryClient,
     setActiveConversationId,
   ]);
 
@@ -351,8 +410,8 @@ export function AiWorkspace({
           );
         }
 
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const next = prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
@@ -361,13 +420,34 @@ export function AiWorkspace({
                   thinking: false,
                 }
               : m,
-          ),
-        );
+          );
+          cacheThread(res.conversation_uuid, next);
+          queryClient.setQueryData(
+            queryKeys.company.conversation(companySlug, res.conversation_uuid),
+            (old: unknown) => {
+              const base =
+                old && typeof old === "object"
+                  ? (old as Record<string, unknown>)
+                  : {};
+              return {
+                ...base,
+                uuid: res.conversation_uuid,
+                messages: next.map((m) => ({
+                  id: m.id,
+                  role: m.role,
+                  content: m.content,
+                })),
+              };
+            },
+          );
+          return next;
+        });
         clearStreaming();
 
         void queryClient.invalidateQueries({
           queryKey: queryKeys.company.conversations(companySlug),
         });
+        // Soft refresh detail in background without forcing a blank paint.
         void queryClient.invalidateQueries({
           queryKey: queryKeys.company.conversation(
             companySlug,
@@ -440,10 +520,15 @@ export function AiWorkspace({
   }`;
 
   const loadingThread =
-    needsHydrate && Boolean(activeId) && conversation.isLoading;
+    needsHydrate &&
+    Boolean(activeId) &&
+    conversation.isLoading &&
+    messages.length === 0;
   const empty = !loadingThread && messages.length === 0;
+  // Only warn when the list loaded successfully and is empty — a failed
+  // request (e.g. old 403) must not look like "no company keys".
   const noProviderConfigured =
-    !configuredProviders.isLoading && configuredProviderNames.size === 0;
+    configuredProviders.isSuccess && configuredProviderNames.size === 0;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-0 w-full bg-ink">
@@ -457,6 +542,7 @@ export function AiWorkspace({
         onRename={renameConversation}
         onDelete={deleteConversation}
         onNewChat={newChat}
+        onPrefetch={prefetchConversation}
         expanded={sidebarOpen}
         onExpandedChange={setSidebarOpen}
       />
@@ -483,7 +569,7 @@ export function AiWorkspace({
                     key={s}
                     type="button"
                     onClick={() => send(s)}
-                    className="rounded-[16px] border border-hairline bg-surface/25 px-4 py-3.5 text-left text-[13px] leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:bg-accent/5 hover:text-text-primary"
+                    className="rounded-[20px] border border-hairline bg-surface/25 px-4 py-3.5 text-left text-[13px] leading-snug text-text-secondary transition-colors hover:border-accent/40 hover:bg-accent/5 hover:text-text-primary"
                   >
                     {s}
                   </button>
@@ -507,13 +593,19 @@ export function AiWorkspace({
         {noProviderConfigured && (
           <div className="mx-3 mb-2 rounded-[12px] border border-warning/30 bg-warning/5 px-4 py-2.5 text-[12.5px] text-text-secondary md:mx-6">
             No AI provider has a company API key yet, so any send will fail.{" "}
-            <Link
-              href={`/${companySlug}/ai-providers`}
-              className="font-medium text-text-primary underline underline-offset-2"
+            <Can
+              resource="providers_company"
+              action="manage"
+              fallback="Ask an owner or admin to add one under AI Providers."
             >
-              Add one under AI Providers
-            </Link>
-            .
+              <Link
+                href={`/${companySlug}/ai-providers`}
+                className="font-medium text-text-primary underline underline-offset-2"
+              >
+                Add one under AI Providers
+              </Link>
+              .
+            </Can>
           </div>
         )}
 

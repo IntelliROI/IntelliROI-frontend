@@ -31,6 +31,7 @@ type Props = {
   onRename: (uuid: string, title: string) => void;
   onDelete: (uuid: string) => void;
   onNewChat: () => void;
+  onPrefetch?: (uuid: string) => void;
   expanded: boolean;
   onExpandedChange: (open: boolean) => void;
 };
@@ -48,6 +49,7 @@ export function ChatSidebar({
   onRename,
   onDelete,
   onNewChat,
+  onPrefetch,
   expanded,
   onExpandedChange,
 }: Props) {
@@ -225,18 +227,19 @@ export function ChatSidebar({
             ) : (
               <>
                 {pinned.length > 0 && !search && (
-                  <ConversationGroup
-                    companySlug={companySlug}
-                    title="Pinned"
-                    items={pinned}
-                    activeId={activeId}
-                    pinnedIds={pinnedIds}
-                    onTogglePin={onTogglePin}
-                    onRename={onRename}
-                    onDelete={onDelete}
-                  />
-                )}
                 <ConversationGroup
+                  companySlug={companySlug}
+                  title="Pinned"
+                  items={pinned}
+                  activeId={activeId}
+                  pinnedIds={pinnedIds}
+                  onTogglePin={onTogglePin}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onPrefetch={onPrefetch}
+                />
+              )}
+              <ConversationGroup
                   companySlug={companySlug}
                   title={search ? "Results" : "Recent"}
                   items={search ? filtered : recent}
@@ -245,6 +248,7 @@ export function ChatSidebar({
                   onTogglePin={onTogglePin}
                   onRename={onRename}
                   onDelete={onDelete}
+                  onPrefetch={onPrefetch}
                 />
               </>
             )}
@@ -311,6 +315,7 @@ function ConversationGroup({
   onTogglePin,
   onRename,
   onDelete,
+  onPrefetch,
 }: {
   companySlug: string;
   title: string;
@@ -320,6 +325,7 @@ function ConversationGroup({
   onTogglePin: (uuid: string) => void;
   onRename: (uuid: string, title: string) => void;
   onDelete: (uuid: string) => void;
+  onPrefetch?: (uuid: string) => void;
 }) {
   if (items.length === 0) return null;
   return (
@@ -334,6 +340,8 @@ function ConversationGroup({
             <li key={c.uuid} className="group/item relative">
               <Link
                 href={`/${companySlug}/ai-workspace/${c.uuid}`}
+                onMouseEnter={() => onPrefetch?.(c.uuid)}
+                onFocus={() => onPrefetch?.(c.uuid)}
                 className={cn(
                   "block truncate rounded-[10px] py-2.5 pl-3 pr-[5.5rem] text-[13px] transition-colors",
                   activeId === c.uuid

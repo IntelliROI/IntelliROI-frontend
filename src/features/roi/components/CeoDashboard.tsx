@@ -20,7 +20,7 @@ import { roiApi } from "@/features/roi/api/roi.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { costApi } from "@/features/cost/api/cost.api";
 import { organizationApi } from "@/features/organization/api/organization.api";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatRoiPercent } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
 import { AI_COST_CURRENCY } from "@/constants/locale";
@@ -279,7 +279,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
               <RankBar
                 key={d.id}
                 label={d.department_name}
-                valueLabel={`${d.roi_pct.toFixed(0)}% · ${formatCurrency(d.monthly_spend, companyCurrency)}`}
+                valueLabel={`${formatRoiPercent(d.roi_pct, 0)} · ${formatCurrency(d.monthly_spend, companyCurrency)}`}
                 percent={(d.roi_pct / deptMax) * 100}
                 href={`/${companySlug}/organization/departments/${d.id}`}
               />
@@ -293,7 +293,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
           </div>
           <InsightRow tone="good" code="TOP">
             {deptRows[0]
-              ? `${deptRows[0].department_name} leads Estimated ROI at ${deptRows[0].roi_pct.toFixed(0)}%.`
+              ? `${deptRows[0].department_name} leads Estimated ROI at ${formatRoiPercent(deptRows[0].roi_pct, 0)}.`
               : "Chat from AI Workspace with a project and task to populate Estimated ROI."}
           </InsightRow>
           <InsightRow tone="info" code="COST">

@@ -19,7 +19,8 @@ const RESOURCE_ACTION_KEYS: Partial<
     manage: ["platform.manage"],
   },
   providers_company: {
-    view: ["providers.manage"],
+    // Employees with chat.use may see which providers are configured (not raw keys).
+    view: ["providers.manage", "chat.use"],
     manage: ["providers.manage"],
   },
   departments: {

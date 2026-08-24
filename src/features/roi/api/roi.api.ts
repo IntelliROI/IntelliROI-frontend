@@ -1,5 +1,5 @@
-import { apiRequest, withQuery } from "@/lib/api/client";
-import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { LIST_DROPDOWN_PAGE_SIZE, LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
 
 export type RoiSummary = {
   period: string;
@@ -180,14 +180,15 @@ export const roiApi = {
   },
 
   async recommendations(status = "open"): Promise<Recommendation[]> {
-    const raw = await apiRequest<RecommendationDto[]>(
+    const page = await pagedRequest<RecommendationDto>(
       "roi",
       withQuery("/roi/recommendations", {
         status,
-        page_size: LIST_DROPDOWN_PAGE_SIZE,
+        page: 1,
+        page_size: LIST_PAGE_SIZE_MAX,
       }),
     );
-    return asList<RecommendationDto>(raw).map(toRecommendation);
+    return page.items.map(toRecommendation);
   },
 
   async updateRecommendation(
