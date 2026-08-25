@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   PageHeader,
   LoadingBlock,
@@ -20,15 +21,16 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { useEmployeesPage } from "@/features/organization/hooks/useOrganizationQueries";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
+import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { EntityImportPanel } from "@/features/organization/components/EntityImportPanel";
 import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
-import { Pencil } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useQueries } from "@tanstack/react-query";
+import { ROLES } from "@/constants/roles";
 
 type EmployeeStatusFilter = "" | "active" | "invited";
 
@@ -45,8 +47,10 @@ export default function EmployeesPage({
 }: {
   params: { companySlug: string };
 }) {
+  const queryClient = useQueryClient();
   const [view, setView] = useState<ViewMode>("table");
   const [showImport, setShowImport] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search, 300);
@@ -84,6 +88,15 @@ export default function EmployeesPage({
   const teams = useQuery({
     queryKey: queryKeys.company.teams(params.companySlug),
     queryFn: () => organizationApi.listTeams(),
+  });
+  const jobRoles = useQuery({
+    queryKey: queryKeys.company.jobRoles(params.companySlug),
+    queryFn: () => organizationApi.listJobRoles(),
+  });
+  const allEmployees = useQuery({
+    queryKey: queryKeys.company.employees(params.companySlug),
+    queryFn: () => organizationApi.listEmployees(),
+    enabled: showInvite,
   });
   const teamsInDept = useMemo(
     () =>
@@ -278,15 +291,84 @@ export default function EmployeesPage({
               </Button>
             </Can>
             <Can resource="employees" action="create">
-              <Button asChild size="sm">
-                <Link href={`/${params.companySlug}/organization/employees/new`}>
-                  Add employee
-                </Link>
+              <Button size="sm" onClick={() => setShowInvite(true)}>
+                Invite person
               </Button>
             </Can>
           </div>
         }
       />
+
+      {showInvite ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16 sm:pt-20">
+          <div className="relative w-full max-w-2xl border border-hairline bg-surface-2 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+                  Invite
+                </p>
+                <h2 className="text-lg font-medium text-text-primary">
+                  Invite person
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInvite(false)}
+                className="inline-flex h-8 w-8 items-center justify-center text-text-secondary hover:text-text-primary"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[75vh] overflow-y-auto p-5">
+              <CreateEmployeeForm
+                companySlug={params.companySlug}
+                departments={departments.data ?? []}
+                teams={teams.data ?? []}
+                jobRoles={jobRoles.data ?? []}
+                managers={allEmployees.data ?? []}
+                onSubmit={async (values) => {
+                  const { employee, emailSent, inviteUrl, warnings } =
+                    await organizationApi.createEmployee(values);
+                  if (emailSent) {
+                    toast.success(`Invited ${employee.display_name}`, {
+                      description: `An email was sent to ${employee.email}.`,
+                    });
+                  } else if (inviteUrl) {
+                    toast.success(`Invited ${employee.display_name}`, {
+                      description:
+                        "No mail provider — copy the invite link to activate.",
+                      action: {
+                        label: "Copy link",
+                        onClick: () => {
+                          navigator.clipboard?.writeText(inviteUrl);
+                          toast.message("Invite link copied");
+                        },
+                      },
+                      duration: 15000,
+                    });
+                  } else {
+                    toast.success(`Invited ${employee.display_name}`);
+                  }
+                  for (const warning of warnings) {
+                    toast.warning(warning);
+                  }
+                  await queryClient.invalidateQueries({
+                    queryKey: queryKeys.company.employees(params.companySlug),
+                  });
+                  void employees.refetch();
+                  if (
+                    values.app_role !== ROLES.TEAM_LEAD &&
+                    values.app_role !== ROLES.DEPARTMENT_HEAD
+                  ) {
+                    setShowInvite(false);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showImport && (
         <EntityImportPanel

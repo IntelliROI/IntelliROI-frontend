@@ -56,16 +56,38 @@ function periodsMatch(a: string, b: string): boolean {
   return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
 }
 
+export type UsageListScope = {
+  kind: "company" | "department" | "team" | "employee";
+  id?: number | string;
+};
+
 /**
  * Request-level usage list is not on usage-cost-service. Daily analytics
  * snapshots keep the metering page on live pipeline totals.
  */
 export const usageApi = {
-  async list(): Promise<UsageRequest[]> {
-    const summary = await analyticsApi.company("day");
+  async list(scope: UsageListScope = { kind: "company" }): Promise<UsageRequest[]> {
+    const summary =
+      scope.kind === "department" && scope.id != null
+        ? await analyticsApi.department(Number(scope.id), "day")
+        : scope.kind === "team" && scope.id != null
+          ? await analyticsApi.team(Number(scope.id), "day")
+          : scope.kind === "employee" && scope.id != null
+            ? await analyticsApi.employee(scope.id, "day")
+            : await analyticsApi.company("day");
+
+    const label =
+      scope.kind === "company"
+        ? "Company"
+        : scope.kind === "department"
+          ? "Department"
+          : scope.kind === "team"
+            ? "Team"
+            : "Me";
+
     return (summary.series ?? []).map((p) => ({
       id: p.date,
-      user: "Company",
+      user: label,
       model: "all",
       provider: "all",
       tokens: p.tokens,
@@ -77,8 +99,11 @@ export const usageApi = {
     }));
   },
 
-  async get(requestId: string): Promise<UsageRequest> {
-    const rows = await usageApi.list();
+  async get(
+    requestId: string,
+    scope: UsageListScope = { kind: "company" },
+  ): Promise<UsageRequest> {
+    const rows = await usageApi.list(scope);
     const decoded = decodeUsagePeriodId(requestId);
     const row = rows.find(
       (r) =>

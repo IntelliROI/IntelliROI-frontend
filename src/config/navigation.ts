@@ -148,6 +148,13 @@ export function getCompanyNav(
         icon: Bell,
         section: "Account",
       },
+      {
+        id: "profile",
+        label: "My Profile",
+        href: `${base}/profile`,
+        icon: UserRound,
+        section: "Account",
+      },
     ];
   }
 
@@ -221,6 +228,13 @@ export function getCompanyNav(
         icon: Bell,
         resource: "notifications",
         action: "view",
+        section: "Account",
+      },
+      {
+        id: "profile",
+        label: "My Profile",
+        href: `${base}/profile`,
+        icon: UserRound,
         section: "Account",
       },
     ], role, permissions);
@@ -314,6 +328,13 @@ export function getCompanyNav(
         icon: Bell,
         resource: "notifications",
         action: "view",
+        section: "Account",
+      },
+      {
+        id: "profile",
+        label: "My Profile",
+        href: `${base}/profile`,
+        icon: UserRound,
         section: "Account",
       },
     ], role, permissions);
@@ -470,6 +491,13 @@ export function getCompanyNav(
       icon: Bell,
       resource: "notifications",
       action: "view",
+      section: "Account",
+    },
+    {
+      id: "profile",
+      label: "My Profile",
+      href: `${base}/profile`,
+      icon: UserRound,
       section: "Account",
     },
     {

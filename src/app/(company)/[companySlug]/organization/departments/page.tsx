@@ -28,6 +28,8 @@ import { useDepartmentsPage } from "@/features/organization/hooks/useOrganizatio
 import { roiApi } from "@/features/roi/api/roi.api";
 import type { Department } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { Can } from "@/lib/rbac/Can";
 import { ArchiveAction, EditAction, RowActions } from "@/components/ui/row-actions";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -39,6 +41,8 @@ export default function DepartmentsPage({
 }: {
   params: { companySlug: string };
 }) {
+  const companyCurrency =
+    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -117,7 +121,7 @@ export default function DepartmentsPage({
     ),
     name: <span className="font-medium text-text-primary">{d.department_name}</span>,
     people: d.employee_count,
-    spend: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD"),
+    spend: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, companyCurrency),
     roi: (
       <span className="font-mono font-medium text-accent">
         {(roiById.get(d.id)?.roi_pct ?? d.roi_pct).toFixed(0)}%
@@ -174,7 +178,7 @@ export default function DepartmentsPage({
       },
       {
         label: "Monthly Spend",
-        value: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD"),
+        value: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, companyCurrency),
       },
     ],
     action: (

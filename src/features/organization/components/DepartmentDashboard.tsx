@@ -11,7 +11,8 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { formatCurrency } from "@/lib/utils";
-import { AI_COST_CURRENCY } from "@/constants/locale";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -23,6 +24,8 @@ export function DepartmentDashboard({
   departmentId: number;
 }) {
   const [period, setPeriod] = useState<RoiPeriod>("month");
+  const companyCurrency =
+    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
 
   const department = useQuery({
     queryKey: ["company", companySlug, "department", departmentId],
@@ -77,7 +80,7 @@ export function DepartmentDashboard({
           label="Spend"
           value={r.total_spend}
           format="currency"
-          currency={AI_COST_CURRENCY}
+          currency={companyCurrency}
         />
         <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
         <KpiTile
@@ -103,7 +106,7 @@ export function DepartmentDashboard({
               name: t.team_name,
               spend: formatCurrency(
                 teamRoi[i]?.data?.total_spend ?? 0,
-                AI_COST_CURRENCY,
+                companyCurrency,
               ),
               roi: (
                 <span className="text-accent">

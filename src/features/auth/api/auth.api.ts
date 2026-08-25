@@ -50,6 +50,8 @@ export type InviteEmployeeInput = {
 };
 
 export type UpdateEmployeeProfileInput = {
+  first_name?: string | null;
+  last_name?: string | null;
   employee_code?: string | null;
   phone?: string | null;
   designation?: string | null;
@@ -57,6 +59,13 @@ export type UpdateEmployeeProfileInput = {
   clear_manager_user_id?: boolean;
   joining_date?: string | null;
   clear_joining_date?: boolean;
+};
+
+export type UpdateMyProfileInput = {
+  first_name?: string;
+  last_name?: string;
+  phone?: string | null;
+  designation?: string | null;
 };
 
 /* ── API response shapes ── */
@@ -152,6 +161,7 @@ export type CompanySettingsDto = {
   timezone: string;
   date_format: string;
   fiscal_year_start: string;
+  usd_fx_rate?: number;
 };
 
 /* ── Map API responses → app types ── */
@@ -381,6 +391,14 @@ export const authApi = {
       `/auth/users/${userUuid}/profile`,
       { method: "PATCH", body: patch },
     );
+    return toUser(res);
+  },
+
+  async updateMyProfile(patch: UpdateMyProfileInput): Promise<User> {
+    const res = await apiRequest<UserDto>("auth", "/auth/me/profile", {
+      method: "PATCH",
+      body: patch,
+    });
     return toUser(res);
   },
 

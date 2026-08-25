@@ -22,6 +22,7 @@ const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
     "business-context",
     "notifications",
     "my-workspace",
+    "profile",
   ],
   [ROLES.TEAM_LEAD]: [
     "dashboard",
@@ -34,13 +35,15 @@ const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
     "roi",
     "notifications",
     "my-workspace",
+    "profile",
   ],
   [ROLES.EMPLOYEE]: [
     "dashboard",
     "ai-workspace",
     "my-workspace",
     "notifications",
-    "organization/projects", // assigned projects only (UI scopes)
+    "organization/projects", // assigned projects only (BE scopes via project_members)
+    "profile",
   ],
 };
 

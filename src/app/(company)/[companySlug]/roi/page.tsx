@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { ScopeUnassigned } from "@/components/feedback/ScopeUnassigned";
 import { Mosaic, Panel, Provenance } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
@@ -13,6 +14,9 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSetupHint";
+import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
+import type { RoiSummary } from "@/features/roi/api/roi.api";
+import type { AnalyticsSummary } from "@/features/analytics/api/analytics.api";
 
 export default function RoiPage({
   params,
@@ -20,33 +24,92 @@ export default function RoiPage({
   params: { companySlug: string };
 }) {
   const [period, setPeriod] = useState<RoiPeriod>("month");
+  const user = useAuthStore((s) => s.user);
   const companyCurrency =
     useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
   const analyticsPeriod = period === "week" ? "day" : period;
+  const scope = resolveIntelligenceScope(user);
 
   const roi = useQuery({
-    queryKey: ["company", params.companySlug, "roi", "summary", period],
-    queryFn: () => roiApi.company(period),
+    queryKey: [
+      "company",
+      params.companySlug,
+      "roi",
+      "summary",
+      scope.kind,
+      "id" in scope ? scope.id : null,
+      period,
+    ],
+    queryFn: (): Promise<RoiSummary> => {
+      if (scope.kind === "department") return roiApi.department(scope.id, period);
+      if (scope.kind === "team") return roiApi.team(scope.id, period);
+      if (scope.kind === "employee") return roiApi.employee(scope.id, period);
+      return roiApi.company(period);
+    },
+    enabled: scope.kind !== "unassigned",
   });
   const formulas = useQuery({
     queryKey: ["company", params.companySlug, "roi", "formula-versions"],
     queryFn: () => roiApi.formulaVersions(),
+    enabled: scope.kind === "company",
   });
   const analytics = useQuery({
-    queryKey: ["company", params.companySlug, "analytics", analyticsPeriod],
-    queryFn: () => analyticsApi.company(analyticsPeriod),
+    queryKey: [
+      "company",
+      params.companySlug,
+      "analytics",
+      scope.kind,
+      "id" in scope ? scope.id : null,
+      analyticsPeriod,
+    ],
+    queryFn: (): Promise<AnalyticsSummary> => {
+      if (scope.kind === "department")
+        return analyticsApi.department(scope.id, analyticsPeriod);
+      if (scope.kind === "team")
+        return analyticsApi.team(scope.id, analyticsPeriod);
+      if (scope.kind === "employee")
+        return analyticsApi.employee(scope.id, analyticsPeriod);
+      return analyticsApi.company(analyticsPeriod);
+    },
+    enabled: scope.kind !== "unassigned",
   });
   const departments = useQuery({
     queryKey: ["company", params.companySlug, "departments"],
     queryFn: () => organizationApi.listDepartments(),
+    enabled: scope.kind === "company",
+  });
+  const teams = useQuery({
+    queryKey: ["company", params.companySlug, "teams", scope.kind === "department" ? scope.id : null],
+    queryFn: () =>
+      scope.kind === "department"
+        ? organizationApi.listTeams(scope.id)
+        : Promise.resolve([]),
+    enabled: scope.kind === "department",
   });
   const deptRoi = useQueries({
     queries: (departments.data ?? []).map((d) => ({
       queryKey: ["company", params.companySlug, "roi", "department", d.id, period],
       queryFn: () => roiApi.department(d.id, period),
-      enabled: Boolean(departments.data?.length),
+      enabled: scope.kind === "company" && Boolean(departments.data?.length),
     })),
   });
+  const teamRoi = useQueries({
+    queries: (teams.data ?? []).map((t) => ({
+      queryKey: ["company", params.companySlug, "roi", "team", t.id, period],
+      queryFn: () => roiApi.team(t.id, period),
+      enabled: scope.kind === "department" && Boolean(teams.data?.length),
+    })),
+  });
+
+  if (scope.kind === "unassigned") {
+    return (
+      <ScopeUnassigned
+        role={scope.role}
+        missing={scope.missing}
+        title="ROI Analysis"
+      />
+    );
+  }
 
   if (roi.isLoading) return <LoadingBlock className="h-80" />;
 
@@ -64,13 +127,46 @@ export default function RoiPage({
     formulas.data?.[formulas.data.length - 1]?.version ||
     undefined;
 
+  const breakdownTitle =
+    scope.kind === "company"
+      ? "Department ROI"
+      : scope.kind === "department"
+        ? "Team ROI"
+        : null;
+  const breakdownData =
+    scope.kind === "company"
+      ? (departments.data ?? []).map((d, i) => ({
+          name: d.department_name.slice(0, 8),
+          value: deptRoi[i]?.data?.roi_pct ?? 0,
+        }))
+      : scope.kind === "department"
+        ? (teams.data ?? []).map((t, i) => ({
+            name: t.team_name.slice(0, 8),
+            value: teamRoi[i]?.data?.roi_pct ?? 0,
+          }))
+        : [];
+
   return (
     <div>
       <PageHeader
         eyebrow="Financial"
-        title="ROI Analysis"
+        title={
+          scope.kind === "company"
+            ? "ROI Analysis"
+            : scope.kind === "department"
+              ? "Department ROI"
+              : scope.kind === "team"
+                ? "Team ROI"
+                : "My Estimated ROI"
+        }
         description="Investment vs business value — recomputable with formula provenance."
-        actions={<PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />}
+        actions={
+          <PeriodSwitcher
+            value={period}
+            onChange={(p) => setPeriod(p as RoiPeriod)}
+            variant="roi"
+          />
+        }
       />
       <Mosaic cols={4}>
         <KpiTile
@@ -110,17 +206,19 @@ export default function RoiPage({
             }))}
           />
         </Panel>
-        <Panel className="border-0 bg-ink p-6">
-          <h2 className="mb-4 font-medium text-text-primary">
-            Department ROI
-          </h2>
-          <SimpleBarChart
-            data={(departments.data ?? []).map((d, i) => ({
-              name: d.department_name.slice(0, 8),
-              value: deptRoi[i]?.data?.roi_pct ?? 0,
-            }))}
-          />
-        </Panel>
+        {breakdownTitle ? (
+          <Panel className="border-0 bg-ink p-6">
+            <h2 className="mb-4 font-medium text-text-primary">{breakdownTitle}</h2>
+            <SimpleBarChart data={breakdownData} />
+          </Panel>
+        ) : (
+          <Panel className="border-0 bg-ink p-6">
+            <h2 className="mb-4 font-medium text-text-primary">Scope</h2>
+            <p className="text-sm text-text-secondary">
+              Showing Estimated ROI for your assigned {scope.kind} only.
+            </p>
+          </Panel>
+        )}
       </div>
     </div>
   );

@@ -144,8 +144,8 @@ const clients = new Map<ServiceKey, AxiosInstance>();
  */
 const REQUEST_TIMEOUT_MS = 15_000;
 
-/** Provider round-trips (Anthropic / OpenAI / Gemini) often exceed 15–60s. */
-const CHAT_TIMEOUT_MS = 180_000;
+/** Provider round-trips for heavy prompts can take several minutes. */
+const CHAT_TIMEOUT_MS = 900_000;
 
 const AUTH_PUBLIC_PREFIXES = [
   "/login",

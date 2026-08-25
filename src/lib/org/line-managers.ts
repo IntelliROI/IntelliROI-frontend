@@ -2,11 +2,13 @@ import { ROLES } from "@/constants/roles";
 import type { Employee } from "@/features/organization/types";
 
 /**
- * Line managers / team leads — company owner is the CEO seat, not a
- * reporting manager on invite/dept/team forms.
+ * Reporting managers on invite/edit — only department heads and team leads.
+ * Company owner is the CEO seat, not listed as a line manager.
  */
 export function lineManagers(people: Employee[]): Employee[] {
   return people.filter(
-    (e) => e.app_role !== ROLES.COMPANY_OWNER && e.status !== "invited",
+    (e) =>
+      e.status !== "invited" &&
+      (e.app_role === ROLES.DEPARTMENT_HEAD || e.app_role === ROLES.TEAM_LEAD),
   );
 }

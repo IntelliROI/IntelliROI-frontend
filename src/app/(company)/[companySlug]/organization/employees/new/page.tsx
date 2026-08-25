@@ -65,6 +65,7 @@ export default function NewEmployeePage({
          * no longer freezes the whole invite screen.
          */}
         <CreateEmployeeForm
+          companySlug={params.companySlug}
           departments={departments.data ?? []}
           teams={teams.data ?? []}
           jobRoles={jobRoles.data ?? []}

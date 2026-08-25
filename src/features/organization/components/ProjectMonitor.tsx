@@ -12,7 +12,7 @@ import { TrendAreaChart } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
-import { AI_COST_CURRENCY, DEFAULT_CURRENCY } from "@/constants/locale";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { useAuthStore } from "@/stores/auth-store";
 
 /**
@@ -88,7 +88,7 @@ export function ProjectMonitor({
               label="AI spend"
               value={a.total_cost}
               format="currency"
-              currency={AI_COST_CURRENCY}
+              currency={companyCurrency}
             />
             <KpiTile
               label="Business value"

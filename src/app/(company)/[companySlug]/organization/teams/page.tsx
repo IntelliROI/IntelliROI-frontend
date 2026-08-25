@@ -29,6 +29,8 @@ import { useTeamsPage } from "@/features/organization/hooks/useOrganizationQueri
 import { roiApi } from "@/features/roi/api/roi.api";
 import type { Team } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { Can } from "@/lib/rbac/Can";
 import { ArchiveAction, EditAction, RowActions } from "@/components/ui/row-actions";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -40,6 +42,8 @@ export default function TeamsPage({
 }: {
   params: { companySlug: string };
 }) {
+  const companyCurrency =
+    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -128,7 +132,7 @@ export default function TeamsPage({
     name: <span className="font-medium text-text-primary">{t.team_name}</span>,
     dept: deptMap[t.department_id] ?? "—",
     people: t.member_count,
-    spend: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD"),
+    spend: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, companyCurrency),
     roi: (
       <span className="font-mono font-medium text-accent">
         {(roiById.get(t.id)?.roi_pct ?? t.roi_pct).toFixed(0)}%
@@ -185,7 +189,7 @@ export default function TeamsPage({
       },
       {
         label: "Spend",
-        value: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD"),
+        value: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, companyCurrency),
       },
       {
         label: "Status",
