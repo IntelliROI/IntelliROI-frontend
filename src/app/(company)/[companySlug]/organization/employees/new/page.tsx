@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/feedback/States";
 import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { Can } from "@/lib/rbac/Can";
+import { useAuthStore } from "@/stores/auth-store";
+import { ROLES } from "@/constants/roles";
 
 export default function NewEmployeePage({
   params,
@@ -16,6 +18,11 @@ export default function NewEmployeePage({
   params: { companySlug: string };
 }) {
   const router = useRouter();
+  const role = useAuthStore((s) => s.user?.role);
+  const inviteRoles =
+    role === ROLES.COMPANY_OWNER
+      ? ([ROLES.EMPLOYEE, ROLES.TEAM_LEAD, ROLES.DEPARTMENT_HEAD] as const)
+      : ([ROLES.EMPLOYEE, ROLES.TEAM_LEAD] as const);
   const departments = useQuery({
     queryKey: ["company", params.companySlug, "departments"],
     queryFn: () => organizationApi.listDepartments(),
@@ -70,6 +77,7 @@ export default function NewEmployeePage({
           teams={teams.data ?? []}
           jobRoles={jobRoles.data ?? []}
           managers={employees.data ?? []}
+          allowedRoles={inviteRoles}
           onSubmit={async (values) => {
             const { employee, emailSent, inviteUrl, warnings } =
               await organizationApi.createEmployee(values);

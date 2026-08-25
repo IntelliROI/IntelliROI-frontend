@@ -14,6 +14,7 @@ import {
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { ListFilterBar, ListPagination, type StatusFilter } from "@/components/ui/list-toolbar";
 import { CreateJobRoleForm } from "@/features/organization/components/CreateJobRoleForm";
 import { organizationApi } from "@/features/organization/api/organization.api";
@@ -34,6 +35,7 @@ export default function JobRolesPage({
 }) {
   const [view, setView] = useState<ViewMode>("table");
   const [editing, setEditing] = useState<JobRole | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -112,7 +114,12 @@ export default function JobRolesPage({
     action: (
       <RowActions>
         <Can resource="job_roles" action="edit">
-          <EditAction onClick={() => setEditing(r)} />
+          <EditAction
+            onClick={() => {
+              setEditing(r);
+              setShowForm(true);
+            }}
+          />
         </Can>
         <Can resource="job_roles" action="edit">
           <ArchiveAction
@@ -147,7 +154,12 @@ export default function JobRolesPage({
     action: (
       <RowActions>
         <Can resource="job_roles" action="edit">
-          <EditAction onClick={() => setEditing(r)} />
+          <EditAction
+            onClick={() => {
+              setEditing(r);
+              setShowForm(true);
+            }}
+          />
         </Can>
         <Can resource="job_roles" action="edit">
           <ArchiveAction
@@ -161,6 +173,11 @@ export default function JobRolesPage({
 
   const empty = !roles.isLoading && items.length === 0;
 
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+  }
+
   return (
     <div>
       <PageHeader
@@ -170,6 +187,17 @@ export default function JobRolesPage({
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
+            <Can resource="job_roles" action="manage">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditing(null);
+                  setShowForm(true);
+                }}
+              >
+                Add job role
+              </Button>
+            </Can>
             <Button asChild size="sm" variant="secondary">
               <Link href={`/${params.companySlug}/organization/employees/new`}>
                 Add employee
@@ -179,39 +207,35 @@ export default function JobRolesPage({
         }
       />
 
-      <Can resource="job_roles" action="manage">
-        <div className="mb-8 border border-hairline p-6">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            {editing ? `Edit · ${editing.role_name}` : "New job role"}
-          </p>
-          <CreateJobRoleForm
-            key={editing?.id ?? "new"}
-            initial={editing ?? undefined}
-            submitLabel={editing ? "Save changes" : "Add job role"}
-            onSubmit={async (values) => {
-              if (editing) {
-                await organizationApi.updateJobRole(editing.id, values);
-                toast.success(`Updated ${values.role_name}`);
-                setEditing(null);
-                await invalidateJobRoles();
-              } else {
-                await createRole.mutateAsync(values);
-              }
-            }}
-          />
-          {editing ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => setEditing(null)}
-            >
-              Cancel edit
-            </Button>
-          ) : null}
-        </div>
-      </Can>
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        eyebrow="Job roles"
+        title={editing ? "Edit job role" : "Add job role"}
+        description={
+          editing
+            ? `Update hourly cost for ${editing.role_name}.`
+            : "Hourly cost is used when computing Estimated ROI."
+        }
+        size="md"
+      >
+        <CreateJobRoleForm
+          key={editing?.id ?? "new"}
+          initial={editing ?? undefined}
+          submitLabel={editing ? "Save changes" : "Add job role"}
+          onSubmit={async (values) => {
+            if (editing) {
+              await organizationApi.updateJobRole(editing.id, values);
+              toast.success(`Updated ${values.role_name}`);
+              closeForm();
+              await invalidateJobRoles();
+            } else {
+              await createRole.mutateAsync(values);
+              closeForm();
+            }
+          }}
+        />
+      </Modal>
 
       <ListFilterBar
         search={search}

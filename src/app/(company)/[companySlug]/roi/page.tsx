@@ -12,7 +12,7 @@ import { roiApi } from "@/features/roi/api/roi.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSetupHint";
 import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
 import type { RoiSummary } from "@/features/roi/api/roi.api";
@@ -25,8 +25,7 @@ export default function RoiPage({
 }) {
   const [period, setPeriod] = useState<RoiPeriod>("month");
   const user = useAuthStore((s) => s.user);
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const analyticsPeriod = period === "week" ? "day" : period;
   const scope = resolveIntelligenceScope(user);
 

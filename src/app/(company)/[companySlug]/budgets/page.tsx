@@ -193,11 +193,20 @@ export default function BudgetsPage({
             { key: "pct", label: "Used", align: "right" },
           ]}
           rows={(budgets.data ?? []).map((b) => {
-            const cur = b.currency || companyCurrency;
+            const rawCur = (b.currency || "").toUpperCase();
+            const amountIsUsd = rawCur === "USD" || rawCur === "";
+            const limit =
+              amountIsUsd && companyCurrency !== "USD"
+                ? fromUsd(b.monthly_limit)
+                : b.monthly_limit;
+            const consumed =
+              amountIsUsd && companyCurrency !== "USD"
+                ? fromUsd(b.consumed)
+                : b.consumed;
             return {
               scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
-              limit: formatCurrency(b.monthly_limit, cur),
-              consumed: formatCurrency(b.consumed, cur),
+              limit: formatCurrency(limit, companyCurrency),
+              consumed: formatCurrency(consumed, companyCurrency),
               pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
             };
           })}

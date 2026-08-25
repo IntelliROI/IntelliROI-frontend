@@ -244,9 +244,22 @@ async function listTeamsPage(
     status: toApiStatus(query.status),
     department_id: query.department_id,
   });
-  const page = await pagedRequest<TeamDto>("org", path);
+  const [page, profiles] = await Promise.all([
+    pagedRequest<TeamDto>("org", path),
+    authApi.listEmployees().catch(() => [] as Awaited<ReturnType<typeof authApi.listEmployees>>),
+  ]);
+  const countByTeam = new Map<number, number>();
+  for (const p of profiles) {
+    const tid = p.user.team_id;
+    if (tid == null) continue;
+    countByTeam.set(tid, (countByTeam.get(tid) ?? 0) + 1);
+  }
   return {
-    items: page.items.map(toTeam),
+    items: page.items.map((t) => {
+      const team = toTeam(t);
+      team.member_count = countByTeam.get(t.id) ?? 0;
+      return team;
+    }),
     meta: page.meta,
   };
 }

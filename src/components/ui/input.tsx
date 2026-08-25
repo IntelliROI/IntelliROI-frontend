@@ -1,8 +1,16 @@
+"use client";
+
 import * as React from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Shared field chrome.
+ * Note: do NOT put `flex` on native <select> — it breaks option/text layout
+ * and can shove the caret/arrow to the wrong side on Windows browsers.
+ */
 const fieldClass =
-  "flex h-10 w-full border border-hairline bg-ink px-3 text-sm text-text-primary placeholder:text-text-secondary/45 transition-colors focus:border-accent focus:bg-surface/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]";
+  "h-10 w-full border border-hairline bg-surface px-3 text-sm text-text-primary placeholder:text-text-secondary/45 transition-colors hover:border-accent/40 focus:border-accent focus:bg-surface-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]";
 
 export const Input = React.forwardRef<
   HTMLInputElement,
@@ -10,7 +18,7 @@ export const Input = React.forwardRef<
 >(({ className, type, ...props }, ref) => (
   <input
     type={type}
-    className={cn(fieldClass, className)}
+    className={cn("flex", fieldClass, className)}
     ref={ref}
     {...props}
   />
@@ -39,7 +47,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "flex min-h-[96px] w-full border border-hairline bg-ink px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary/45 transition-colors focus:border-accent focus:bg-surface/40 focus:outline-none [color-scheme:dark]",
+        "flex min-h-[96px] w-full border border-hairline bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary/45 transition-colors hover:border-accent/40 focus:border-accent focus:bg-surface-2 focus:outline-none [color-scheme:dark]",
         className,
       )}
       {...props}
@@ -47,21 +55,46 @@ export function Textarea({
   );
 }
 
+function isCompactSelect(className?: string) {
+  if (!className) return false;
+  return (
+    /\bw-auto\b/.test(className) ||
+    /\bshrink-0\b/.test(className) ||
+    /\bmin-w-\[/.test(className)
+  );
+}
+
 export const Select = React.forwardRef<
   HTMLSelectElement,
   React.SelectHTMLAttributes<HTMLSelectElement>
->(({ className, children, ...props }, ref) => (
-  <select
-    ref={ref}
-    className={cn(
-      fieldClass,
-      "appearance-none bg-[length:12px] bg-[right_0.75rem_center] bg-no-repeat pr-9",
-      "bg-[url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 fill=%27none%27 stroke=%27%23CBD5E1%27 stroke-width=%271.5%27%3E%3Cpath d=%27m2 4 4 4 4-4%27/%3E%3C/svg%3E')]",
-      className,
-    )}
-    {...props}
-  >
-    {children}
-  </select>
-));
+>(({ className, children, ...props }, ref) => {
+  const compact = isCompactSelect(className);
+  return (
+    <div
+      className={cn(
+        "relative",
+        compact ? "inline-block shrink-0 align-middle" : "block w-full",
+      )}
+    >
+      <select
+        ref={ref}
+        className={cn(
+          fieldClass,
+          "cursor-pointer appearance-none bg-none pr-9",
+          /* Kill native OS arrows that render on the wrong side */
+          "[appearance:none] [-webkit-appearance:none] [-moz-appearance:none]",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-text-secondary"
+        strokeWidth={1.5}
+        aria-hidden
+      />
+    </div>
+  );
+});
 Select.displayName = "Select";

@@ -24,6 +24,14 @@ import type {
   Team,
 } from "@/features/organization/types";
 
+const APP_ROLES = [
+  ROLES.EMPLOYEE,
+  ROLES.TEAM_LEAD,
+  ROLES.DEPARTMENT_HEAD,
+] as const;
+
+type InviteAppRole = (typeof APP_ROLES)[number];
+
 type Props = {
   departments: Department[];
   teams: Team[];
@@ -34,13 +42,11 @@ type Props = {
   companySlug?: string;
   /** Shown after a successful invite for lead/manager seats. */
   nextStepSlot?: ReactNode;
+  /** Roles the actor may invite (Owner: all three; Dept Head: TL + Employee). */
+  allowedRoles?: readonly InviteAppRole[];
+  defaultDepartmentId?: number;
+  defaultTeamId?: number;
 };
-
-const APP_ROLES = [
-  ROLES.EMPLOYEE,
-  ROLES.TEAM_LEAD,
-  ROLES.DEPARTMENT_HEAD,
-] as const;
 
 export function CreateEmployeeForm({
   departments,
@@ -50,7 +56,17 @@ export function CreateEmployeeForm({
   onSubmit,
   submitLabel = "Send invite",
   companySlug,
+  allowedRoles,
+  defaultDepartmentId,
+  defaultTeamId,
 }: Props) {
+  const roleOptions = allowedRoles?.length
+    ? APP_ROLES.filter((r) => allowedRoles.includes(r))
+    : [...APP_ROLES];
+  const defaultRole = roleOptions.includes(ROLES.EMPLOYEE)
+    ? ROLES.EMPLOYEE
+    : roleOptions[0] ?? ROLES.EMPLOYEE;
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextStep, setNextStep] = useState<{
@@ -65,14 +81,14 @@ export function CreateEmployeeForm({
     phone_iso: DEFAULT_COUNTRY_ISO as CountryIso,
     phone_national: "",
     employee_code: "",
-    department_id: "",
-    team_id: "",
+    department_id: defaultDepartmentId ? String(defaultDepartmentId) : "",
+    team_id: defaultTeamId ? String(defaultTeamId) : "",
     job_role_id: "",
     manager_employee_id: "",
     designation: "",
     joining_date: new Date().toISOString().slice(0, 10),
     employment_status: "active",
-    app_role: ROLES.EMPLOYEE as (typeof APP_ROLES)[number],
+    app_role: defaultRole as InviteAppRole,
   });
 
   const role = form.app_role;
@@ -199,7 +215,7 @@ export function CreateEmployeeForm({
                 }))
               }
             >
-              {APP_ROLES.map((r) => (
+              {roleOptions.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </option>

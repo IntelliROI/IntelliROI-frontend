@@ -14,6 +14,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { Can } from "@/lib/rbac/Can";
@@ -223,16 +224,23 @@ export default function TaskBenchmarksPage({
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
             <Can resource="benchmarks" action="create">
-              <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-                {showForm ? "Close" : "Add benchmark"}
+              <Button size="sm" onClick={() => setShowForm(true)}>
+                Add benchmark
               </Button>
             </Can>
           </div>
         }
       />
 
-      {showForm && (
-        <div className="mb-8 grid gap-6 border border-hairline p-6 lg:grid-cols-2">
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        eyebrow="Business context"
+        title="Add benchmark"
+        description="Create a task category if needed, then submit minutes saved by job role."
+        size="lg"
+      >
+        <div className="grid gap-8 lg:grid-cols-2">
           <form onSubmit={onCreateCategory} className="space-y-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
               1 · Task category
@@ -316,7 +324,7 @@ export default function TaskBenchmarksPage({
             </Button>
           </form>
         </div>
-      )}
+      </Modal>
 
       {benchmarks.isLoading ? (
         <LoadingBlock className="h-48" />

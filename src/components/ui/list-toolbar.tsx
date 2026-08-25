@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export type StatusFilter = "" | "active" | "inactive";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   ListFilterBar — search + status + optional extra filters, sits above table
+   ListFilterBar — search + filters on one aligned row
 ───────────────────────────────────────────────────────────────────────── */
 type ListFilterBarProps = {
   search: string;
@@ -33,8 +33,8 @@ export function ListFilterBar({
   extra,
 }: ListFilterBarProps) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 border border-hairline bg-surface/10 p-3">
-      <label className="relative min-w-[12rem] flex-1">
+    <div className="mb-4 flex items-center gap-2 overflow-x-auto border border-hairline bg-surface/10 p-3">
+      <label className="relative min-w-[12rem] max-w-xl flex-1 shrink">
         <span className="sr-only">{searchPlaceholder}</span>
         <Search
           className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary/45"
@@ -47,19 +47,21 @@ export function ListFilterBar({
           className="h-8 pl-8 font-mono text-[12px] tracking-normal"
         />
       </label>
-      {showStatus && onStatusChange ? (
-        <Select
-          value={status}
-          onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
-          className="h-8 w-auto min-w-[10.5rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
-          aria-label="Status"
-        >
-          <option value="">All</option>
-          <option value="active">Active</option>
-          <option value="inactive">Archived</option>
-        </Select>
-      ) : null}
-      {extra}
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
+        {showStatus && onStatusChange ? (
+          <Select
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
+            className="h-8 w-auto min-w-[9.5rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+            aria-label="Status"
+          >
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Archived</option>
+          </Select>
+        ) : null}
+        {extra}
+      </div>
     </div>
   );
 }

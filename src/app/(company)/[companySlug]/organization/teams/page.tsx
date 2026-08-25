@@ -16,6 +16,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import {
   ListFilterBar,
   ListPagination,
@@ -29,8 +30,7 @@ import { useTeamsPage } from "@/features/organization/hooks/useOrganizationQueri
 import { roiApi } from "@/features/roi/api/roi.api";
 import type { Team } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { Can } from "@/lib/rbac/Can";
 import { ArchiveAction, EditAction, RowActions } from "@/components/ui/row-actions";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -42,8 +42,7 @@ export default function TeamsPage({
 }: {
   params: { companySlug: string };
 }) {
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -253,15 +252,11 @@ export default function TeamsPage({
               <Button
                 size="sm"
                 onClick={() => {
-                  if (showForm && !editing) {
-                    closeForm();
-                    return;
-                  }
                   setEditing(null);
                   setShowForm(true);
                 }}
               >
-                {showForm && !editing ? "Close" : "Add team"}
+                Add team
               </Button>
             </Can>
           </div>
@@ -283,11 +278,21 @@ export default function TeamsPage({
         />
       )}
 
-      {showForm && departments.data && (
-        <div className="mb-8 border border-hairline p-6">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            {editing ? `Edit · ${editing.team_name}` : "New team"}
-          </p>
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        eyebrow="Organization"
+        title={editing ? "Edit team" : "Add team"}
+        description={
+          editing
+            ? `Update ${editing.team_name}.`
+            : "Teams belong to a department and own projects + AI usage."
+        }
+        size="lg"
+      >
+        {!departments.data ? (
+          <p className="text-sm text-text-secondary">Loading departments…</p>
+        ) : (
           <CreateTeamForm
             key={editing?.id ?? "new"}
             initial={editing ?? undefined}
@@ -306,8 +311,8 @@ export default function TeamsPage({
               await invalidateTeams();
             }}
           />
-        </div>
-      )}
+        )}
+      </Modal>
 
       <ListFilterBar
         search={search}

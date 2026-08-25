@@ -13,16 +13,24 @@ type Props = {
   departments: Department[];
   teams: Team[];
   onSubmit: (values: ProjectSchema) => Promise<void>;
+  defaultDepartmentId?: number;
+  defaultTeamId?: number;
 };
 
-export function CreateProjectForm({ departments, teams, onSubmit }: Props) {
+export function CreateProjectForm({
+  departments,
+  teams,
+  onSubmit,
+  defaultDepartmentId,
+  defaultTeamId,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     project_name: "",
     description: "",
-    department_id: "",
-    team_id: "",
+    department_id: defaultDepartmentId ? String(defaultDepartmentId) : "",
+    team_id: defaultTeamId ? String(defaultTeamId) : "",
   });
 
   const teamsInDept = useMemo(
@@ -44,8 +52,8 @@ export function CreateProjectForm({ departments, teams, onSubmit }: Props) {
       setForm({
         project_name: "",
         description: "",
-        department_id: "",
-        team_id: "",
+        department_id: defaultDepartmentId ? String(defaultDepartmentId) : "",
+        team_id: defaultTeamId ? String(defaultTeamId) : "",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create project");

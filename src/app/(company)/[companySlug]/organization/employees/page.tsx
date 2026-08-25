@@ -16,6 +16,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { Select, Label } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { useEmployeesPage } from "@/features/organization/hooks/useOrganizationQueries";
@@ -27,7 +28,7 @@ import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-t
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { RemoveMemberAction } from "@/components/ui/row-actions";
-import { Pencil, X } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -62,6 +63,10 @@ export default function EmployeesPage({
     user?.scope?.department_id ?? user?.department_id ?? null;
   const canStaffTeam =
     can(role, "teams", "edit", permissions) && Boolean(myTeamId);
+  const inviteRoles =
+    role === ROLES.COMPANY_OWNER
+      ? ([ROLES.EMPLOYEE, ROLES.TEAM_LEAD, ROLES.DEPARTMENT_HEAD] as const)
+      : ([ROLES.EMPLOYEE, ROLES.TEAM_LEAD] as const);
 
   const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const [view, setView] = useState<ViewMode>("table");
@@ -411,174 +416,122 @@ export default function EmployeesPage({
         }
       />
 
-      {showAddMember ? (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16 sm:pt-20"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-member-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowAddMember(false);
-              setMemberUuid("");
+      <Modal
+        open={showAddMember}
+        onClose={() => {
+          setShowAddMember(false);
+          setMemberUuid("");
+        }}
+        eyebrow="Team"
+        title="Add member"
+        description={`Pick someone already in your department, then add them to ${myTeamName ?? "your team"}.`}
+        size="sm"
+        footer={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowAddMember(false);
+                setMemberUuid("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!memberUuid || addingMember}
+              onClick={() => void addMemberToTeam()}
+            >
+              {addingMember ? "Adding…" : "Add to team"}
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="add-team-member">Employee</Label>
+          <Select
+            id="add-team-member"
+            value={memberUuid}
+            onChange={(e) => setMemberUuid(e.target.value)}
+          >
+            <option value="">Select employee</option>
+            {addCandidates.map((e) => (
+              <option key={e.uuid} value={e.uuid}>
+                {e.display_name}
+                {e.team_name && e.team_name !== "—"
+                  ? ` · ${e.team_name}`
+                  : ""}
+              </option>
+            ))}
+          </Select>
+          {allEmployees.isLoading ? (
+            <p className="mt-2 text-xs text-text-secondary">Loading people…</p>
+          ) : addCandidates.length === 0 ? (
+            <p className="mt-2 text-xs text-text-secondary">
+              No available people in your department. Ask an owner or manager to
+              invite them first.
+            </p>
+          ) : null}
+        </div>
+      </Modal>
+
+      <Modal
+        open={showInvite}
+        onClose={() => setShowInvite(false)}
+        eyebrow="Invite"
+        title="Invite person"
+        description="Send an invite so they can join and attribute AI usage."
+        size="lg"
+      >
+        <CreateEmployeeForm
+          companySlug={params.companySlug}
+          departments={departments.data ?? []}
+          teams={teams.data ?? []}
+          jobRoles={jobRoles.data ?? []}
+          managers={allEmployees.data ?? []}
+          allowedRoles={inviteRoles}
+          defaultDepartmentId={myDepartmentId ?? undefined}
+          defaultTeamId={isTeamLead ? myTeamId ?? undefined : undefined}
+          onSubmit={async (values) => {
+            const { employee, emailSent, inviteUrl, warnings } =
+              await organizationApi.createEmployee(values);
+            if (emailSent) {
+              toast.success(`Invited ${employee.display_name}`, {
+                description: `An email was sent to ${employee.email}.`,
+              });
+            } else if (inviteUrl) {
+              toast.success(`Invited ${employee.display_name}`, {
+                description:
+                  "No mail provider — copy the invite link to activate.",
+                action: {
+                  label: "Copy link",
+                  onClick: () => {
+                    navigator.clipboard?.writeText(inviteUrl);
+                    toast.message("Invite link copied");
+                  },
+                },
+                duration: 15000,
+              });
+            } else {
+              toast.success(`Invited ${employee.display_name}`);
+            }
+            for (const warning of warnings) {
+              toast.warning(warning);
+            }
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.company.employees(params.companySlug),
+            });
+            void employees.refetch();
+            if (
+              values.app_role !== ROLES.TEAM_LEAD &&
+              values.app_role !== ROLES.DEPARTMENT_HEAD
+            ) {
+              setShowInvite(false);
             }
           }}
-        >
-          <div className="relative w-full max-w-md border border-hairline bg-ink shadow-2xl shadow-black/50">
-            <div className="flex items-center justify-between border-b border-hairline bg-surface-2/40 px-5 py-4">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-                  Team
-                </p>
-                <h2
-                  id="add-member-title"
-                  className="text-lg font-medium text-text-primary"
-                >
-                  Add member
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddMember(false);
-                  setMemberUuid("");
-                }}
-                className="inline-flex h-8 w-8 items-center justify-center text-text-secondary hover:text-text-primary"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-4 p-5">
-              <p className="text-sm text-text-secondary">
-                Pick someone already in your department, then add them to{" "}
-                <span className="text-text-primary">
-                  {myTeamName ?? "your team"}
-                </span>
-                .
-              </p>
-              <div>
-                <Label htmlFor="add-team-member">Employee</Label>
-                <Select
-                  id="add-team-member"
-                  value={memberUuid}
-                  onChange={(e) => setMemberUuid(e.target.value)}
-                >
-                  <option value="">Select employee</option>
-                  {addCandidates.map((e) => (
-                    <option key={e.uuid} value={e.uuid}>
-                      {e.display_name}
-                      {e.team_name && e.team_name !== "—"
-                        ? ` · ${e.team_name}`
-                        : ""}
-                    </option>
-                  ))}
-                </Select>
-                {allEmployees.isLoading ? (
-                  <p className="mt-2 text-xs text-text-secondary">
-                    Loading people…
-                  </p>
-                ) : addCandidates.length === 0 ? (
-                  <p className="mt-2 text-xs text-text-secondary">
-                    No available people in your department. Ask an owner or
-                    manager to invite them first.
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setShowAddMember(false);
-                    setMemberUuid("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={!memberUuid || addingMember}
-                  onClick={() => void addMemberToTeam()}
-                >
-                  {addingMember ? "Adding…" : "Add to team"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showInvite ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16 sm:pt-20">
-          <div className="relative w-full max-w-2xl border border-hairline bg-ink shadow-2xl shadow-black/50">
-            <div className="flex items-center justify-between border-b border-hairline bg-surface-2/40 px-5 py-4">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-                  Invite
-                </p>
-                <h2 className="text-lg font-medium text-text-primary">
-                  Invite person
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowInvite(false)}
-                className="inline-flex h-8 w-8 items-center justify-center text-text-secondary hover:text-text-primary"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="max-h-[75vh] overflow-y-auto p-5">
-              <CreateEmployeeForm
-                companySlug={params.companySlug}
-                departments={departments.data ?? []}
-                teams={teams.data ?? []}
-                jobRoles={jobRoles.data ?? []}
-                managers={allEmployees.data ?? []}
-                onSubmit={async (values) => {
-                  const { employee, emailSent, inviteUrl, warnings } =
-                    await organizationApi.createEmployee(values);
-                  if (emailSent) {
-                    toast.success(`Invited ${employee.display_name}`, {
-                      description: `An email was sent to ${employee.email}.`,
-                    });
-                  } else if (inviteUrl) {
-                    toast.success(`Invited ${employee.display_name}`, {
-                      description:
-                        "No mail provider — copy the invite link to activate.",
-                      action: {
-                        label: "Copy link",
-                        onClick: () => {
-                          navigator.clipboard?.writeText(inviteUrl);
-                          toast.message("Invite link copied");
-                        },
-                      },
-                      duration: 15000,
-                    });
-                  } else {
-                    toast.success(`Invited ${employee.display_name}`);
-                  }
-                  for (const warning of warnings) {
-                    toast.warning(warning);
-                  }
-                  await queryClient.invalidateQueries({
-                    queryKey: queryKeys.company.employees(params.companySlug),
-                  });
-                  void employees.refetch();
-                  if (
-                    values.app_role !== ROLES.TEAM_LEAD &&
-                    values.app_role !== ROLES.DEPARTMENT_HEAD
-                  ) {
-                    setShowInvite(false);
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+        />
+      </Modal>
 
       {showImport && (
         <EntityImportPanel

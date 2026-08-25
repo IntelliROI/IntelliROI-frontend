@@ -15,7 +15,8 @@ import {
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select, Label } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { useProjectsPage } from "@/features/organization/hooks/useOrganizationQueries";
@@ -88,6 +89,7 @@ export default function ProjectsPage({
   const employees = useQuery({
     queryKey: queryKeys.company.employees(params.companySlug),
     queryFn: () => organizationApi.listEmployees(),
+    enabled: Boolean(assigning),
   });
 
   const deptMap = useMemo(
@@ -240,8 +242,8 @@ export default function ProjectsPage({
               </Button>
             </Can>
             <Can resource="projects" action="create">
-              <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-                {showForm ? "Close" : "Add project"}
+              <Button size="sm" onClick={() => setShowForm(true)}>
+                Add project
               </Button>
             </Can>
           </div>
@@ -263,57 +265,85 @@ export default function ProjectsPage({
         />
       )}
 
-      {showForm && (
-        <div className="mb-8 border border-hairline p-6">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            New project
-          </p>
-          <CreateProjectForm
-            departments={departments.data ?? []}
-            teams={teams.data ?? []}
-            onSubmit={async (values) => {
-              await organizationApi.createProject(values);
-              toast.success(`Created ${values.project_name}`);
-              setShowForm(false);
-              await projects.refetch();
-            }}
-          />
-        </div>
-      )}
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        eyebrow="Projects"
+        title="Add project"
+        description="Attribute AI usage to a delivery workstream for Estimated ROI."
+        size="lg"
+      >
+        <CreateProjectForm
+          departments={departments.data ?? []}
+          teams={teams.data ?? []}
+          onSubmit={async (values) => {
+            await organizationApi.createProject(values);
+            toast.success(`Created ${values.project_name}`);
+            setShowForm(false);
+            await projects.refetch();
+          }}
+        />
+      </Modal>
 
-      {assigning && (
-        <div className="mb-8 flex flex-wrap items-end gap-3 border border-hairline p-4">
-          <div className="min-w-[16rem] flex-1">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-              Add member · {assigning.project_name}
-            </p>
-            <Select
-              value={memberUuid}
-              onChange={(e) => setMemberUuid(e.target.value)}
+      <Modal
+        open={Boolean(assigning)}
+        onClose={() => {
+          setAssigning(null);
+          setMemberUuid("");
+        }}
+        eyebrow="Projects"
+        title="Add project member"
+        description={
+          assigning
+            ? `Assign someone already in the company to ${assigning.project_name}.`
+            : undefined
+        }
+        size="sm"
+        footer={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAssigning(null);
+                setMemberUuid("");
+              }}
             >
-              <option value="">Select employee</option>
-              {(employees.data ?? []).map((e) => (
-                <option key={e.uuid} value={e.uuid}>
-                  {e.display_name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button size="sm" disabled={!memberUuid} onClick={assignMember}>
-            Assign
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setAssigning(null);
-              setMemberUuid("");
-            }}
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!memberUuid}
+              onClick={() => void assignMember()}
+            >
+              Assign
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="project-add-member">Employee</Label>
+          <Select
+            id="project-add-member"
+            value={memberUuid}
+            onChange={(e) => setMemberUuid(e.target.value)}
           >
-            Cancel
-          </Button>
+            <option value="">Select employee</option>
+            {(employees.data ?? []).map((e) => (
+              <option key={e.uuid} value={e.uuid}>
+                {e.display_name}
+              </option>
+            ))}
+          </Select>
+          {employees.isLoading ? (
+            <p className="mt-2 text-xs text-text-secondary">Loading people…</p>
+          ) : (employees.data ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-text-secondary">
+              No employees available to assign.
+            </p>
+          ) : null}
         </div>
-      )}
+      </Modal>
 
       <ListFilterBar
         search={search}

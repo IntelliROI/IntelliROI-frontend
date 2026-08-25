@@ -85,6 +85,7 @@ export function DepartmentDashboard({
           label="Budget remaining"
           value={Math.max(0, d.budget_limit - d.monthly_spend)}
           format="currency"
+          currency={companyCurrency}
         />
         <KpiTile label="Active people" value={d.employee_count} format="number" />
       </Mosaic>

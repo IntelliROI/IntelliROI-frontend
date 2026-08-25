@@ -15,6 +15,7 @@ import {
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import {
   ListFilterBar,
   ListPagination,
@@ -28,8 +29,7 @@ import { useDepartmentsPage } from "@/features/organization/hooks/useOrganizatio
 import { roiApi } from "@/features/roi/api/roi.api";
 import type { Department } from "@/features/organization/types";
 import { formatCurrency } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { Can } from "@/lib/rbac/Can";
 import { ArchiveAction, EditAction, RowActions } from "@/components/ui/row-actions";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -41,8 +41,7 @@ export default function DepartmentsPage({
 }: {
   params: { companySlug: string };
 }) {
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -231,15 +230,11 @@ export default function DepartmentsPage({
               <Button
                 size="sm"
                 onClick={() => {
-                  if (showForm && !editing) {
-                    closeForm();
-                    return;
-                  }
                   setEditing(null);
                   setShowForm(true);
                 }}
               >
-                {showForm && !editing ? "Close" : "Add department"}
+                Add department
               </Button>
             </Can>
           </div>
@@ -261,30 +256,36 @@ export default function DepartmentsPage({
         />
       )}
 
-      {showForm && (
-        <div className="mb-8 border border-hairline p-6">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            {editing ? `Edit · ${editing.department_name}` : "New department"}
-          </p>
-          <CreateDepartmentForm
-            key={editing?.id ?? "new"}
-            initial={editing ?? undefined}
-            managers={employees.data ?? []}
-            submitLabel={editing ? "Save changes" : "Create department"}
-            onSubmit={async (values) => {
-              if (editing) {
-                await organizationApi.updateDepartment(editing.id, values);
-                toast.success(`Updated ${values.department_name}`);
-              } else {
-                await organizationApi.createDepartment(values);
-                toast.success(`Created ${values.department_name}`);
-              }
-              closeForm();
-              await invalidateDepartments();
-            }}
-          />
-        </div>
-      )}
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        eyebrow="Organization"
+        title={editing ? "Edit department" : "Add department"}
+        description={
+          editing
+            ? `Update ${editing.department_name}.`
+            : "Structural unit that owns teams, budgets, and Estimated ROI rollups."
+        }
+        size="lg"
+      >
+        <CreateDepartmentForm
+          key={editing?.id ?? "new"}
+          initial={editing ?? undefined}
+          managers={employees.data ?? []}
+          submitLabel={editing ? "Save changes" : "Create department"}
+          onSubmit={async (values) => {
+            if (editing) {
+              await organizationApi.updateDepartment(editing.id, values);
+              toast.success(`Updated ${values.department_name}`);
+            } else {
+              await organizationApi.createDepartment(values);
+              toast.success(`Created ${values.department_name}`);
+            }
+            closeForm();
+            await invalidateDepartments();
+          }}
+        />
+      </Modal>
 
       <ListFilterBar
         search={search}
