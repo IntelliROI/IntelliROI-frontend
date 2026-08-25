@@ -191,7 +191,7 @@ export const analyticsApi = {
       prev.tokens += r.total_tokens ?? 0;
       byName.set(provider, prev);
     }
-    return [...byName.values()].sort((a, b) => b.cost - a.cost);
+    return Array.from(byName.values()).sort((a, b) => b.cost - a.cost);
   },
 
   async models(period = "day"): Promise<ModelAnalytics[]> {
@@ -211,6 +211,6 @@ export const analyticsApi = {
       prev.cost += Number(r.total_cost ?? 0);
       byName.set(model, prev);
     }
-    return [...byName.values()].sort((a, b) => b.requests - a.requests);
+    return Array.from(byName.values()).sort((a, b) => b.requests - a.requests);
   },
 };

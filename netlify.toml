@@ -1,16 +1,11 @@
 # IntelliROI — Netlify
-# Browser stays on HTTPS (same origin). Edge/Next rewrites proxy to HTTP backends.
+# Browser stays on HTTPS (same origin). Edge rewrites proxy to HTTP backends.
 # Mixed Content cannot be "allowed"; this proxy is the supported workaround.
 #
-# Required Netlify env (Site settings → Environment variables), then trigger a redeploy:
-#   NEXT_PUBLIC_USE_API_PROXY = true
-#   AUTH_UPSTREAM             = http://YOUR_PUBLIC_OR_TUNNEL_HOST:8081
-#   ORG_UPSTREAM              = http://YOUR_PUBLIC_OR_TUNNEL_HOST:8082
-#   (same pattern for BC, AI, COST, ROI, ANALYTICS, NOTIFY, BILLING)
-#   NEXT_PUBLIC_APP_URL       = https://intelliroi-web.netlify.app
+# NEXT_PUBLIC_USE_API_PROXY is set below so the client bundle calls /api-proxy/*
+# instead of http://103.46.235.22:8081 (which browsers block on HTTPS pages).
 #
-# Note: private LAN IPs (e.g. 192.168.x.x) are not reachable from Netlify's cloud.
-# Use a public IP, reverse proxy, or tunnel (ngrok / Cloudflare Tunnel) as AUTH_UPSTREAM.
+# Private LAN IPs (192.168.x.x) are not reachable from Netlify's cloud.
 
 [build]
   command = "npm run build"
@@ -18,68 +13,80 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  NEXT_PUBLIC_USE_API_PROXY = "true"
+  NEXT_PUBLIC_APP_URL = "https://intelliroi-web.netlify.app"
+  UPSTREAM_HOST = "http://103.46.235.22"
+  GATEWAY_UPSTREAM = "http://103.46.235.22:8080"
+  AUTH_UPSTREAM = "http://103.46.235.22:8081"
+  ORG_UPSTREAM = "http://103.46.235.22:8082"
+  BC_UPSTREAM = "http://103.46.235.22:8083"
+  AI_UPSTREAM = "http://103.46.235.22:8084"
+  COST_UPSTREAM = "http://103.46.235.22:8085"
+  ROI_UPSTREAM = "http://103.46.235.22:8086"
+  ANALYTICS_UPSTREAM = "http://103.46.235.22:8087"
+  NOTIFY_UPSTREAM = "http://103.46.235.22:8088"
+  BILLING_UPSTREAM = "http://103.46.235.22:8089"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Fallback proxies if Next rewrites are unavailable. Prefer AUTH_UPSTREAM via next.config.
-# Replace hosts below to match your reachable HTTP backends (same as *_UPSTREAM env).
+# Reverse-proxy /api-proxy/* → public HTTP backends (status 200 = rewrite).
 [[redirects]]
   from = "/api-proxy/auth/*"
-  to = "http://192.168.10.37:8081/:splat"
+  to = "http://103.46.235.22:8081/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/org/*"
-  to = "http://192.168.10.37:8082/:splat"
+  to = "http://103.46.235.22:8082/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/bc/*"
-  to = "http://192.168.10.37:8083/:splat"
+  to = "http://103.46.235.22:8083/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/ai/*"
-  to = "http://192.168.10.37:8084/:splat"
+  to = "http://103.46.235.22:8084/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/cost/*"
-  to = "http://192.168.10.37:8085/:splat"
+  to = "http://103.46.235.22:8085/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/roi/*"
-  to = "http://192.168.10.37:8086/:splat"
+  to = "http://103.46.235.22:8086/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/analytics/*"
-  to = "http://192.168.10.37:8087/:splat"
+  to = "http://103.46.235.22:8087/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/notify/*"
-  to = "http://192.168.10.37:8088/:splat"
+  to = "http://103.46.235.22:8088/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/billing/*"
-  to = "http://192.168.10.37:8089/:splat"
+  to = "http://103.46.235.22:8089/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api-proxy/gateway/*"
-  to = "http://192.168.10.37:8080/:splat"
+  to = "http://103.46.235.22:8080/:splat"
   status = 200
   force = true

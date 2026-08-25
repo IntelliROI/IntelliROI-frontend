@@ -33,10 +33,19 @@ function isStaticAsset(pathname: string): boolean {
   );
 }
 
+/** Same-origin Netlify/Next proxy to HTTP backends — never treat as an app route. */
+function isApiProxy(pathname: string): boolean {
+  return pathname === "/api-proxy" || pathname.startsWith("/api-proxy/");
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isStaticAsset(pathname) || isPublicPath(pathname)) {
+  if (
+    isApiProxy(pathname) ||
+    isStaticAsset(pathname) ||
+    isPublicPath(pathname)
+  ) {
     return NextResponse.next();
   }
 
@@ -68,6 +77,7 @@ export function middleware(request: NextRequest) {
     "accept-invite",
     "forbidden",
     "super-admin",
+    "api-proxy",
   ]);
 
   if (companySlug && !reserved.has(companySlug)) {
@@ -92,6 +102,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api-proxy|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

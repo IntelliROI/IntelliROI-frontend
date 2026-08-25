@@ -11,16 +11,35 @@ function absoluteUpstream(...candidates) {
   return null;
 }
 
+function proxyEnabled() {
+  return (
+    process.env.NEXT_PUBLIC_USE_API_PROXY === "true" ||
+    process.env.NETLIFY === "true"
+  );
+}
+
+function defaultUpstreamHost() {
+  if (process.env.UPSTREAM_HOST) {
+    return process.env.UPSTREAM_HOST.replace(/\/$/, "");
+  }
+  // Netlify cannot reach 127.0.0.1 or private LAN; use the public backend host.
+  if (process.env.NETLIFY === "true") {
+    return "http://103.46.235.22";
+  }
+  return "http://127.0.0.1";
+}
+
 function proxyRewrites() {
-  if (process.env.NEXT_PUBLIC_USE_API_PROXY !== "true") {
+  if (!proxyEnabled()) {
     return [];
   }
 
+  const host = defaultUpstreamHost();
   const gateway =
     absoluteUpstream(
       process.env.GATEWAY_UPSTREAM,
       process.env.NEXT_PUBLIC_API_BASE,
-    ) ?? "http://127.0.0.1:8080";
+    ) ?? `${host}:8080`;
 
   const map = [
     ["auth", process.env.AUTH_UPSTREAM, process.env.NEXT_PUBLIC_AUTH_BASE, 8081],
@@ -58,8 +77,7 @@ function proxyRewrites() {
 
   for (const [key, upstreamEnv, publicBase, port] of map) {
     const dest =
-      absoluteUpstream(upstreamEnv, publicBase, gateway) ??
-      `http://127.0.0.1:${port}`;
+      absoluteUpstream(upstreamEnv, publicBase) ?? `${host}:${port}`;
     rewrites.push({
       source: `/api-proxy/${key}/:path*`,
       destination: `${dest}/:path*`,
