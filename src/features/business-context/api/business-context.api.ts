@@ -150,6 +150,45 @@ export const businessContextApi = {
     );
   },
 
+  async updateBenchmark(
+    id: number,
+    patch: { estimated_minutes_saved?: number; confidence_score?: number },
+  ): Promise<Benchmark> {
+    const raw = await apiRequest<Record<string, unknown>>(
+      "bc",
+      `/task-benchmarks/${id}`,
+      { method: "PATCH", body: patch },
+    );
+    return (
+      toBenchmark(raw) ?? {
+        id,
+        task_category_id: 0,
+        job_role_id: 0,
+        estimated_minutes_saved: patch.estimated_minutes_saved ?? 0,
+        confidence_score: patch.confidence_score ?? 0,
+        status: "pending",
+      }
+    );
+  },
+
+  async archiveBenchmark(id: number): Promise<Benchmark> {
+    const raw = await apiRequest<Record<string, unknown>>(
+      "bc",
+      `/task-benchmarks/${id}/archive`,
+      { method: "PATCH" },
+    );
+    return (
+      toBenchmark(raw) ?? {
+        id,
+        task_category_id: 0,
+        job_role_id: 0,
+        estimated_minutes_saved: 0,
+        confidence_score: 0,
+        status: "archived",
+      }
+    );
+  },
+
   async roleAssignments(
     userUuid: string,
   ): Promise<{ id: number; job_role_id: number; effective_from?: string }[]> {

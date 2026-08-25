@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
+import { ScopeUnassigned } from "@/components/feedback/ScopeUnassigned";
 import { Mosaic, Panel } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { queryKeys } from "@/lib/api/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 export default function BudgetsPage({
   params,
@@ -22,8 +24,11 @@ export default function BudgetsPage({
   params: { companySlug: string };
 }) {
   const queryClient = useQueryClient();
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const user = useAuthStore((s) => s.user);
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+    params.companySlug,
+  );
+  const intel = resolveIntelligenceScope(user);
   const [limit, setLimit] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [alertPct, setAlertPct] = useState("80");
@@ -33,8 +38,19 @@ export default function BudgetsPage({
     queryFn: () => costApi.listBudgets(),
   });
   const summary = useQuery({
-    queryKey: queryKeys.company.costs(params.companySlug),
-    queryFn: () => costApi.summary(),
+    queryKey: [
+      ...queryKeys.company.costs(params.companySlug),
+      intel.kind,
+      "id" in intel ? intel.id : null,
+    ],
+    queryFn: () => {
+      if (intel.kind === "department")
+        return costApi.summary("department", "month", intel.id);
+      if (intel.kind === "team")
+        return costApi.summary("team", "month", intel.id);
+      return costApi.summary("company", "month");
+    },
+    enabled: intel.kind !== "unassigned" && intel.kind !== "employee",
   });
   const alerts = useQuery({
     queryKey: ["company", params.companySlug, "cost-alerts"],
@@ -43,12 +59,8 @@ export default function BudgetsPage({
   const departments = useQuery({
     queryKey: queryKeys.company.departments(params.companySlug),
     queryFn: () => organizationApi.listDepartments(),
+    enabled: intel.kind === "company",
   });
-
-  const displayCurrency =
-    summary.data?.currency ||
-    budgets.data?.[0]?.currency ||
-    companyCurrency;
 
   const create = useMutation({
     mutationFn: () =>
@@ -71,6 +83,23 @@ export default function BudgetsPage({
     },
   });
 
+  if (intel.kind === "unassigned") {
+    return (
+      <ScopeUnassigned
+        role={intel.role}
+        missing={intel.missing}
+        title="Budgets"
+      />
+    );
+  }
+
+  const spendMtd =
+    summary.data == null
+      ? 0
+      : summary.data.currency?.toUpperCase() === companyCurrency
+        ? summary.data.total_cost
+        : fromUsd(summary.data.total_cost);
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!limit || Number(limit) <= 0) {
@@ -90,9 +119,9 @@ export default function BudgetsPage({
       <Mosaic cols={2} className="mb-px">
         <KpiTile
           label="Total spend MTD"
-          value={summary.data?.total_cost ?? 0}
+          value={spendMtd}
           format="currency"
-          currency={displayCurrency}
+          currency={companyCurrency}
         />
         <KpiTile
           label="Open budgets"
@@ -164,11 +193,20 @@ export default function BudgetsPage({
             { key: "pct", label: "Used", align: "right" },
           ]}
           rows={(budgets.data ?? []).map((b) => {
-            const cur = b.currency || displayCurrency;
+            const rawCur = (b.currency || "").toUpperCase();
+            const amountIsUsd = rawCur === "USD" || rawCur === "";
+            const limit =
+              amountIsUsd && companyCurrency !== "USD"
+                ? fromUsd(b.monthly_limit)
+                : b.monthly_limit;
+            const consumed =
+              amountIsUsd && companyCurrency !== "USD"
+                ? fromUsd(b.consumed)
+                : b.consumed;
             return {
               scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
-              limit: formatCurrency(b.monthly_limit, cur),
-              consumed: formatCurrency(b.consumed, cur),
+              limit: formatCurrency(limit, companyCurrency),
+              consumed: formatCurrency(consumed, companyCurrency),
               pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
             };
           })}

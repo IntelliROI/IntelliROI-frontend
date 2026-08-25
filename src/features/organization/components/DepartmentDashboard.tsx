@@ -11,7 +11,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { formatCurrency } from "@/lib/utils";
-import { AI_COST_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ export function DepartmentDashboard({
   departmentId: number;
 }) {
   const [period, setPeriod] = useState<RoiPeriod>("month");
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
 
   const department = useQuery({
     queryKey: ["company", companySlug, "department", departmentId],
@@ -77,13 +78,14 @@ export function DepartmentDashboard({
           label="Spend"
           value={r.total_spend}
           format="currency"
-          currency={AI_COST_CURRENCY}
+          currency={companyCurrency}
         />
         <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
         <KpiTile
           label="Budget remaining"
           value={Math.max(0, d.budget_limit - d.monthly_spend)}
           format="currency"
+          currency={companyCurrency}
         />
         <KpiTile label="Active people" value={d.employee_count} format="number" />
       </Mosaic>
@@ -103,7 +105,7 @@ export function DepartmentDashboard({
               name: t.team_name,
               spend: formatCurrency(
                 teamRoi[i]?.data?.total_spend ?? 0,
-                AI_COST_CURRENCY,
+                companyCurrency,
               ),
               roi: (
                 <span className="text-accent">

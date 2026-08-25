@@ -41,8 +41,43 @@ export type CountryIso = (typeof COUNTRIES)[number]["iso"];
 export const DEFAULT_COUNTRY_ISO: CountryIso = "IN";
 export const DEFAULT_CURRENCY: CurrencyCode = "INR";
 
-/** Provider / analytics / cost_events amounts are USD until FX lands. */
+/**
+ * MVP fallback: company-currency units per 1 USD (matches backend companycal).
+ * Prefer company settings `usd_fx_rate` when available.
+ */
+export const DEFAULT_USD_FX_RATES: Record<CurrencyCode, number> = {
+  INR: 83,
+  USD: 1,
+  EUR: 0.92,
+  GBP: 0.79,
+  AED: 3.67,
+  SGD: 1.35,
+  AUD: 1.52,
+  CAD: 1.36,
+  JPY: 150,
+  SAR: 3.75,
+};
+
+/** @deprecated Prefer company currency + convertUsdToCompany — ROI already stores local amounts. */
 export const AI_COST_CURRENCY: CurrencyCode = "USD";
+
+export function defaultUsdFxRate(currency?: string | null): number {
+  const code = (currency ?? DEFAULT_CURRENCY).toUpperCase() as CurrencyCode;
+  return DEFAULT_USD_FX_RATES[code] ?? 1;
+}
+
+/** Convert provider USD amounts into company currency for display. */
+export function convertUsdToCompany(
+  usdAmount: number,
+  currency?: string | null,
+  usdFxRate?: number | null,
+): number {
+  const cur = (currency ?? DEFAULT_CURRENCY).toUpperCase();
+  if (!cur || cur === "USD") return usdAmount;
+  const rate =
+    usdFxRate && usdFxRate > 0 ? usdFxRate : defaultUsdFxRate(cur);
+  return usdAmount * rate;
+}
 
 export function digitsOnly(value: string): string {
   return value.replace(/\D/g, "");

@@ -9,7 +9,7 @@ import { useScopedAnalytics } from "@/features/organization/hooks/useOrganizatio
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { queryKeys } from "@/lib/api/query-keys";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { AI_COST_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 export function ScopedAnalyticsView({
   companySlug,
@@ -22,6 +22,7 @@ export function ScopedAnalyticsView({
   scopeId?: number | string;
   title: string;
 }) {
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const analytics = useScopedAnalytics(companySlug, scope, scopeId);
   const models = useQuery({
     queryKey: queryKeys.company.analytics.models(companySlug),
@@ -39,6 +40,8 @@ export function ScopedAnalyticsView({
     );
   }
 
+  const spendLocal = fromUsd(a.total_cost);
+
   return (
     <div>
       <PageHeader
@@ -51,9 +54,9 @@ export function ScopedAnalyticsView({
         <KpiTile label="Tokens" value={formatNumber(a.tokens_in, true)} />
         <KpiTile
           label="AI spend"
-          value={a.total_cost}
+          value={spendLocal}
           format="currency"
-          currency={AI_COST_CURRENCY}
+          currency={companyCurrency}
           accent
         />
       </Mosaic>
@@ -85,7 +88,8 @@ export function ScopedAnalyticsView({
                 >
                   <span>{m.model}</span>
                   <span className="font-mono text-text-secondary">
-                    {m.requests} req · {formatCurrency(m.cost, AI_COST_CURRENCY)}
+                    {m.requests} req ·{" "}
+                    {formatCurrency(fromUsd(m.cost), companyCurrency)}
                   </span>
                 </li>
               ))}

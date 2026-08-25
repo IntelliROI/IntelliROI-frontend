@@ -4,7 +4,7 @@ import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel, Provenance } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { useUsageRequest } from "@/features/usage/hooks/useUsage";
-import { AI_COST_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 export function UsageRequestDetail({
   companySlug,
@@ -13,6 +13,7 @@ export function UsageRequestDetail({
   companySlug: string;
   requestId: string;
 }) {
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const detail = useUsageRequest(companySlug, requestId);
 
   if (detail.isLoading) return <LoadingBlock className="h-64" />;
@@ -39,23 +40,21 @@ export function UsageRequestDetail({
         <KpiTile label="Requests" value={r.requests} format="number" />
         <KpiTile
           label="Cost"
-          value={r.cost}
+          value={fromUsd(r.cost)}
           format="currency"
-          currency={AI_COST_CURRENCY}
+          currency={companyCurrency}
         />
         <KpiTile label="Tokens" value={r.tokens} format="number" />
         <KpiTile label="Status" value={r.status} accent />
       </Mosaic>
       <Panel className="mt-6 p-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-          Business context
+          Snapshot
         </p>
-        <p className="mt-3 text-sm text-text-primary">
-          Project: {r.project ?? "—"} · Category: {r.task_category ?? "—"}
+        <Provenance computedAt={r.created_at} />
+        <p className="mt-4 text-sm text-text-secondary">
+          Scope: {r.user} · Model rollup: {r.model} · Provider: {r.provider}
         </p>
-        <div className="mt-4">
-          <Provenance computedAt={r.created_at} formulaVersion="raw-fact" />
-        </div>
       </Panel>
     </div>
   );

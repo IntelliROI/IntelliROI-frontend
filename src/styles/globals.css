@@ -87,6 +87,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Native select: hide OS dropdown glyph (can render on the wrong side) */
+select::-ms-expand {
+  display: none;
+}
+select {
+  background-image: none;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

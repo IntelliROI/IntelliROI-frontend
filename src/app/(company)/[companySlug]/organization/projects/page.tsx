@@ -15,7 +15,8 @@ import {
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select, Label } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { useProjectsPage } from "@/features/organization/hooks/useOrganizationQueries";
@@ -24,12 +25,19 @@ import { CreateProjectForm } from "@/features/organization/components/CreateProj
 import { EntityImportPanel } from "@/features/organization/components/EntityImportPanel";
 import { PROJECTS_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { Can } from "@/lib/rbac/Can";
-import { AddMemberAction, RowActions } from "@/components/ui/row-actions";
+import {
+  AddMemberAction,
+  ArchiveAction,
+  IconAction,
+  RowActions,
+} from "@/components/ui/row-actions";
 import { formatCurrency } from "@/lib/utils";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import type { Project } from "@/features/organization/types";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { CheckCircle2, RotateCcw } from "lucide-react";
 
 type ProjectStatusFilter = "" | "active" | "completed" | "archived";
 
@@ -38,6 +46,9 @@ export default function ProjectsPage({
 }: {
   params: { companySlug: string };
 }) {
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+    params.companySlug,
+  );
   const [view, setView] = useState<ViewMode>("table");
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -84,6 +95,7 @@ export default function ProjectsPage({
   const employees = useQuery({
     queryKey: queryKeys.company.employees(params.companySlug),
     queryFn: () => organizationApi.listEmployees(),
+    enabled: Boolean(assigning),
   });
 
   const deptMap = useMemo(
@@ -138,12 +150,69 @@ export default function ProjectsPage({
     }
   }
 
+  async function changeStatus(p: Project, status: Project["status"]) {
+    try {
+      await organizationApi.setProjectStatus(p.id, status);
+      toast.success(
+        status === "archived"
+          ? `Archived ${p.project_name}`
+          : status === "completed"
+            ? `Marked ${p.project_name} complete`
+            : `Restored ${p.project_name}`,
+      );
+      await projects.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update status");
+    }
+  }
+
+  function projectActions(p: Project) {
+    return (
+      <RowActions>
+        <Can resource="projects" action="edit">
+          <AddMemberAction onClick={() => setAssigning(p)} />
+          {p.status === "active" ? (
+            <IconAction
+              label="Mark complete"
+              icon={CheckCircle2}
+              onClick={() => void changeStatus(p, "completed")}
+            />
+          ) : p.status === "completed" ? (
+            <IconAction
+              label="Reactivate"
+              icon={RotateCcw}
+              onClick={() => void changeStatus(p, "active")}
+            />
+          ) : null}
+          <ArchiveAction
+            archived={p.status === "archived"}
+            onClick={() =>
+              void changeStatus(
+                p,
+                p.status === "archived" ? "active" : "archived",
+              )
+            }
+          />
+        </Can>
+        <Link
+          href={`/${params.companySlug}/organization/projects/${p.id}`}
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
+        >
+          Monitor
+        </Link>
+      </RowActions>
+    );
+  }
+
   const rows = items.map((p) => ({
     name: <span className="font-medium text-text-primary">{p.project_name}</span>,
     dept: p.department_id ? deptMap[p.department_id] ?? p.department_id : "—",
     team: p.team_id ? teamMap[p.team_id] ?? p.team_id : "—",
     requests: analyticsById.get(p.id)?.requests ?? 0,
-    spend: formatCurrency(analyticsById.get(p.id)?.total_cost ?? 0, "USD"),
+    spend: formatCurrency(
+      fromUsd(analyticsById.get(p.id)?.total_cost ?? 0),
+      companyCurrency,
+    ),
     roi: (
       <span className="font-mono font-medium text-accent">
         {(analyticsById.get(p.id)?.roi_pct ?? 0).toFixed(0)}%
@@ -156,19 +225,7 @@ export default function ProjectsPage({
         {p.status}
       </span>
     ),
-    action: (
-      <RowActions>
-        <Can resource="projects" action="edit">
-          <AddMemberAction onClick={() => setAssigning(p)} />
-        </Can>
-        <Link
-          href={`/${params.companySlug}/organization/projects/${p.id}`}
-          className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
-        >
-          Monitor
-        </Link>
-      </RowActions>
-    ),
+    action: projectActions(p),
   }));
 
   const cards: GridCard[] = items.map((p) => ({
@@ -196,19 +253,7 @@ export default function ProjectsPage({
         ),
       },
     ],
-    action: (
-      <RowActions>
-        <Can resource="projects" action="edit">
-          <AddMemberAction onClick={() => setAssigning(p)} />
-        </Can>
-        <Link
-          href={`/${params.companySlug}/organization/projects/${p.id}`}
-          className="ml-1 font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
-        >
-          Monitor
-        </Link>
-      </RowActions>
-    ),
+    action: projectActions(p),
   }));
 
   const empty = !projects.isLoading && items.length === 0;
@@ -233,8 +278,8 @@ export default function ProjectsPage({
               </Button>
             </Can>
             <Can resource="projects" action="create">
-              <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-                {showForm ? "Close" : "Add project"}
+              <Button size="sm" onClick={() => setShowForm(true)}>
+                Add project
               </Button>
             </Can>
           </div>
@@ -256,57 +301,85 @@ export default function ProjectsPage({
         />
       )}
 
-      {showForm && (
-        <div className="mb-8 border border-hairline p-6">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            New project
-          </p>
-          <CreateProjectForm
-            departments={departments.data ?? []}
-            teams={teams.data ?? []}
-            onSubmit={async (values) => {
-              await organizationApi.createProject(values);
-              toast.success(`Created ${values.project_name}`);
-              setShowForm(false);
-              await projects.refetch();
-            }}
-          />
-        </div>
-      )}
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        eyebrow="Projects"
+        title="Add project"
+        description="Attribute AI usage to a delivery workstream for Estimated ROI."
+        size="lg"
+      >
+        <CreateProjectForm
+          departments={departments.data ?? []}
+          teams={teams.data ?? []}
+          onSubmit={async (values) => {
+            await organizationApi.createProject(values);
+            toast.success(`Created ${values.project_name}`);
+            setShowForm(false);
+            await projects.refetch();
+          }}
+        />
+      </Modal>
 
-      {assigning && (
-        <div className="mb-8 flex flex-wrap items-end gap-3 border border-hairline p-4">
-          <div className="min-w-[16rem] flex-1">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-              Add member · {assigning.project_name}
-            </p>
-            <Select
-              value={memberUuid}
-              onChange={(e) => setMemberUuid(e.target.value)}
+      <Modal
+        open={Boolean(assigning)}
+        onClose={() => {
+          setAssigning(null);
+          setMemberUuid("");
+        }}
+        eyebrow="Projects"
+        title="Add project member"
+        description={
+          assigning
+            ? `Assign someone already in the company to ${assigning.project_name}.`
+            : undefined
+        }
+        size="sm"
+        footer={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAssigning(null);
+                setMemberUuid("");
+              }}
             >
-              <option value="">Select employee</option>
-              {(employees.data ?? []).map((e) => (
-                <option key={e.uuid} value={e.uuid}>
-                  {e.display_name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button size="sm" disabled={!memberUuid} onClick={assignMember}>
-            Assign
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setAssigning(null);
-              setMemberUuid("");
-            }}
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!memberUuid}
+              onClick={() => void assignMember()}
+            >
+              Assign
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="project-add-member">Employee</Label>
+          <Select
+            id="project-add-member"
+            value={memberUuid}
+            onChange={(e) => setMemberUuid(e.target.value)}
           >
-            Cancel
-          </Button>
+            <option value="">Select employee</option>
+            {(employees.data ?? []).map((e) => (
+              <option key={e.uuid} value={e.uuid}>
+                {e.display_name}
+              </option>
+            ))}
+          </Select>
+          {employees.isLoading ? (
+            <p className="mt-2 text-xs text-text-secondary">Loading people…</p>
+          ) : (employees.data ?? []).length === 0 ? (
+            <p className="mt-2 text-xs text-text-secondary">
+              No employees available to assign.
+            </p>
+          ) : null}
         </div>
-      )}
+      </Modal>
 
       <ListFilterBar
         search={search}

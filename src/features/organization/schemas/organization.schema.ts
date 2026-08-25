@@ -24,6 +24,7 @@ export const companySettingsSchema = z.object({
   timezone: z.string().min(1),
   date_format: z.string().min(1),
   fiscal_year_start: z.string().min(1),
+  usd_fx_rate: z.coerce.number().positive("USD FX rate must be > 0"),
 });
 
 export const jobRoleSchema = z.object({

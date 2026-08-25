@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   PageHeader,
   LoadingBlock,
@@ -14,21 +15,28 @@ import {
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select, Label } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { useEmployeesPage } from "@/features/organization/hooks/useOrganizationQueries";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
+import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { EntityImportPanel } from "@/features/organization/components/EntityImportPanel";
 import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
+import { RemoveMemberAction } from "@/components/ui/row-actions";
 import { Pencil } from "lucide-react";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useQueries } from "@tanstack/react-query";
+import { ROLES } from "@/constants/roles";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
+import { useAuthStore } from "@/stores/auth-store";
+import { can } from "@/lib/rbac/role-matrix";
+
 
 type EmployeeStatusFilter = "" | "active" | "invited";
 
@@ -45,8 +53,28 @@ export default function EmployeesPage({
 }: {
   params: { companySlug: string };
 }) {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const permissions = useAuthStore((s) => s.user?.permissions);
+  const role = user?.role;
+  const isTeamLead = role === ROLES.TEAM_LEAD;
+  const myTeamId = user?.scope?.team_id ?? user?.team_id ?? null;
+  const myDepartmentId =
+    user?.scope?.department_id ?? user?.department_id ?? null;
+  const canStaffTeam =
+    can(role, "teams", "edit", permissions) && Boolean(myTeamId);
+  const inviteRoles =
+    role === ROLES.COMPANY_OWNER
+      ? ([ROLES.EMPLOYEE, ROLES.TEAM_LEAD, ROLES.DEPARTMENT_HEAD] as const)
+      : ([ROLES.EMPLOYEE, ROLES.TEAM_LEAD] as const);
+
+  const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const [view, setView] = useState<ViewMode>("table");
   const [showImport, setShowImport] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [memberUuid, setMemberUuid] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
 
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search, 300);
@@ -85,6 +113,15 @@ export default function EmployeesPage({
     queryKey: queryKeys.company.teams(params.companySlug),
     queryFn: () => organizationApi.listTeams(),
   });
+  const jobRoles = useQuery({
+    queryKey: queryKeys.company.jobRoles(params.companySlug),
+    queryFn: () => organizationApi.listJobRoles(),
+  });
+  const allEmployees = useQuery({
+    queryKey: queryKeys.company.employees(params.companySlug),
+    queryFn: () => organizationApi.listEmployees(),
+    enabled: showInvite || showAddMember,
+  });
   const teamsInDept = useMemo(
     () =>
       departmentId === ""
@@ -92,6 +129,23 @@ export default function EmployeesPage({
         : (teams.data ?? []).filter((t) => t.department_id === departmentId),
     [teams.data, departmentId],
   );
+
+  const myTeamName = useMemo(() => {
+    if (!myTeamId) return null;
+    return (teams.data ?? []).find((t) => t.id === myTeamId)?.team_name ?? null;
+  }, [teams.data, myTeamId]);
+
+  const addCandidates = useMemo(() => {
+    if (!myTeamId) return [];
+    return (allEmployees.data ?? []).filter(
+      (e) =>
+        e.team_id !== myTeamId &&
+        e.status !== "invited" &&
+        (myDepartmentId == null ||
+          e.department_id == null ||
+          e.department_id === myDepartmentId),
+    );
+  }, [allEmployees.data, myTeamId, myDepartmentId]);
 
   // org list endpoint doesn't compute spend/ROI — overlay live figures from roi-engine.
   const activeEmployees = items.filter((e) => e.status !== "invited");
@@ -106,6 +160,55 @@ export default function EmployeesPage({
   const roiById = new Map(
     activeEmployees.map((e, i) => [e.id, employeeRoi[i]?.data]),
   );
+
+  async function invalidateEmployees() {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.company.employees(params.companySlug),
+    });
+    void employees.refetch();
+  }
+
+  async function addMemberToTeam() {
+    if (!memberUuid || !myTeamId) return;
+    setAddingMember(true);
+    try {
+      await organizationApi.assignUser(memberUuid, {
+        department_id: myDepartmentId || undefined,
+        team_id: myTeamId,
+      });
+      try {
+        await organizationApi.addTeamMember(myTeamId, memberUuid);
+      } catch {
+        // already a member after assignUser
+      }
+      toast.success("Member added to team");
+      setMemberUuid("");
+      setShowAddMember(false);
+      await invalidateEmployees();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add member");
+    } finally {
+      setAddingMember(false);
+    }
+  }
+
+  async function removeFromTeam(uuid: string, name: string) {
+    if (!myTeamId) return;
+    try {
+      await organizationApi.assignUser(uuid, { team_id: null });
+      try {
+        await organizationApi.removeTeamMember(myTeamId, uuid);
+      } catch {
+        // already cleared
+      }
+      toast.success(`Removed ${name} from team`);
+      await invalidateEmployees();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not remove member",
+      );
+    }
+  }
 
   const errorMessage =
     employees.error instanceof Error
@@ -135,7 +238,7 @@ export default function EmployeesPage({
               {e.hourly_cost > 0 ? (
                 <span className="font-mono text-text-secondary/50">
                   {" "}
-                  · {formatCurrency(e.hourly_cost, e.currency)}/hr
+                  · {formatCurrency(e.hourly_cost, companyCurrency)}/hr
                 </span>
               ) : null}
             </>
@@ -155,7 +258,11 @@ export default function EmployeesPage({
       ),
       spend: (
         <span className="font-mono text-[12px] text-text-secondary">
-          {formatCurrency(roiById.get(e.id)?.total_spend ?? e.spend, e.currency, true)}
+          {formatCurrency(
+            roiById.get(e.id)?.total_spend ?? e.spend,
+            companyCurrency,
+            true,
+          )}
         </span>
       ),
       roi: (
@@ -170,6 +277,11 @@ export default function EmployeesPage({
               email={e.email}
               displayName={e.display_name}
               compact
+            />
+          ) : null}
+          {canStaffTeam && myTeamId && e.team_id === myTeamId && !pending ? (
+            <RemoveMemberAction
+              onClick={() => removeFromTeam(e.uuid, e.display_name)}
             />
           ) : null}
           <Can resource="employees" action="edit">
@@ -222,7 +334,7 @@ export default function EmployeesPage({
           label: "Rate",
           value:
             e.hourly_cost > 0
-              ? `${formatCurrency(e.hourly_cost, e.currency)}/hr`
+              ? `${formatCurrency(e.hourly_cost, companyCurrency)}/hr`
               : "—",
         },
       ],
@@ -233,6 +345,11 @@ export default function EmployeesPage({
               email={e.email}
               displayName={e.display_name}
               compact
+            />
+          ) : null}
+          {canStaffTeam && myTeamId && e.team_id === myTeamId && !pending ? (
+            <RemoveMemberAction
+              onClick={() => removeFromTeam(e.uuid, e.display_name)}
             />
           ) : null}
           <Can resource="employees" action="edit">
@@ -262,9 +379,13 @@ export default function EmployeesPage({
   return (
     <div>
       <PageHeader
-        eyebrow="Organization"
-        title="Employees"
-        description="Each employee resolves to company → department → team → job role for Estimated ROI. Pending means they have not set a password yet."
+        eyebrow={isTeamLead ? "Team" : "Organization"}
+        title={isTeamLead ? "Team Members" : "Employees"}
+        description={
+          isTeamLead
+            ? "Staff your team, review spend and Estimated ROI, then open a profile for detail. Owners invite people; you add colleagues already in the company."
+            : "Each employee resolves to company → department → team → job role for Estimated ROI. Pending means they have not set a password yet."
+        }
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
@@ -277,16 +398,140 @@ export default function EmployeesPage({
                 {showImport ? "Close import" : "Import CSV"}
               </Button>
             </Can>
+            {canStaffTeam ? (
+              <Button size="sm" onClick={() => setShowAddMember(true)}>
+                Add member
+              </Button>
+            ) : null}
             <Can resource="employees" action="create">
-              <Button asChild size="sm">
-                <Link href={`/${params.companySlug}/organization/employees/new`}>
-                  Add employee
-                </Link>
+              <Button
+                size="sm"
+                variant={canStaffTeam ? "secondary" : "primary"}
+                onClick={() => setShowInvite(true)}
+              >
+                Invite person
               </Button>
             </Can>
           </div>
         }
       />
+
+      <Modal
+        open={showAddMember}
+        onClose={() => {
+          setShowAddMember(false);
+          setMemberUuid("");
+        }}
+        eyebrow="Team"
+        title="Add member"
+        description={`Pick someone already in your department, then add them to ${myTeamName ?? "your team"}.`}
+        size="sm"
+        footer={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowAddMember(false);
+                setMemberUuid("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!memberUuid || addingMember}
+              onClick={() => void addMemberToTeam()}
+            >
+              {addingMember ? "Adding…" : "Add to team"}
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="add-team-member">Employee</Label>
+          <Select
+            id="add-team-member"
+            value={memberUuid}
+            onChange={(e) => setMemberUuid(e.target.value)}
+          >
+            <option value="">Select employee</option>
+            {addCandidates.map((e) => (
+              <option key={e.uuid} value={e.uuid}>
+                {e.display_name}
+                {e.team_name && e.team_name !== "—"
+                  ? ` · ${e.team_name}`
+                  : ""}
+              </option>
+            ))}
+          </Select>
+          {allEmployees.isLoading ? (
+            <p className="mt-2 text-xs text-text-secondary">Loading people…</p>
+          ) : addCandidates.length === 0 ? (
+            <p className="mt-2 text-xs text-text-secondary">
+              No available people in your department. Ask an owner or manager to
+              invite them first.
+            </p>
+          ) : null}
+        </div>
+      </Modal>
+
+      <Modal
+        open={showInvite}
+        onClose={() => setShowInvite(false)}
+        eyebrow="Invite"
+        title="Invite person"
+        description="Send an invite so they can join and attribute AI usage."
+        size="lg"
+      >
+        <CreateEmployeeForm
+          companySlug={params.companySlug}
+          departments={departments.data ?? []}
+          teams={teams.data ?? []}
+          jobRoles={jobRoles.data ?? []}
+          managers={allEmployees.data ?? []}
+          allowedRoles={inviteRoles}
+          defaultDepartmentId={myDepartmentId ?? undefined}
+          defaultTeamId={isTeamLead ? myTeamId ?? undefined : undefined}
+          onSubmit={async (values) => {
+            const { employee, emailSent, inviteUrl, warnings } =
+              await organizationApi.createEmployee(values);
+            if (emailSent) {
+              toast.success(`Invited ${employee.display_name}`, {
+                description: `An email was sent to ${employee.email}.`,
+              });
+            } else if (inviteUrl) {
+              toast.success(`Invited ${employee.display_name}`, {
+                description:
+                  "No mail provider — copy the invite link to activate.",
+                action: {
+                  label: "Copy link",
+                  onClick: () => {
+                    navigator.clipboard?.writeText(inviteUrl);
+                    toast.message("Invite link copied");
+                  },
+                },
+                duration: 15000,
+              });
+            } else {
+              toast.success(`Invited ${employee.display_name}`);
+            }
+            for (const warning of warnings) {
+              toast.warning(warning);
+            }
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.company.employees(params.companySlug),
+            });
+            void employees.refetch();
+            if (
+              values.app_role !== ROLES.TEAM_LEAD &&
+              values.app_role !== ROLES.DEPARTMENT_HEAD
+            ) {
+              setShowInvite(false);
+            }
+          }}
+        />
+      </Modal>
 
       {showImport && (
         <EntityImportPanel
@@ -373,11 +618,21 @@ export default function EmployeesPage({
         </div>
       ) : empty ? (
         <EmptyState
-          title={hasFilters ? "No employees match" : "No employees yet"}
+          title={
+            hasFilters
+              ? isTeamLead
+                ? "No members match"
+                : "No employees match"
+              : isTeamLead
+                ? "No team members yet"
+                : "No employees yet"
+          }
           description={
             hasFilters
               ? "Try a different search, status, department, or team filter."
-              : "Add an employee to start attributing AI usage."
+              : isTeamLead
+                ? "Add a colleague already in the company, or ask an owner to invite someone new."
+                : "Add an employee to start attributing AI usage."
           }
         />
       ) : (

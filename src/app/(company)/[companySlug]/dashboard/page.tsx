@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useAuthStore } from "@/stores/auth-store";
 import { ROLES } from "@/constants/roles";
 import { LoadingBlock } from "@/components/feedback/States";
+import { ScopeUnassigned } from "@/components/feedback/ScopeUnassigned";
 
 const CeoDashboard = dynamic(
   () =>
@@ -46,7 +47,12 @@ export default function CompanyDashboardPage({
     return <EmployeeDashboard companySlug={params.companySlug} />;
   }
 
-  if (role === ROLES.TEAM_LEAD && teamId) {
+  if (role === ROLES.TEAM_LEAD) {
+    if (!teamId) {
+      return (
+        <ScopeUnassigned role={ROLES.TEAM_LEAD} missing="team" title="Team Dashboard" />
+      );
+    }
     return (
       <TeamDashboard
         companySlug={params.companySlug}
@@ -56,7 +62,16 @@ export default function CompanyDashboardPage({
     );
   }
 
-  if (role === ROLES.DEPARTMENT_HEAD && departmentId) {
+  if (role === ROLES.DEPARTMENT_HEAD) {
+    if (!departmentId) {
+      return (
+        <ScopeUnassigned
+          role={ROLES.DEPARTMENT_HEAD}
+          missing="department"
+          title="Department Dashboard"
+        />
+      );
+    }
     return (
       <DepartmentDashboard
         companySlug={params.companySlug}

@@ -244,9 +244,22 @@ async function listTeamsPage(
     status: toApiStatus(query.status),
     department_id: query.department_id,
   });
-  const page = await pagedRequest<TeamDto>("org", path);
+  const [page, profiles] = await Promise.all([
+    pagedRequest<TeamDto>("org", path),
+    authApi.listEmployees().catch(() => [] as Awaited<ReturnType<typeof authApi.listEmployees>>),
+  ]);
+  const countByTeam = new Map<number, number>();
+  for (const p of profiles) {
+    const tid = p.user.team_id;
+    if (tid == null) continue;
+    countByTeam.set(tid, (countByTeam.get(tid) ?? 0) + 1);
+  }
   return {
-    items: page.items.map(toTeam),
+    items: page.items.map((t) => {
+      const team = toTeam(t);
+      team.member_count = countByTeam.get(t.id) ?? 0;
+      return team;
+    }),
     meta: page.meta,
   };
 }
@@ -364,6 +377,46 @@ async function createProject(input: CreateProjectInput): Promise<Project> {
     },
   });
   return toProject(res);
+}
+
+async function updateProject(
+  id: number,
+  input: {
+    project_name?: string;
+    description?: string;
+    status?: Project["status"];
+  },
+): Promise<Project> {
+  const res = await apiRequest<ProjectDto>("org", `/projects/${id}`, {
+    method: "PATCH",
+    body: {
+      ...(input.project_name != null ? { project_name: input.project_name } : {}),
+      ...(input.description != null ? { description: input.description } : {}),
+      ...(input.status ? { status: input.status } : {}),
+    },
+  });
+  return toProject(res);
+}
+
+async function setProjectStatus(
+  id: number,
+  status: Project["status"],
+): Promise<Project> {
+  return updateProject(id, { status });
+}
+
+export type ProjectMember = {
+  id: number;
+  project_id: number;
+  user_id: number;
+  user_uuid?: string;
+  email?: string;
+  role_in_project?: string;
+  added_at: string;
+};
+
+async function listProjectMembers(projectId: number): Promise<ProjectMember[]> {
+  return apiRequest<ProjectMember[]>("org", `/projects/${projectId}/members`);
 }
 
 async function addProjectMember(
@@ -644,6 +697,39 @@ async function createEmployee(
     },
     maps,
   );
+
+  // Seat org chart on invite: Dept Head → department manager; Team Lead → team lead.
+  if (
+    input.app_role === "DEPARTMENT_HEAD" &&
+    departmentId &&
+    employee.id
+  ) {
+    try {
+      await updateDepartment(departmentId, {
+        manager_employee_id: employee.id,
+      });
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Department manager seat: ${err.message}`
+          : "Could not set as department manager",
+      );
+    }
+  }
+  if (input.app_role === "TEAM_LEAD" && teamId && employee.id) {
+    try {
+      await updateTeam(teamId, {
+        team_lead_employee_id: employee.id,
+      });
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Team lead seat: ${err.message}`
+          : "Could not set as team lead",
+      );
+    }
+  }
+
   return { employee, emailSent, inviteUrl, warnings };
 }
 
@@ -730,6 +816,7 @@ async function getSettings(): Promise<CompanySettings> {
     timezone: s.timezone,
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
+    usd_fx_rate: s.usd_fx_rate ?? 0,
   };
 }
 
@@ -743,6 +830,7 @@ async function updateSettings(
     timezone: input.timezone,
     date_format: input.date_format,
     fiscal_year_start: input.fiscal_year_start,
+    usd_fx_rate: input.usd_fx_rate,
   });
   return {
     working_hours_per_day: s.working_hours_per_day,
@@ -751,6 +839,7 @@ async function updateSettings(
     timezone: s.timezone,
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
+    usd_fx_rate: s.usd_fx_rate ?? input.usd_fx_rate ?? 0,
   };
 }
 
@@ -921,6 +1010,9 @@ export const organizationApi = {
   listProjectsPage,
   getProject,
   createProject,
+  updateProject,
+  setProjectStatus,
+  listProjectMembers,
   addProjectMember,
   listEmployees,
   listEmployeesPage,

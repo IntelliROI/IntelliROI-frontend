@@ -18,6 +18,7 @@ import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 /**
  * Employee personal intelligence — ChatGPT familiarity + observability.
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
  */
 export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
   const employeeId = user?.id ?? user?.scope?.user_id;
   const [period, setPeriod] = useState<RoiPeriod>("month");
   const analyticsPeriod = period === "week" ? "day" : period;
@@ -137,6 +139,7 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
             label="AI spend"
             value={r.total_spend}
             format="currency"
+            currency={companyCurrency}
             hint="attributed to you"
             delay={0.1}
           />

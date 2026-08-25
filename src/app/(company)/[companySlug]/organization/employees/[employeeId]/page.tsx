@@ -17,6 +17,7 @@ import { businessContextApi } from "@/features/business-context/api/business-con
 import { ROLE_LABELS } from "@/constants/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -42,6 +43,7 @@ export default function EmployeeDetailPage({
 }) {
   const listHref = `/${params.companySlug}/organization/employees`;
   const [editing, setEditing] = useState(false);
+  const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -228,7 +230,7 @@ export default function EmployeeDetailPage({
             label="Job role"
             value={
               employee.job_role_name && employee.job_role_name !== "—"
-                ? `${employee.job_role_name} · ${formatCurrency(employee.hourly_cost, employee.currency)}/hr`
+                ? `${employee.job_role_name} · ${formatCurrency(employee.hourly_cost, companyCurrency)}/hr`
                 : "—"
             }
           />
@@ -293,6 +295,7 @@ export default function EmployeeDetailPage({
             label="Spend"
             value={roi.data?.total_spend ?? employee.spend}
             format="currency"
+            currency={companyCurrency}
           />
           <KpiTile
             label="Time saved"

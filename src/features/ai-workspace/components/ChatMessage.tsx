@@ -16,7 +16,7 @@ export type ChatMessageView = {
 
 /**
  * Bouncing-dot "thinking" indicator shown while the gateway waits on the
- * full provider response (up to ~120s). Ticks an elapsed-seconds label so a
+ * full provider response (up to ~15m). Ticks an elapsed-seconds label so a
  * slow reply doesn't look frozen.
  */
 function ThinkingIndicator() {

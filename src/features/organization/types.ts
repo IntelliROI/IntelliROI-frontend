@@ -9,6 +9,8 @@ export type CompanySettings = {
   timezone: string;
   date_format: string;
   fiscal_year_start: string;
+  /** Company-currency units per 1 USD (e.g. INR ≈ 83). */
+  usd_fx_rate: number;
 };
 
 export type JobRole = {

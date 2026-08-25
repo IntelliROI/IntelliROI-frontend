@@ -222,11 +222,13 @@ function UserMenu({
   firstName,
   lastName,
   roleLabel,
+  profileHref,
   onLogout,
 }: {
   firstName?: string;
   lastName?: string;
   roleLabel: string;
+  profileHref?: string;
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -294,6 +296,18 @@ function UserMenu({
 
           {/* Actions */}
           <div className="p-1.5">
+            {profileHref ? (
+              <Link
+                href={profileHref}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex w-full items-center gap-2.5 px-3 py-2 text-[13px]",
+                  "text-text-secondary transition-colors hover:bg-surface/70 hover:text-text-primary",
+                )}
+              >
+                My Profile
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={() => { setOpen(false); onLogout(); }}
@@ -564,6 +578,11 @@ export function AppShell({
               firstName={user?.first_name}
               lastName={user?.last_name}
               roleLabel={roleLabel}
+              profileHref={
+                companySlug ?? company?.slug
+                  ? `/${companySlug ?? company?.slug}/profile`
+                  : undefined
+              }
               onLogout={handleLogout}
             />
           </div>
