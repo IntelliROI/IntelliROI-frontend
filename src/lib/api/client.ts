@@ -114,9 +114,18 @@ function toApiError(err: unknown): ApiError {
   }
   if (err instanceof AxiosError) {
     const body = err.response?.data;
+    const mixedContent =
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      !err.response &&
+      err.code === "ERR_NETWORK";
     const message =
       readBackendMessage(body) ??
-      (err.code === "ECONNABORTED" ? "Request timed out" : "Request failed");
+      (err.code === "ECONNABORTED"
+        ? "Request timed out"
+        : mixedContent
+          ? "Request blocked (HTTPS cannot call HTTP). Redeploy with the API proxy."
+          : "Request failed");
     return new ApiError(
       message,
       err.response?.status ?? (err.code === "ECONNABORTED" ? 408 : 0),
@@ -296,9 +305,10 @@ function createClient(service: ServiceKey, baseURL: string): AxiosInstance {
 
 /** Axios instance for a backend service — token + JSON handled by interceptors. */
 export function http(service: ServiceKey): AxiosInstance {
+  const baseURL = services[service];
   let client = clients.get(service);
-  if (!client) {
-    client = createClient(service, services[service]);
+  if (!client || client.defaults.baseURL !== baseURL) {
+    client = createClient(service, baseURL);
     clients.set(service, client);
   }
   return client;
