@@ -379,6 +379,46 @@ async function createProject(input: CreateProjectInput): Promise<Project> {
   return toProject(res);
 }
 
+async function updateProject(
+  id: number,
+  input: {
+    project_name?: string;
+    description?: string;
+    status?: Project["status"];
+  },
+): Promise<Project> {
+  const res = await apiRequest<ProjectDto>("org", `/projects/${id}`, {
+    method: "PATCH",
+    body: {
+      ...(input.project_name != null ? { project_name: input.project_name } : {}),
+      ...(input.description != null ? { description: input.description } : {}),
+      ...(input.status ? { status: input.status } : {}),
+    },
+  });
+  return toProject(res);
+}
+
+async function setProjectStatus(
+  id: number,
+  status: Project["status"],
+): Promise<Project> {
+  return updateProject(id, { status });
+}
+
+export type ProjectMember = {
+  id: number;
+  project_id: number;
+  user_id: number;
+  user_uuid?: string;
+  email?: string;
+  role_in_project?: string;
+  added_at: string;
+};
+
+async function listProjectMembers(projectId: number): Promise<ProjectMember[]> {
+  return apiRequest<ProjectMember[]>("org", `/projects/${projectId}/members`);
+}
+
 async function addProjectMember(
   projectId: number,
   userUuid: string,
@@ -657,6 +697,39 @@ async function createEmployee(
     },
     maps,
   );
+
+  // Seat org chart on invite: Dept Head → department manager; Team Lead → team lead.
+  if (
+    input.app_role === "DEPARTMENT_HEAD" &&
+    departmentId &&
+    employee.id
+  ) {
+    try {
+      await updateDepartment(departmentId, {
+        manager_employee_id: employee.id,
+      });
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Department manager seat: ${err.message}`
+          : "Could not set as department manager",
+      );
+    }
+  }
+  if (input.app_role === "TEAM_LEAD" && teamId && employee.id) {
+    try {
+      await updateTeam(teamId, {
+        team_lead_employee_id: employee.id,
+      });
+    } catch (err) {
+      warnings.push(
+        err instanceof Error
+          ? `Team lead seat: ${err.message}`
+          : "Could not set as team lead",
+      );
+    }
+  }
+
   return { employee, emailSent, inviteUrl, warnings };
 }
 
@@ -937,6 +1010,9 @@ export const organizationApi = {
   listProjectsPage,
   getProject,
   createProject,
+  updateProject,
+  setProjectStatus,
+  listProjectMembers,
   addProjectMember,
   listEmployees,
   listEmployeesPage,

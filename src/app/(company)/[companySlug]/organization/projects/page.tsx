@@ -25,13 +25,19 @@ import { CreateProjectForm } from "@/features/organization/components/CreateProj
 import { EntityImportPanel } from "@/features/organization/components/EntityImportPanel";
 import { PROJECTS_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { Can } from "@/lib/rbac/Can";
-import { AddMemberAction, RowActions } from "@/components/ui/row-actions";
+import {
+  AddMemberAction,
+  ArchiveAction,
+  IconAction,
+  RowActions,
+} from "@/components/ui/row-actions";
 import { formatCurrency } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import type { Project } from "@/features/organization/types";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { CheckCircle2, RotateCcw } from "lucide-react";
 
 type ProjectStatusFilter = "" | "active" | "completed" | "archived";
 
@@ -144,6 +150,60 @@ export default function ProjectsPage({
     }
   }
 
+  async function changeStatus(p: Project, status: Project["status"]) {
+    try {
+      await organizationApi.setProjectStatus(p.id, status);
+      toast.success(
+        status === "archived"
+          ? `Archived ${p.project_name}`
+          : status === "completed"
+            ? `Marked ${p.project_name} complete`
+            : `Restored ${p.project_name}`,
+      );
+      await projects.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update status");
+    }
+  }
+
+  function projectActions(p: Project) {
+    return (
+      <RowActions>
+        <Can resource="projects" action="edit">
+          <AddMemberAction onClick={() => setAssigning(p)} />
+          {p.status === "active" ? (
+            <IconAction
+              label="Mark complete"
+              icon={CheckCircle2}
+              onClick={() => void changeStatus(p, "completed")}
+            />
+          ) : p.status === "completed" ? (
+            <IconAction
+              label="Reactivate"
+              icon={RotateCcw}
+              onClick={() => void changeStatus(p, "active")}
+            />
+          ) : null}
+          <ArchiveAction
+            archived={p.status === "archived"}
+            onClick={() =>
+              void changeStatus(
+                p,
+                p.status === "archived" ? "active" : "archived",
+              )
+            }
+          />
+        </Can>
+        <Link
+          href={`/${params.companySlug}/organization/projects/${p.id}`}
+          className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
+        >
+          Monitor
+        </Link>
+      </RowActions>
+    );
+  }
+
   const rows = items.map((p) => ({
     name: <span className="font-medium text-text-primary">{p.project_name}</span>,
     dept: p.department_id ? deptMap[p.department_id] ?? p.department_id : "—",
@@ -165,19 +225,7 @@ export default function ProjectsPage({
         {p.status}
       </span>
     ),
-    action: (
-      <RowActions>
-        <Can resource="projects" action="edit">
-          <AddMemberAction onClick={() => setAssigning(p)} />
-        </Can>
-        <Link
-          href={`/${params.companySlug}/organization/projects/${p.id}`}
-          className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
-        >
-          Monitor
-        </Link>
-      </RowActions>
-    ),
+    action: projectActions(p),
   }));
 
   const cards: GridCard[] = items.map((p) => ({
@@ -205,19 +253,7 @@ export default function ProjectsPage({
         ),
       },
     ],
-    action: (
-      <RowActions>
-        <Can resource="projects" action="edit">
-          <AddMemberAction onClick={() => setAssigning(p)} />
-        </Can>
-        <Link
-          href={`/${params.companySlug}/organization/projects/${p.id}`}
-          className="ml-1 font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:text-accent/70"
-        >
-          Monitor
-        </Link>
-      </RowActions>
-    ),
+    action: projectActions(p),
   }));
 
   const empty = !projects.isLoading && items.length === 0;

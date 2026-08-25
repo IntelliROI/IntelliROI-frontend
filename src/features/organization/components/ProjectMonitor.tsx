@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Mosaic, Panel } from "@/components/ui/panel";
-import { PageHeader, LoadingBlock } from "@/components/feedback/States";
+import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
 import { PeriodSwitcher } from "@/components/ui/period-switcher";
 import { TrendAreaChart } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
+import { queryKeys } from "@/lib/api/query-keys";
 
 /**
  * Project-wise AI usage monitor — GET /analytics/project/:id.
@@ -40,6 +41,15 @@ export function ProjectMonitor({
     queryKey: ["company", companySlug, "teams"],
     queryFn: () => organizationApi.listTeams(),
   });
+  const members = useQuery({
+    queryKey: ["company", companySlug, "projects", projectId, "members"],
+    queryFn: () => organizationApi.listProjectMembers(projectId),
+  });
+  const employees = useQuery({
+    queryKey: queryKeys.company.employees(companySlug),
+    queryFn: () => organizationApi.listEmployees(),
+    enabled: (members.data?.length ?? 0) > 0,
+  });
   const analytics = useQuery({
     queryKey: ["company", companySlug, "analytics", "project", projectId, period],
     queryFn: () => analyticsApi.project(projectId, period),
@@ -53,21 +63,38 @@ export function ProjectMonitor({
     ? teams.data?.find((t) => t.id === project.team_id)?.team_name
     : undefined;
 
+  const employeeByUuid = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of employees.data ?? []) {
+      map.set(e.uuid, e.display_name);
+    }
+    return map;
+  }, [employees.data]);
+
   if (analytics.isLoading || projectQuery.isLoading) {
     return <LoadingBlock className="h-80" />;
   }
 
   const a = analytics.data;
+  const memberRows = members.data ?? [];
 
   return (
     <div>
       <PageHeader
         eyebrow="Organization · Project"
         title={project?.project_name ?? `Project ${projectId}`}
-        description={[deptName, teamName].filter(Boolean).join(" · ") || "AI usage attributed to this project."}
+        description={
+          [deptName, teamName, project?.status]
+            .filter(Boolean)
+            .join(" · ") || "AI usage attributed to this project."
+        }
         actions={
           <div className="flex items-center gap-2">
-            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as typeof period)} variant="analytics" />
+            <PeriodSwitcher
+              value={period}
+              onChange={(p) => setPeriod(p as typeof period)}
+              variant="analytics"
+            />
             <Button asChild variant="secondary" size="sm">
               <Link href={`/${companySlug}/organization/projects`}>
                 <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -116,6 +143,39 @@ export function ProjectMonitor({
           with this project selected to populate the monitor.
         </p>
       )}
+
+      <div className="mt-8">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-medium text-text-primary">Members</h2>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
+            {memberRows.length} assigned
+          </span>
+        </div>
+        {members.isLoading ? (
+          <LoadingBlock className="h-24" />
+        ) : memberRows.length === 0 ? (
+          <p className="border border-hairline px-4 py-6 text-sm text-text-secondary">
+            No members assigned yet. Add people from the Projects list.
+          </p>
+        ) : (
+          <DataTable
+            columns={[
+              { key: "name", label: "Person" },
+              { key: "email", label: "Email" },
+              { key: "role", label: "Role" },
+            ]}
+            rows={memberRows.map((m) => ({
+              name:
+                (m.user_uuid && employeeByUuid.get(m.user_uuid)) ||
+                m.email ||
+                m.user_uuid ||
+                `User ${m.user_id}`,
+              email: m.email || "—",
+              role: m.role_in_project || "member",
+            }))}
+          />
+        )}
+      </div>
     </div>
   );
 }

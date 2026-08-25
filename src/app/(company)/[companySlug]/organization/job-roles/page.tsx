@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -198,11 +197,6 @@ export default function JobRolesPage({
                 Add job role
               </Button>
             </Can>
-            <Button asChild size="sm" variant="secondary">
-              <Link href={`/${params.companySlug}/organization/employees/new`}>
-                Add employee
-              </Link>
-            </Button>
           </div>
         }
       />

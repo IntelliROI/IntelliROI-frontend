@@ -118,7 +118,13 @@ export function TeamDashboard({
         queryKey: ["company", companySlug, "employees"],
       }),
       queryClient.invalidateQueries({
+        queryKey: queryKeys.company.departments(companySlug),
+      }),
+      queryClient.invalidateQueries({
         queryKey: queryKeys.company.teams(companySlug),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["company", companySlug, "teams", departmentId],
       }),
       queryClient.invalidateQueries({
         queryKey: ["company", companySlug, "projects"],
@@ -126,6 +132,7 @@ export function TeamDashboard({
     ]);
     void employees.refetch();
     void projects.refetch();
+    void teams.refetch();
   }
 
   async function addMemberToTeam() {
@@ -200,11 +207,6 @@ export function TeamDashboard({
                 Invite person
               </Button>
             ) : null}
-            <Button asChild size="sm" variant="secondary">
-              <Link href={`/${companySlug}/organization/employees`}>
-                Team Members
-              </Link>
-            </Button>
           </div>
         }
       />
@@ -235,22 +237,6 @@ export function TeamDashboard({
       <div className="mt-8">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="font-medium text-text-primary">Members</h2>
-          {canStaff ? (
-            <button
-              type="button"
-              onClick={() => setShowAddMember(true)}
-              className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
-            >
-              Add member
-            </button>
-          ) : (
-            <Link
-              href={`/${companySlug}/organization/employees`}
-              className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
-            >
-              Manage members
-            </Link>
-          )}
         </div>
         <DataTable
           columns={[

@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ROLES, ROLE_LABELS, type Role } from "@/constants/roles";
@@ -40,8 +39,6 @@ type Props = {
   onSubmit: (values: EmployeeSchema) => Promise<void>;
   submitLabel?: string;
   companySlug?: string;
-  /** Shown after a successful invite for lead/manager seats. */
-  nextStepSlot?: ReactNode;
   /** Roles the actor may invite (Owner: all three; Dept Head: TL + Employee). */
   allowedRoles?: readonly InviteAppRole[];
   defaultDepartmentId?: number;
@@ -55,7 +52,6 @@ export function CreateEmployeeForm({
   managers = [],
   onSubmit,
   submitLabel = "Send invite",
-  companySlug,
   allowedRoles,
   defaultDepartmentId,
   defaultTeamId,
@@ -94,7 +90,8 @@ export function CreateEmployeeForm({
   const role = form.app_role;
   const showTeam = role !== ROLES.DEPARTMENT_HEAD;
   const showReportsTo = role !== ROLES.DEPARTMENT_HEAD;
-  const deptRequired = role === ROLES.TEAM_LEAD || role === ROLES.EMPLOYEE;
+  const deptRequired = true;
+  const teamRequired = role === ROLES.TEAM_LEAD;
 
   const teamsInDept = useMemo(
     () =>
@@ -114,8 +111,16 @@ export function CreateEmployeeForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (deptRequired && !form.department_id) {
-      setError("Department is required for this role");
+    if (!form.department_id) {
+      setError(
+        role === ROLES.DEPARTMENT_HEAD
+          ? "Department is required to seat a Department Head as manager"
+          : "Department is required for this role",
+      );
+      return;
+    }
+    if (teamRequired && !form.team_id) {
+      setError("Team is required to seat a Team Lead");
       return;
     }
     const parsed = employeeSchema.safeParse({
@@ -152,41 +157,24 @@ export function CreateEmployeeForm({
     }
   }
 
-  if (nextStep && companySlug) {
+  if (nextStep) {
     const isLead = nextStep.role === ROLES.TEAM_LEAD;
     return (
       <div className="space-y-4 border border-hairline bg-ink p-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-          Next step
+          Seated
         </p>
         <h3 className="text-lg font-medium text-text-primary">
           Invite sent for {nextStep.name}
         </h3>
         <p className="text-sm text-text-secondary">
           {isLead
-            ? "Set them as Team Lead on a team so their scope and dashboard work."
-            : "Set them as Department Manager on a department so they can invite and manage that dept."}
+            ? "They are seated as Team Lead on the selected team. You can change the lead later from Edit team."
+            : "They are seated as Department Manager on the selected department. You can change the manager later from Edit department."}
         </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={
-              isLead
-                ? `/${companySlug}/organization/teams`
-                : `/${companySlug}/organization/departments`
-            }
-          >
-            <Button size="sm">
-              {isLead ? "Open Teams" : "Open Departments"}
-            </Button>
-          </Link>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setNextStep(null)}
-          >
-            Invite another
-          </Button>
-        </div>
+        <Button size="sm" variant="ghost" onClick={() => setNextStep(null)}>
+          Invite another
+        </Button>
       </div>
     );
   }
@@ -224,9 +212,9 @@ export function CreateEmployeeForm({
           </div>
           <p className="self-end text-sm text-text-secondary">
             {role === ROLES.DEPARTMENT_HEAD
-              ? "After invite, assign them as Department Manager on Departments."
+              ? "Invite seats them as Department Manager on the selected department."
               : role === ROLES.TEAM_LEAD
-                ? "Pick their department, then assign them as Team Lead on Teams."
+                ? "Invite seats them as Team Lead on the selected team."
                 : "Employees need department (and ideally team + reports-to) for AI attribution."}
           </p>
         </div>
@@ -328,9 +316,7 @@ export function CreateEmployeeForm({
             />
           </div>
           <div className="space-y-2">
-            <Label>
-              Department{deptRequired ? " *" : " (optional)"}
-            </Label>
+            <Label>Department *</Label>
             <Select
               value={form.department_id}
               onChange={(e) =>
@@ -352,17 +338,16 @@ export function CreateEmployeeForm({
           </div>
           {showTeam ? (
             <div className="space-y-2">
-              <Label>Team</Label>
+              <Label>{teamRequired ? "Team *" : "Team"}</Label>
               <Select
                 value={form.team_id}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, team_id: e.target.value }))
                 }
+                required={teamRequired}
               >
                 <option value="">
-                  {role === ROLES.TEAM_LEAD
-                    ? "Assign as lead on Teams page"
-                    : "No team yet"}
+                  {teamRequired ? "Select team to lead" : "No team yet"}
                 </option>
                 {teamsInDept.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -409,8 +394,8 @@ export function CreateEmployeeForm({
                 ))}
               </Select>
               <p className="text-xs text-text-secondary/70">
-                Line manager for the person — not the same as setting them as
-                dept manager or team lead on org pages.
+                Line manager for the person — separate from their org seat
+                (dept manager / team lead), which is set automatically on invite.
               </p>
             </div>
           ) : null}
