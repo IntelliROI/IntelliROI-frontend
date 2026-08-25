@@ -41,6 +41,9 @@ export type CountryIso = (typeof COUNTRIES)[number]["iso"];
 export const DEFAULT_COUNTRY_ISO: CountryIso = "IN";
 export const DEFAULT_CURRENCY: CurrencyCode = "INR";
 
+/** Provider / analytics / cost_events amounts are USD until FX lands. */
+export const AI_COST_CURRENCY: CurrencyCode = "USD";
+
 export function digitsOnly(value: string): string {
   return value.replace(/\D/g, "");
 }

@@ -307,7 +307,7 @@ export function ChatComposer({
 
           <div
             className={cn(
-              "flex items-end gap-1.5 rounded-[28px] border border-hairline bg-surface/70 px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.28)] transition-colors",
+              "flex items-end gap-1.5 rounded-[28px] border border-hairline bg-surface/70 px-2.5 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.28)] transition-colors",
               "focus-within:border-accent/45 focus-within:bg-surface",
             )}
           >

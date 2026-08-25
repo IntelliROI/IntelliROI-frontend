@@ -14,6 +14,7 @@ type MetricTileProps = {
   label: string;
   value: number | string;
   format?: Format;
+  currency?: string;
   delta?: number;
   hint?: string;
   spark?: number[];
@@ -30,6 +31,7 @@ export function MetricTile({
   label,
   value,
   format = "raw",
+  currency = "INR",
   delta,
   hint,
   spark,
@@ -111,6 +113,7 @@ export function MetricTile({
           <CountUp
             value={numeric}
             format={format === "raw" ? "number" : format}
+            currency={currency}
           />
         ) : (
           value

@@ -143,7 +143,7 @@ export default function ProjectsPage({
     dept: p.department_id ? deptMap[p.department_id] ?? p.department_id : "—",
     team: p.team_id ? teamMap[p.team_id] ?? p.team_id : "—",
     requests: analyticsById.get(p.id)?.requests ?? 0,
-    spend: formatCurrency(analyticsById.get(p.id)?.total_cost ?? 0, "USD", true),
+    spend: formatCurrency(analyticsById.get(p.id)?.total_cost ?? 0, "USD"),
     roi: (
       <span className="font-mono font-medium text-accent">
         {(analyticsById.get(p.id)?.roi_pct ?? 0).toFixed(0)}%

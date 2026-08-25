@@ -13,6 +13,8 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { queryKeys } from "@/lib/api/query-keys";
+import { useAuthStore } from "@/stores/auth-store";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 
 export default function BudgetsPage({
   params,
@@ -20,6 +22,8 @@ export default function BudgetsPage({
   params: { companySlug: string };
 }) {
   const queryClient = useQueryClient();
+  const companyCurrency =
+    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
   const [limit, setLimit] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [alertPct, setAlertPct] = useState("80");
@@ -41,12 +45,18 @@ export default function BudgetsPage({
     queryFn: () => organizationApi.listDepartments(),
   });
 
+  const displayCurrency =
+    summary.data?.currency ||
+    budgets.data?.[0]?.currency ||
+    companyCurrency;
+
   const create = useMutation({
     mutationFn: () =>
       costApi.createBudget({
         monthly_limit: Number(limit),
         department_id: departmentId ? Number(departmentId) : undefined,
         alert_percentage: alertPct ? Number(alertPct) : undefined,
+        currency: companyCurrency,
       }),
     onSuccess: async () => {
       toast.success("Budget created");
@@ -82,6 +92,7 @@ export default function BudgetsPage({
           label="Total spend MTD"
           value={summary.data?.total_cost ?? 0}
           format="currency"
+          currency={displayCurrency}
         />
         <KpiTile
           label="Open budgets"
@@ -94,7 +105,7 @@ export default function BudgetsPage({
       <Can resource="budgets" action="manage">
         <Panel className="mb-px border-0 bg-ink p-6">
           <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.18em] text-text-secondary">
-            New budget
+            New budget ({companyCurrency})
           </p>
           <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-4">
             <div>
@@ -152,12 +163,15 @@ export default function BudgetsPage({
             { key: "consumed", label: "Consumed", align: "right" },
             { key: "pct", label: "Used", align: "right" },
           ]}
-          rows={(budgets.data ?? []).map((b) => ({
-            scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
-            limit: formatCurrency(b.monthly_limit, "USD", true),
-            consumed: formatCurrency(b.consumed, "USD", true),
-            pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
-          }))}
+          rows={(budgets.data ?? []).map((b) => {
+            const cur = b.currency || displayCurrency;
+            return {
+              scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
+              limit: formatCurrency(b.monthly_limit, cur),
+              consumed: formatCurrency(b.consumed, cur),
+              pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
+            };
+          })}
         />
       )}
 

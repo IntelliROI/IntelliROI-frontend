@@ -128,7 +128,7 @@ export default function TeamsPage({
     name: <span className="font-medium text-text-primary">{t.team_name}</span>,
     dept: deptMap[t.department_id] ?? "—",
     people: t.member_count,
-    spend: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD", true),
+    spend: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD"),
     roi: (
       <span className="font-mono font-medium text-accent">
         {(roiById.get(t.id)?.roi_pct ?? t.roi_pct).toFixed(0)}%
@@ -185,7 +185,7 @@ export default function TeamsPage({
       },
       {
         label: "Spend",
-        value: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD", true),
+        value: formatCurrency(roiById.get(t.id)?.total_spend ?? t.monthly_spend, "USD"),
       },
       {
         label: "Status",

@@ -77,19 +77,28 @@ export function ChatMessageBubble({
 
   if (isUser) {
     return (
-      <div className="group/msg w-full px-4 py-3 md:px-6">
-        <div className="mx-auto flex max-w-3xl justify-end">
-          <div className="max-w-[85%] rounded-[22px] bg-surface-2 px-4 py-2.5 text-[15px] leading-7 text-text-primary">
-            <div className="whitespace-pre-wrap">{message.content}</div>
-            <div className="mt-1.5 flex justify-end opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
-              <ActionBtn onClick={copy} label={copied ? "Copied" : "Copy"}>
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-accent" strokeWidth={1.5} />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                )}
-              </ActionBtn>
-            </div>
+      <div className="group/msg w-full px-4 py-2.5 md:px-6">
+        <div className="mx-auto flex max-w-3xl flex-col items-end gap-1">
+          {/* ChatGPT / Claude: soft capsule — ~24px all corners, hugs content */}
+          <div
+            className={cn(
+              "w-fit max-w-[min(85%,36rem)]",
+              "rounded-[24px] px-4 py-2.5",
+              "bg-surface-2 text-[15px] leading-[1.55] text-text-primary",
+            )}
+          >
+            <p className="m-0 whitespace-pre-wrap break-words">
+              {message.content}
+            </p>
+          </div>
+          <div className="flex items-center justify-end pr-1 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
+            <ActionBtn onClick={copy} label={copied ? "Copied" : "Copy"}>
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-accent" strokeWidth={1.5} />
+              ) : (
+                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+              )}
+            </ActionBtn>
           </div>
         </div>
       </div>
@@ -97,17 +106,17 @@ export function ChatMessageBubble({
   }
 
   return (
-    <div className="group/msg w-full px-4 py-4 md:px-6 md:py-5">
-      <div className="mx-auto flex max-w-3xl gap-3.5">
+    <div className="group/msg w-full px-4 py-3 md:px-6 md:py-4">
+      <div className="mx-auto flex max-w-3xl gap-3">
         <div
-          className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/35 bg-accent/10"
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-accent/35 bg-accent/10"
           aria-hidden
         >
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
         </div>
 
-        <div className="min-w-0 flex-1 pt-0.5">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-medium text-text-primary">
               IntelliROI
             </span>
@@ -129,8 +138,8 @@ export function ChatMessageBubble({
           ) : (
             <div
               className={cn(
-                "whitespace-pre-wrap text-[15px] leading-7 text-text-primary",
-                message.isStreaming && !message.content && "min-h-[1.75rem]",
+                "whitespace-pre-wrap break-words text-[15px] leading-6 text-text-primary",
+                message.isStreaming && !message.content && "min-h-[1.5rem]",
               )}
             >
               {message.content || (message.isStreaming ? "" : "—")}
@@ -141,7 +150,7 @@ export function ChatMessageBubble({
           )}
 
           {message.content && !message.isStreaming && (
-            <div className="mt-2.5 flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
+            <div className="mt-1.5 flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
               <ActionBtn onClick={copy} label={copied ? "Copied" : "Copy"}>
                 {copied ? (
                   <Check className="h-3.5 w-3.5 text-accent" strokeWidth={1.5} />
@@ -191,8 +200,8 @@ function ActionBtn({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-full px-2 text-text-secondary transition-colors hover:bg-surface hover:text-text-primary",
+        className={cn(
+        "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface hover:text-text-primary",
         active && !warn && "text-accent",
         active && warn && "text-warning",
       )}

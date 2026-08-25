@@ -9,6 +9,7 @@ import { useScopedAnalytics } from "@/features/organization/hooks/useOrganizatio
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { queryKeys } from "@/lib/api/query-keys";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { AI_COST_CURRENCY } from "@/constants/locale";
 
 export function ScopedAnalyticsView({
   companySlug,
@@ -24,7 +25,7 @@ export function ScopedAnalyticsView({
   const analytics = useScopedAnalytics(companySlug, scope, scopeId);
   const models = useQuery({
     queryKey: queryKeys.company.analytics.models(companySlug),
-    queryFn: () => analyticsApi.models("month"),
+    queryFn: () => analyticsApi.models("day"),
     enabled: scope === "company",
   });
 
@@ -45,11 +46,16 @@ export function ScopedAnalyticsView({
         title={title}
         description="Precomputed aggregates — frontend never rolls up raw requests."
       />
-      <Mosaic cols={4}>
+      <Mosaic cols={3}>
         <KpiTile label="Requests" value={a.requests} format="number" />
-        <KpiTile label="Tokens in" value={formatNumber(a.tokens_in, true)} />
-        <KpiTile label="Tokens out" value={formatNumber(a.tokens_out, true)} />
-        <KpiTile label="Active users" value={a.active_users} format="number" accent />
+        <KpiTile label="Tokens" value={formatNumber(a.tokens_in, true)} />
+        <KpiTile
+          label="AI spend"
+          value={a.total_cost}
+          format="currency"
+          currency={AI_COST_CURRENCY}
+          accent
+        />
       </Mosaic>
       <Panel className="mt-px border-0 bg-ink p-6">
         <div className="mb-4 flex items-center justify-between">
@@ -79,7 +85,7 @@ export function ScopedAnalyticsView({
                 >
                   <span>{m.model}</span>
                   <span className="font-mono text-text-secondary">
-                    {m.requests} req · {formatCurrency(m.cost, "USD", true)}
+                    {m.requests} req · {formatCurrency(m.cost, AI_COST_CURRENCY)}
                   </span>
                 </li>
               ))}

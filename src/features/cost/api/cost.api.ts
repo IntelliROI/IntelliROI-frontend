@@ -98,7 +98,7 @@ function toBudget(b: BudgetDto, consumed = 0, period = ""): Budget {
     monthly_limit: b.monthly_limit,
     consumed,
     period,
-    currency: b.currency ?? "USD",
+    currency: b.currency ?? "INR",
   };
 }
 
@@ -119,7 +119,7 @@ export const costApi = {
       scope: raw.scope ?? scope,
       period: raw.period ?? periodMonth,
       total_cost: Number(raw.total_cost ?? 0),
-      currency: raw.currency ?? "USD",
+      currency: raw.currency ?? "INR",
       event_count: raw.event_count ?? 0,
     };
   },
@@ -162,7 +162,7 @@ export const costApi = {
         monthly_limit: input.monthly_limit,
         department_id: input.department_id,
         team_id: input.team_id,
-        currency: input.currency ?? "USD",
+        currency: input.currency ?? "INR",
         alert_percentage: input.alert_percentage,
       },
     });

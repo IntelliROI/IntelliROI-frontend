@@ -5,6 +5,7 @@ export type AnalyticsPoint = {
   date: string;
   requests: number;
   cost: number;
+  tokens: number;
   roi_pct: number;
 };
 
@@ -65,6 +66,7 @@ function toSummary(raw: unknown, period: string): AnalyticsSummary {
       date: r.period_start ?? "",
       requests: r.total_requests ?? 0,
       cost: Number(r.total_cost ?? 0),
+      tokens: r.total_tokens ?? 0,
       roi_pct: estimatedRoiPct(
         Number(r.total_business_value ?? 0),
         Number(r.total_cost ?? 0),
@@ -74,18 +76,19 @@ function toSummary(raw: unknown, period: string): AnalyticsSummary {
     (acc, p) => ({
       requests: acc.requests + p.requests,
       cost: acc.cost + p.cost,
+      tokens: acc.tokens + p.tokens,
     }),
-    { requests: 0, cost: 0 },
+    { requests: 0, cost: 0, tokens: 0 },
   );
   const businessValue = rows.reduce(
     (sum, r) => sum + Number(r.total_business_value ?? 0),
     0,
   );
-  const tokens = rows.reduce((sum, r) => sum + (r.total_tokens ?? 0), 0);
   return {
     period,
     requests: totals.requests,
-    tokens_in: tokens,
+    // Snapshots store one total_tokens column (not prompt/completion split).
+    tokens_in: totals.tokens,
     tokens_out: 0,
     active_users: 0,
     total_cost: totals.cost,
@@ -173,12 +176,22 @@ export const analyticsApi = {
         page_size: LIST_DROPDOWN_PAGE_SIZE,
       }),
     );
-    return asList<SnapshotDto>(raw).map((r) => ({
-      provider: r.provider ?? (r.scope_id ? `Provider ${r.scope_id}` : "Unknown"),
-      requests: r.total_requests ?? 0,
-      cost: Number(r.total_cost ?? 0),
-      tokens: r.total_tokens ?? 0,
-    }));
+    const byName = new Map<string, ProviderAnalytics>();
+    for (const r of asList<SnapshotDto>(raw)) {
+      const provider =
+        r.provider ?? (r.scope_id ? `Provider ${r.scope_id}` : "Unknown");
+      const prev = byName.get(provider) ?? {
+        provider,
+        requests: 0,
+        cost: 0,
+        tokens: 0,
+      };
+      prev.requests += r.total_requests ?? 0;
+      prev.cost += Number(r.total_cost ?? 0);
+      prev.tokens += r.total_tokens ?? 0;
+      byName.set(provider, prev);
+    }
+    return Array.from(byName.values()).sort((a, b) => b.cost - a.cost);
   },
 
   async models(period = "day"): Promise<ModelAnalytics[]> {
@@ -189,10 +202,15 @@ export const analyticsApi = {
         page_size: LIST_DROPDOWN_PAGE_SIZE,
       }),
     );
-    return asList<SnapshotDto>(raw).map((r) => ({
-      model: r.model ?? (r.scope_id ? `Model ${r.scope_id}` : "Unknown"),
-      requests: r.total_requests ?? 0,
-      cost: Number(r.total_cost ?? 0),
-    }));
+    const byName = new Map<string, ModelAnalytics>();
+    for (const r of asList<SnapshotDto>(raw)) {
+      const model =
+        r.model ?? (r.scope_id ? `Model ${r.scope_id}` : "Unknown");
+      const prev = byName.get(model) ?? { model, requests: 0, cost: 0 };
+      prev.requests += r.total_requests ?? 0;
+      prev.cost += Number(r.total_cost ?? 0);
+      byName.set(model, prev);
+    }
+    return Array.from(byName.values()).sort((a, b) => b.requests - a.requests);
   },
 };

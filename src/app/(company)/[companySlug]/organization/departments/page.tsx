@@ -117,7 +117,7 @@ export default function DepartmentsPage({
     ),
     name: <span className="font-medium text-text-primary">{d.department_name}</span>,
     people: d.employee_count,
-    spend: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD", true),
+    spend: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD"),
     roi: (
       <span className="font-mono font-medium text-accent">
         {(roiById.get(d.id)?.roi_pct ?? d.roi_pct).toFixed(0)}%
@@ -174,7 +174,7 @@ export default function DepartmentsPage({
       },
       {
         label: "Monthly Spend",
-        value: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD", true),
+        value: formatCurrency(roiById.get(d.id)?.total_spend ?? d.monthly_spend, "USD"),
       },
     ],
     action: (

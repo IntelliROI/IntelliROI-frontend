@@ -10,6 +10,9 @@ import { TrendAreaChart, SimpleBarChart } from "@/components/charts/Charts";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { organizationApi } from "@/features/organization/api/organization.api";
+import { useAuthStore } from "@/stores/auth-store";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSetupHint";
 
 export default function RoiPage({
   params,
@@ -17,6 +20,8 @@ export default function RoiPage({
   params: { companySlug: string };
 }) {
   const [period, setPeriod] = useState<RoiPeriod>("month");
+  const companyCurrency =
+    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
   const analyticsPeriod = period === "week" ? "day" : period;
 
   const roi = useQuery({
@@ -68,11 +73,26 @@ export default function RoiPage({
         actions={<PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />}
       />
       <Mosaic cols={4}>
-        <KpiTile label="Spend" value={r.total_spend} format="currency" />
-        <KpiTile label="Business value" value={r.business_value} format="currency" />
+        <KpiTile
+          label="Spend"
+          value={r.total_spend}
+          format="currency"
+          currency={companyCurrency}
+        />
+        <KpiTile
+          label="Business value"
+          value={r.business_value}
+          format="currency"
+          currency={companyCurrency}
+        />
         <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
         <KpiTile label="Hours saved" value={r.time_saved_hours} format="number" />
       </Mosaic>
+
+      <EstimatedRoiSetupHint
+        companySlug={params.companySlug}
+        visible={r.total_spend > 0 && r.business_value <= 0}
+      />
 
       <div className="mt-px grid gap-px bg-hairline lg:grid-cols-2">
         <Panel className="border-0 bg-ink p-6">

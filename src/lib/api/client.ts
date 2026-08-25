@@ -37,6 +37,8 @@ type RequestOptions = {
   token?: string | null;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /** Override Axios timeout (ms). Use 0 for no timeout. */
+  timeout?: number;
 };
 
 function getToken(): string | null {
@@ -128,10 +130,13 @@ function toApiError(err: unknown): ApiError {
 const clients = new Map<ServiceKey, AxiosInstance>();
 
 /**
- * Fail fast: a hung/unreachable Go service should not freeze the UI for
- * 30-60s. 10s is generous for localhost but still bounded.
+ * Default for CRUD / lists. Chat completions wait on upstream providers and
+ * need a much longer budget (see CHAT_TIMEOUT_MS).
  */
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+
+/** Provider round-trips (Anthropic / OpenAI / Gemini) often exceed 15–60s. */
+const CHAT_TIMEOUT_MS = 180_000;
 
 const AUTH_PUBLIC_PREFIXES = [
   "/login",
@@ -310,7 +315,12 @@ export async function apiRequest<T>(
     token,
     headers = {},
     signal,
+    timeout,
   } = options;
+
+  const isChat =
+    service === "ai" &&
+    (path === "/chat" || path.startsWith("/chat?") || path.startsWith("/chat/"));
 
   try {
     const res = await http(service).request<T>({
@@ -319,6 +329,7 @@ export async function apiRequest<T>(
       data: body,
       headers,
       signal,
+      timeout: timeout ?? (isChat ? CHAT_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
       skipAuth: token === null,
       accessToken: token === undefined ? undefined : token,
     });
