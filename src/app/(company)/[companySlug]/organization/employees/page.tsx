@@ -401,7 +401,7 @@ export default function EmployeesPage({
             <Can resource="employees" action="create">
               <Button
                 size="sm"
-                variant={canStaffTeam ? "secondary" : "default"}
+                variant={canStaffTeam ? "secondary" : "primary"}
                 onClick={() => setShowInvite(true)}
               >
                 Invite person
