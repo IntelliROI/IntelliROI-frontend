@@ -15,8 +15,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { queryKeys } from "@/lib/api/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 export default function BudgetsPage({
   params,
@@ -25,8 +25,9 @@ export default function BudgetsPage({
 }) {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+    params.companySlug,
+  );
   const intel = resolveIntelligenceScope(user);
   const [limit, setLimit] = useState("");
   const [departmentId, setDepartmentId] = useState("");
@@ -92,10 +93,12 @@ export default function BudgetsPage({
     );
   }
 
-  const displayCurrency =
-    summary.data?.currency ||
-    budgets.data?.[0]?.currency ||
-    companyCurrency;
+  const spendMtd =
+    summary.data == null
+      ? 0
+      : summary.data.currency?.toUpperCase() === companyCurrency
+        ? summary.data.total_cost
+        : fromUsd(summary.data.total_cost);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -116,9 +119,9 @@ export default function BudgetsPage({
       <Mosaic cols={2} className="mb-px">
         <KpiTile
           label="Total spend MTD"
-          value={summary.data?.total_cost ?? 0}
+          value={spendMtd}
           format="currency"
-          currency={displayCurrency}
+          currency={companyCurrency}
         />
         <KpiTile
           label="Open budgets"
@@ -190,7 +193,7 @@ export default function BudgetsPage({
             { key: "pct", label: "Used", align: "right" },
           ]}
           rows={(budgets.data ?? []).map((b) => {
-            const cur = b.currency || displayCurrency;
+            const cur = b.currency || companyCurrency;
             return {
               scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
               limit: formatCurrency(b.monthly_limit, cur),

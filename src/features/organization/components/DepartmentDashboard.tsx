@@ -11,8 +11,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { formatCurrency } from "@/lib/utils";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
-import { useAuthStore } from "@/stores/auth-store";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -24,8 +23,7 @@ export function DepartmentDashboard({
   departmentId: number;
 }) {
   const [period, setPeriod] = useState<RoiPeriod>("month");
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
 
   const department = useQuery({
     queryKey: ["company", companySlug, "department", departmentId],

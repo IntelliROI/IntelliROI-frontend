@@ -23,7 +23,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { formatCurrency, formatNumber, formatRoiPercent } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
-import { AI_COST_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSetupHint";
 
 /** Analytics has no "week" period_type — fold week into day for that call. */
@@ -43,9 +43,9 @@ function sparkFromSeries(
  * Patterns: Advanced Stats hero + Efferd dense mosaic + Stripe rank bars.
  */
 export function CeoDashboard({ companySlug }: { companySlug: string }) {
-  const company = useAuthStore((s) => s.company);
   const user = useAuthStore((s) => s.user);
-  const companyCurrency = company?.currency || "INR";
+  const company = useAuthStore((s) => s.company);
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const [period, setPeriod] = useState<RoiPeriod>("month");
   const analyticsPeriod = toAnalyticsPeriod(period);
 
@@ -251,7 +251,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                   {p.provider}
                 </span>
                 <span className="font-mono text-[12px] text-text-primary">
-                  {formatCurrency(p.cost, AI_COST_CURRENCY)}
+                  {formatCurrency(fromUsd(p.cost), companyCurrency)}
                 </span>
               </li>
             ))}
@@ -297,8 +297,15 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
               : "Chat from AI Workspace with a project and task to populate Estimated ROI."}
           </InsightRow>
           <InsightRow tone="info" code="COST">
-            {formatCurrency(costs.data?.total_cost ?? roiData.total_spend, costs.data?.currency || AI_COST_CURRENCY)} AI
-            spend this period · {formatNumber(costs.data?.event_count ?? 0)}{" "}
+            {formatCurrency(
+              costs.data != null
+                ? costs.data.currency?.toUpperCase() === companyCurrency
+                  ? costs.data.total_cost
+                  : fromUsd(costs.data.total_cost)
+                : roiData.total_spend,
+              companyCurrency,
+            )}{" "}
+            AI spend this period · {formatNumber(costs.data?.event_count ?? 0)}{" "}
             cost events.
           </InsightRow>
           <InsightRow tone="info" code="REQ">
@@ -333,7 +340,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                 className="px-5 py-4"
               >
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-                  Save {formatCurrency(rec.impact_monthly_usd, AI_COST_CURRENCY)}/mo
+                  Save {formatCurrency(fromUsd(rec.impact_monthly_usd), companyCurrency)}/mo
                 </p>
                 <p className="mt-2 text-[13px] font-medium text-text-primary">
                   {rec.title}

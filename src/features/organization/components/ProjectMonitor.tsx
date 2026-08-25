@@ -12,8 +12,7 @@ import { TrendAreaChart } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
-import { useAuthStore } from "@/stores/auth-store";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 /**
  * Project-wise AI usage monitor — GET /analytics/project/:id.
@@ -27,8 +26,7 @@ export function ProjectMonitor({
   projectId: number;
 }) {
   const [period, setPeriod] = useState<"day" | "month">("month");
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
 
   const projectQuery = useQuery({
     queryKey: ["company", companySlug, "projects", projectId],
@@ -86,7 +84,7 @@ export function ProjectMonitor({
             <KpiTile label="Requests" value={a.requests} format="number" />
             <KpiTile
               label="AI spend"
-              value={a.total_cost}
+              value={fromUsd(a.total_cost)}
               format="currency"
               currency={companyCurrency}
             />

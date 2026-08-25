@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn, formatCurrency, formatNumber, formatRoiPercent } from "@/lib/utils";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 
 /** Animated number — spring-feel CountUp for KPI heroes. */
 export function CountUp({
   value,
   format = "raw",
-  currency = "INR",
+  currency = DEFAULT_CURRENCY,
   className,
   duration = 900,
 }: {

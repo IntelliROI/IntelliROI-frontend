@@ -13,7 +13,7 @@ import {
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import { AI_COST_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -66,6 +66,9 @@ export default function RecommendationsPage({
   params: { companySlug: string };
 }) {
   const [view, setView] = useState<ViewMode>("table");
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+    params.companySlug,
+  );
 
   const recommendations = useQuery({
     queryKey: ["company", params.companySlug, "roi", "recommendations"],
@@ -86,7 +89,7 @@ export default function RecommendationsPage({
     impact: (
       <span className="font-mono font-medium text-accent">
         {r.impact_monthly_usd > 0
-          ? formatCurrency(r.impact_monthly_usd, AI_COST_CURRENCY)
+          ? formatCurrency(fromUsd(r.impact_monthly_usd), companyCurrency)
           : "—"}
         {r.impact_monthly_usd > 0 ? (
           <span className="text-text-secondary/60">/mo</span>
@@ -114,7 +117,7 @@ export default function RecommendationsPage({
         value: (
           <span className="font-mono text-accent">
             {r.impact_monthly_usd > 0
-              ? formatCurrency(r.impact_monthly_usd, AI_COST_CURRENCY)
+              ? formatCurrency(fromUsd(r.impact_monthly_usd), companyCurrency)
               : "Setup"}
           </span>
         ),

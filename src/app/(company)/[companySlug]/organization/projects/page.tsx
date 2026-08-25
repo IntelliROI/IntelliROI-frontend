@@ -26,8 +26,7 @@ import { PROJECTS_IMPORT_TEMPLATE } from "@/features/organization/data/import-te
 import { Can } from "@/lib/rbac/Can";
 import { AddMemberAction, RowActions } from "@/components/ui/row-actions";
 import { formatCurrency } from "@/lib/utils";
-import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY, convertUsdToCompany } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import type { Project } from "@/features/organization/types";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
@@ -40,8 +39,9 @@ export default function ProjectsPage({
 }: {
   params: { companySlug: string };
 }) {
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+    params.companySlug,
+  );
   const [view, setView] = useState<ViewMode>("table");
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -148,7 +148,7 @@ export default function ProjectsPage({
     team: p.team_id ? teamMap[p.team_id] ?? p.team_id : "—",
     requests: analyticsById.get(p.id)?.requests ?? 0,
     spend: formatCurrency(
-      convertUsdToCompany(analyticsById.get(p.id)?.total_cost ?? 0, companyCurrency),
+      fromUsd(analyticsById.get(p.id)?.total_cost ?? 0),
       companyCurrency,
     ),
     roi: (

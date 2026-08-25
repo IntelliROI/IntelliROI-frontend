@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { cn, formatPercent } from "@/lib/utils";
 import { CountUp } from "@/components/dashboard/CountUp";
 import { Sparkline } from "@/components/dashboard/Sparkline";
@@ -31,7 +32,7 @@ export function MetricTile({
   label,
   value,
   format = "raw",
-  currency = "INR",
+  currency = DEFAULT_CURRENCY,
   delta,
   hint,
   spark,

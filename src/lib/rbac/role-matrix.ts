@@ -96,7 +96,8 @@ const matrix: Record<Role, PermissionMap> = {
    * No company settings, providers, dept management, job roles.
    */
   [ROLES.TEAM_LEAD]: {
-    teams: { view: true },
+    // edit = staff own team (Add/Remove member); create/delete stay owner/dept-manager
+    teams: { view: true, edit: true },
     employees: { view: true, edit: true },
     projects: { view: true, create: true, edit: true },
     workspace: { use: true, view: true },

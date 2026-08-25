@@ -9,11 +9,7 @@ import { useScopedAnalytics } from "@/features/organization/hooks/useOrganizatio
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { queryKeys } from "@/lib/api/query-keys";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import {
-  convertUsdToCompany,
-  DEFAULT_CURRENCY,
-} from "@/constants/locale";
-import { useAuthStore } from "@/stores/auth-store";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 export function ScopedAnalyticsView({
   companySlug,
@@ -26,8 +22,7 @@ export function ScopedAnalyticsView({
   scopeId?: number | string;
   title: string;
 }) {
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const analytics = useScopedAnalytics(companySlug, scope, scopeId);
   const models = useQuery({
     queryKey: queryKeys.company.analytics.models(companySlug),
@@ -45,7 +40,7 @@ export function ScopedAnalyticsView({
     );
   }
 
-  const spendLocal = convertUsdToCompany(a.total_cost, companyCurrency);
+  const spendLocal = fromUsd(a.total_cost);
 
   return (
     <div>
@@ -94,10 +89,7 @@ export function ScopedAnalyticsView({
                   <span>{m.model}</span>
                   <span className="font-mono text-text-secondary">
                     {m.requests} req ·{" "}
-                    {formatCurrency(
-                      convertUsdToCompany(m.cost, companyCurrency),
-                      companyCurrency,
-                    )}
+                    {formatCurrency(fromUsd(m.cost), companyCurrency)}
                   </span>
                 </li>
               ))}

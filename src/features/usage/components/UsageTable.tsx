@@ -6,17 +6,13 @@ import { ScopeUnassigned } from "@/components/feedback/ScopeUnassigned";
 import { useUsageRequests } from "@/features/usage/hooks/useUsage";
 import { encodeUsagePeriodId } from "@/features/usage/api/usage.api";
 import { formatCurrency } from "@/lib/utils";
-import {
-  convertUsdToCompany,
-  DEFAULT_CURRENCY,
-} from "@/constants/locale";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
 
 export function UsageTable({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const scope = resolveIntelligenceScope(user);
   const usage = useUsageRequests(companySlug);
 
@@ -50,10 +46,7 @@ export function UsageTable({ companySlug }: { companySlug: string }) {
           rows={(usage.data ?? []).map((r) => ({
             id: r.created_at || r.id,
             requests: r.requests.toLocaleString(),
-            cost: formatCurrency(
-              convertUsdToCompany(r.cost, companyCurrency),
-              companyCurrency,
-            ),
+            cost: formatCurrency(fromUsd(r.cost), companyCurrency),
             action: (
               <Link
                 href={`/${companySlug}/usage/${encodeUsagePeriodId(r.id)}`}

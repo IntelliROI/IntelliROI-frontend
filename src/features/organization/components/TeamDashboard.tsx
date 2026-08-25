@@ -3,20 +3,15 @@
 import { useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
-import { toast } from "sonner";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Mosaic } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
 import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { formatCurrency } from "@/lib/utils";
-import { Can } from "@/lib/rbac/Can";
-import { RemoveMemberAction, RowActions } from "@/components/ui/row-actions";
-import { useAuthStore } from "@/stores/auth-store";
-import { DEFAULT_CURRENCY } from "@/constants/locale";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
 
 export function TeamDashboard({
   companySlug,
@@ -27,11 +22,8 @@ export function TeamDashboard({
   departmentId: number;
   teamId: number;
 }) {
-  const [adding, setAdding] = useState(false);
-  const [memberUuid, setMemberUuid] = useState("");
   const [period, setPeriod] = useState<RoiPeriod>("month");
-  const companyCurrency =
-    useAuthStore((s) => s.company?.currency) || DEFAULT_CURRENCY;
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
 
   const teams = useQuery({
     queryKey: ["company", companySlug, "teams", departmentId],
@@ -59,79 +51,24 @@ export function TeamDashboard({
   if (teams.isLoading || roi.isLoading) return <LoadingBlock className="h-80" />;
 
   const team = teams.data?.find((t) => t.id === teamId);
-  const candidates = (employees.data ?? []).filter(
-    (e) => e.team_id !== teamId && e.status !== "invited",
-  );
-
-  async function addMember() {
-    if (!memberUuid) return;
-    try {
-      await organizationApi.addTeamMember(teamId, memberUuid);
-      await organizationApi.assignUser(memberUuid, {
-        department_id: departmentId,
-        team_id: teamId,
-      });
-      toast.success("Member added");
-      setMemberUuid("");
-      setAdding(false);
-      employees.refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Request failed");
-    }
-  }
-
-  async function removeMember(uuid: string, name: string) {
-    try {
-      await organizationApi.removeTeamMember(teamId, uuid);
-      await organizationApi.assignUser(uuid, { team_id: null });
-      toast.success(`Removed ${name}`);
-      employees.refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Request failed");
-    }
-  }
 
   return (
     <div>
       <PageHeader
         eyebrow="Team"
         title={team?.team_name ?? `Team ${teamId}`}
-        description="Staff your team, assign projects, then review Estimated ROI for the team scope. Owners/dept managers invite people; you add members already in the company."
+        description="Review Estimated ROI for your team. Add or remove members from Team Members."
         actions={
           <div className="flex items-center gap-2">
             <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
-            <Can resource="teams" action="edit">
-              <Button size="sm" onClick={() => setAdding((v) => !v)}>
-                {adding ? "Close" : "Add member"}
-              </Button>
-            </Can>
+            <Button asChild size="sm" variant="secondary">
+              <Link href={`/${companySlug}/organization/employees`}>
+                Team Members
+              </Link>
+            </Button>
           </div>
         }
       />
-
-      {adding && (
-        <div className="mb-6 flex flex-wrap items-end gap-3 border border-hairline p-4">
-          <div className="min-w-[16rem] flex-1">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-              Add to {team?.team_name ?? "team"}
-            </p>
-            <Select
-              value={memberUuid}
-              onChange={(e) => setMemberUuid(e.target.value)}
-            >
-              <option value="">Select employee</option>
-              {candidates.map((e) => (
-                <option key={e.uuid} value={e.uuid}>
-                  {e.display_name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button size="sm" disabled={!memberUuid} onClick={addMember}>
-            Add
-          </Button>
-        </div>
-      )}
 
       {roi.data ? (
         <Mosaic cols={4}>
@@ -152,12 +89,20 @@ export function TeamDashboard({
         </Mosaic>
       ) : (
         <p className="border border-hairline px-4 py-6 text-sm text-text-secondary">
-          Estimated ROI is unavailable — members can still be managed below.
+          Estimated ROI is unavailable for this period.
         </p>
       )}
 
       <div className="mt-8">
-        <h2 className="mb-4 font-medium text-text-primary">Members</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-medium text-text-primary">Members</h2>
+          <Link
+            href={`/${companySlug}/organization/employees`}
+            className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent hover:text-accent/70"
+          >
+            Manage members
+          </Link>
+        </div>
         <DataTable
           columns={[
             { key: "name", label: "Employee" },
@@ -180,19 +125,12 @@ export function TeamDashboard({
                 "—"
               ),
               action: (
-                <RowActions>
-                  <Can resource="teams" action="edit">
-                    <RemoveMemberAction
-                      onClick={() => removeMember(e.uuid, e.display_name)}
-                    />
-                  </Can>
-                  <Link
-                    href={`/${companySlug}/organization/employees/${e.uuid}`}
-                    className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent"
-                  >
-                    Profile
-                  </Link>
-                </RowActions>
+                <Link
+                  href={`/${companySlug}/organization/employees/${e.uuid}`}
+                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent"
+                >
+                  Profile
+                </Link>
               ),
             };
           })}

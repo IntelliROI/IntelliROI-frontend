@@ -15,7 +15,7 @@ import {
   type GridCard,
 } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select, Label } from "@/components/ui/input";
 import { ListFilterBar, ListPagination } from "@/components/ui/list-toolbar";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { useEmployeesPage } from "@/features/organization/hooks/useOrganizationQueries";
@@ -26,11 +26,16 @@ import { EntityImportPanel } from "@/features/organization/components/EntityImpo
 import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-templates";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
+import { RemoveMemberAction } from "@/components/ui/row-actions";
 import { Pencil, X } from "lucide-react";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ROLES } from "@/constants/roles";
+import { useCompanyCurrency } from "@/hooks/use-company-currency";
+import { useAuthStore } from "@/stores/auth-store";
+import { can } from "@/lib/rbac/role-matrix";
+
 
 type EmployeeStatusFilter = "" | "active" | "invited";
 
@@ -48,9 +53,23 @@ export default function EmployeesPage({
   params: { companySlug: string };
 }) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const permissions = useAuthStore((s) => s.user?.permissions);
+  const role = user?.role;
+  const isTeamLead = role === ROLES.TEAM_LEAD;
+  const myTeamId = user?.scope?.team_id ?? user?.team_id ?? null;
+  const myDepartmentId =
+    user?.scope?.department_id ?? user?.department_id ?? null;
+  const canStaffTeam =
+    can(role, "teams", "edit", permissions) && Boolean(myTeamId);
+
+  const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const [view, setView] = useState<ViewMode>("table");
   const [showImport, setShowImport] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [memberUuid, setMemberUuid] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
 
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search, 300);
@@ -96,7 +115,7 @@ export default function EmployeesPage({
   const allEmployees = useQuery({
     queryKey: queryKeys.company.employees(params.companySlug),
     queryFn: () => organizationApi.listEmployees(),
-    enabled: showInvite,
+    enabled: showInvite || showAddMember,
   });
   const teamsInDept = useMemo(
     () =>
@@ -105,6 +124,23 @@ export default function EmployeesPage({
         : (teams.data ?? []).filter((t) => t.department_id === departmentId),
     [teams.data, departmentId],
   );
+
+  const myTeamName = useMemo(() => {
+    if (!myTeamId) return null;
+    return (teams.data ?? []).find((t) => t.id === myTeamId)?.team_name ?? null;
+  }, [teams.data, myTeamId]);
+
+  const addCandidates = useMemo(() => {
+    if (!myTeamId) return [];
+    return (allEmployees.data ?? []).filter(
+      (e) =>
+        e.team_id !== myTeamId &&
+        e.status !== "invited" &&
+        (myDepartmentId == null ||
+          e.department_id == null ||
+          e.department_id === myDepartmentId),
+    );
+  }, [allEmployees.data, myTeamId, myDepartmentId]);
 
   // org list endpoint doesn't compute spend/ROI — overlay live figures from roi-engine.
   const activeEmployees = items.filter((e) => e.status !== "invited");
@@ -119,6 +155,55 @@ export default function EmployeesPage({
   const roiById = new Map(
     activeEmployees.map((e, i) => [e.id, employeeRoi[i]?.data]),
   );
+
+  async function invalidateEmployees() {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.company.employees(params.companySlug),
+    });
+    void employees.refetch();
+  }
+
+  async function addMemberToTeam() {
+    if (!memberUuid || !myTeamId) return;
+    setAddingMember(true);
+    try {
+      await organizationApi.assignUser(memberUuid, {
+        department_id: myDepartmentId || undefined,
+        team_id: myTeamId,
+      });
+      try {
+        await organizationApi.addTeamMember(myTeamId, memberUuid);
+      } catch {
+        // already a member after assignUser
+      }
+      toast.success("Member added to team");
+      setMemberUuid("");
+      setShowAddMember(false);
+      await invalidateEmployees();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add member");
+    } finally {
+      setAddingMember(false);
+    }
+  }
+
+  async function removeFromTeam(uuid: string, name: string) {
+    if (!myTeamId) return;
+    try {
+      await organizationApi.assignUser(uuid, { team_id: null });
+      try {
+        await organizationApi.removeTeamMember(myTeamId, uuid);
+      } catch {
+        // already cleared
+      }
+      toast.success(`Removed ${name} from team`);
+      await invalidateEmployees();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not remove member",
+      );
+    }
+  }
 
   const errorMessage =
     employees.error instanceof Error
@@ -148,7 +233,7 @@ export default function EmployeesPage({
               {e.hourly_cost > 0 ? (
                 <span className="font-mono text-text-secondary/50">
                   {" "}
-                  · {formatCurrency(e.hourly_cost, e.currency)}/hr
+                  · {formatCurrency(e.hourly_cost, companyCurrency)}/hr
                 </span>
               ) : null}
             </>
@@ -168,7 +253,11 @@ export default function EmployeesPage({
       ),
       spend: (
         <span className="font-mono text-[12px] text-text-secondary">
-          {formatCurrency(roiById.get(e.id)?.total_spend ?? e.spend, e.currency, true)}
+          {formatCurrency(
+            roiById.get(e.id)?.total_spend ?? e.spend,
+            companyCurrency,
+            true,
+          )}
         </span>
       ),
       roi: (
@@ -183,6 +272,11 @@ export default function EmployeesPage({
               email={e.email}
               displayName={e.display_name}
               compact
+            />
+          ) : null}
+          {canStaffTeam && myTeamId && e.team_id === myTeamId && !pending ? (
+            <RemoveMemberAction
+              onClick={() => removeFromTeam(e.uuid, e.display_name)}
             />
           ) : null}
           <Can resource="employees" action="edit">
@@ -235,7 +329,7 @@ export default function EmployeesPage({
           label: "Rate",
           value:
             e.hourly_cost > 0
-              ? `${formatCurrency(e.hourly_cost, e.currency)}/hr`
+              ? `${formatCurrency(e.hourly_cost, companyCurrency)}/hr`
               : "—",
         },
       ],
@@ -246,6 +340,11 @@ export default function EmployeesPage({
               email={e.email}
               displayName={e.display_name}
               compact
+            />
+          ) : null}
+          {canStaffTeam && myTeamId && e.team_id === myTeamId && !pending ? (
+            <RemoveMemberAction
+              onClick={() => removeFromTeam(e.uuid, e.display_name)}
             />
           ) : null}
           <Can resource="employees" action="edit">
@@ -275,9 +374,13 @@ export default function EmployeesPage({
   return (
     <div>
       <PageHeader
-        eyebrow="Organization"
-        title="Employees"
-        description="Each employee resolves to company → department → team → job role for Estimated ROI. Pending means they have not set a password yet."
+        eyebrow={isTeamLead ? "Team" : "Organization"}
+        title={isTeamLead ? "Team Members" : "Employees"}
+        description={
+          isTeamLead
+            ? "Staff your team, review spend and Estimated ROI, then open a profile for detail. Owners invite people; you add colleagues already in the company."
+            : "Each employee resolves to company → department → team → job role for Estimated ROI. Pending means they have not set a password yet."
+        }
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
@@ -290,8 +393,17 @@ export default function EmployeesPage({
                 {showImport ? "Close import" : "Import CSV"}
               </Button>
             </Can>
+            {canStaffTeam ? (
+              <Button size="sm" onClick={() => setShowAddMember(true)}>
+                Add member
+              </Button>
+            ) : null}
             <Can resource="employees" action="create">
-              <Button size="sm" onClick={() => setShowInvite(true)}>
+              <Button
+                size="sm"
+                variant={canStaffTeam ? "secondary" : "default"}
+                onClick={() => setShowInvite(true)}
+              >
                 Invite person
               </Button>
             </Can>
@@ -299,10 +411,108 @@ export default function EmployeesPage({
         }
       />
 
+      {showAddMember ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16 sm:pt-20"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-member-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddMember(false);
+              setMemberUuid("");
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md border border-hairline bg-ink shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between border-b border-hairline bg-surface-2/40 px-5 py-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
+                  Team
+                </p>
+                <h2
+                  id="add-member-title"
+                  className="text-lg font-medium text-text-primary"
+                >
+                  Add member
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddMember(false);
+                  setMemberUuid("");
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center text-text-secondary hover:text-text-primary"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm text-text-secondary">
+                Pick someone already in your department, then add them to{" "}
+                <span className="text-text-primary">
+                  {myTeamName ?? "your team"}
+                </span>
+                .
+              </p>
+              <div>
+                <Label htmlFor="add-team-member">Employee</Label>
+                <Select
+                  id="add-team-member"
+                  value={memberUuid}
+                  onChange={(e) => setMemberUuid(e.target.value)}
+                >
+                  <option value="">Select employee</option>
+                  {addCandidates.map((e) => (
+                    <option key={e.uuid} value={e.uuid}>
+                      {e.display_name}
+                      {e.team_name && e.team_name !== "—"
+                        ? ` · ${e.team_name}`
+                        : ""}
+                    </option>
+                  ))}
+                </Select>
+                {allEmployees.isLoading ? (
+                  <p className="mt-2 text-xs text-text-secondary">
+                    Loading people…
+                  </p>
+                ) : addCandidates.length === 0 ? (
+                  <p className="mt-2 text-xs text-text-secondary">
+                    No available people in your department. Ask an owner or
+                    manager to invite them first.
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowAddMember(false);
+                    setMemberUuid("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!memberUuid || addingMember}
+                  onClick={() => void addMemberToTeam()}
+                >
+                  {addingMember ? "Adding…" : "Add to team"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showInvite ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16 sm:pt-20">
-          <div className="relative w-full max-w-2xl border border-hairline bg-surface-2 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
+          <div className="relative w-full max-w-2xl border border-hairline bg-ink shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between border-b border-hairline bg-surface-2/40 px-5 py-4">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
                   Invite
@@ -455,11 +665,21 @@ export default function EmployeesPage({
         </div>
       ) : empty ? (
         <EmptyState
-          title={hasFilters ? "No employees match" : "No employees yet"}
+          title={
+            hasFilters
+              ? isTeamLead
+                ? "No members match"
+                : "No employees match"
+              : isTeamLead
+                ? "No team members yet"
+                : "No employees yet"
+          }
           description={
             hasFilters
               ? "Try a different search, status, department, or team filter."
-              : "Add an employee to start attributing AI usage."
+              : isTeamLead
+                ? "Add a colleague already in the company, or ask an owner to invite someone new."
+                : "Add an employee to start attributing AI usage."
           }
         />
       ) : (
