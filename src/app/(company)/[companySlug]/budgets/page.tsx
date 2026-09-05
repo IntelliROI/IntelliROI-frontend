@@ -9,6 +9,8 @@ import { Mosaic, Panel } from "@/components/ui/panel";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import type { Budget } from "@/features/cost/api/cost.api";
 import { costApi } from "@/features/cost/api/cost.api";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { formatCurrency } from "@/lib/utils";
@@ -32,6 +34,10 @@ export default function BudgetsPage({
   const [limit, setLimit] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [alertPct, setAlertPct] = useState("80");
+  const [editing, setEditing] = useState<Budget | null>(null);
+  const [editLimit, setEditLimit] = useState("");
+  const [editAlertPct, setEditAlertPct] = useState("");
+  const [deleting, setDeleting] = useState<Budget | null>(null);
 
   const budgets = useQuery({
     queryKey: queryKeys.company.budgets(params.companySlug),
@@ -80,6 +86,46 @@ export default function BudgetsPage({
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Could not create budget");
+    },
+  });
+
+  const update = useMutation({
+    mutationFn: (input: { id: number; monthly_limit: number; alert_percentage: number }) =>
+      costApi.updateBudget(input.id, {
+        monthly_limit: input.monthly_limit,
+        alert_percentage: input.alert_percentage,
+      }),
+    onSuccess: async () => {
+      toast.success("Budget updated");
+      setEditing(null);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.budgets(params.companySlug),
+      });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not update budget — this action may not be supported yet",
+      );
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => costApi.deleteBudget(id),
+    onSuccess: async () => {
+      toast.success("Budget deleted");
+      setDeleting(null);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.budgets(params.companySlug),
+      });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not delete budget — this action may not be supported yet",
+      );
     },
   });
 
@@ -191,6 +237,7 @@ export default function BudgetsPage({
             { key: "limit", label: "Limit", align: "right" },
             { key: "consumed", label: "Consumed", align: "right" },
             { key: "pct", label: "Used", align: "right" },
+            { key: "action", label: "", align: "right", width: "w-40" },
           ]}
           rows={(budgets.data ?? []).map((b) => {
             const rawCur = (b.currency || "").toUpperCase();
@@ -208,10 +255,124 @@ export default function BudgetsPage({
               limit: formatCurrency(limit, companyCurrency),
               consumed: formatCurrency(consumed, companyCurrency),
               pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
+              action: (
+                <Can resource="budgets" action="manage">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setEditing(b);
+                        setEditLimit(String(b.monthly_limit));
+                        setEditAlertPct("80");
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => setDeleting(b)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </Can>
+              ),
             };
           })}
         />
       )}
+
+      <Modal
+        open={editing != null}
+        onClose={() => setEditing(null)}
+        eyebrow="Cost"
+        title="Edit budget"
+        description="Update the monthly limit or alert threshold for this budget."
+        size="sm"
+      >
+        {editing ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editLimit || Number(editLimit) <= 0) {
+                toast.error("Enter a monthly limit");
+                return;
+              }
+              update.mutate({
+                id: editing.id,
+                monthly_limit: Number(editLimit),
+                alert_percentage: Number(editAlertPct) || 80,
+              });
+            }}
+            className="space-y-3"
+          >
+            <Label htmlFor="edit_limit">Monthly limit ({companyCurrency})</Label>
+            <Input
+              id="edit_limit"
+              type="number"
+              min={1}
+              value={editLimit}
+              onChange={(e) => setEditLimit(e.target.value)}
+            />
+            <Label htmlFor="edit_alert_pct">Alert %</Label>
+            <Input
+              id="edit_alert_pct"
+              type="number"
+              min={1}
+              max={100}
+              value={editAlertPct}
+              onChange={(e) => setEditAlertPct(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={update.isPending}>
+                {update.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={deleting != null}
+        onClose={() => setDeleting(null)}
+        eyebrow="Cost"
+        title="Delete budget"
+        description="This removes the spend limit for this scope. Consumption history is not affected."
+        size="sm"
+      >
+        {deleting ? (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Delete the {deleting.scope}
+              {deleting.scope_id ? ` #${deleting.scope_id}` : ""} budget of{" "}
+              {formatCurrency(deleting.monthly_limit, deleting.currency || companyCurrency)}?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(deleting.id)}
+              >
+                {remove.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <Panel className="mt-px border-0 bg-ink p-6">
         <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.18em] text-text-secondary">

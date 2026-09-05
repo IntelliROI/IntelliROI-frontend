@@ -5,6 +5,7 @@ import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/State
 import { ScopeUnassigned } from "@/components/feedback/ScopeUnassigned";
 import { useUsageRequests } from "@/features/usage/hooks/useUsage";
 import { encodeUsagePeriodId } from "@/features/usage/api/usage.api";
+import { UsageBreakdown } from "@/features/usage/components/UsageBreakdown";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
@@ -31,8 +32,10 @@ export function UsageTable({ companySlug }: { companySlug: string }) {
       <PageHeader
         eyebrow="Metering"
         title="Usage"
-        description="Daily AI request totals from analytics snapshots after gateway → cost → ROI workers run."
+        description="Daily AI request totals from analytics snapshots after gateway → cost → ROI workers run. Attribution breakdown below shows who/where that spend is coming from."
       />
+      <UsageBreakdown companySlug={companySlug} scope={scope} />
+      <h2 className="mb-4 mt-8 font-medium text-text-primary">By day</h2>
       {usage.isLoading ? (
         <LoadingBlock className="h-48" />
       ) : (

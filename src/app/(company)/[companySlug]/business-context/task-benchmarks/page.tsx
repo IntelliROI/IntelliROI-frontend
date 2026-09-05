@@ -34,6 +34,11 @@ export default function TaskBenchmarksPage({
     estimated_minutes_saved: "",
     confidence_score: "70",
   });
+  const [editing, setEditing] = useState<null | {
+    id: number;
+    estimated_minutes_saved: string;
+    confidence_score: string;
+  }>(null);
 
   const benchmarks = useQuery({
     queryKey: ["company", params.companySlug, "benchmarks"],
@@ -69,6 +74,22 @@ export default function TaskBenchmarksPage({
       toast.success("Category created");
       setCategoryName("");
       categories.refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Request failed");
+    }
+  }
+
+  async function onSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    try {
+      await businessContextApi.updateBenchmark(editing.id, {
+        estimated_minutes_saved: Number(editing.estimated_minutes_saved),
+        confidence_score: Number(editing.confidence_score) || 0,
+      });
+      toast.success("Benchmark updated");
+      setEditing(null);
+      benchmarks.refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Request failed");
     }
@@ -134,6 +155,19 @@ export default function TaskBenchmarksPage({
     action: (
       <Can resource="benchmarks" action="approve">
         <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              setEditing({
+                id: b.id,
+                estimated_minutes_saved: String(b.estimated_minutes_saved),
+                confidence_score: String(b.confidence_score),
+              })
+            }
+          >
+            Edit
+          </Button>
           {b.status === "pending" ? (
             <>
               <Button
@@ -324,6 +358,60 @@ export default function TaskBenchmarksPage({
             </Button>
           </form>
         </div>
+      </Modal>
+
+      <Modal
+        open={editing != null}
+        onClose={() => setEditing(null)}
+        eyebrow="Business context"
+        title="Edit benchmark"
+        description="Update minutes saved or confidence for this task/job-role pair."
+        size="sm"
+      >
+        {editing ? (
+          <form onSubmit={onSaveEdit} className="space-y-3">
+            <Label>Estimated minutes saved</Label>
+            <Input
+              type="number"
+              min={1}
+              step="0.5"
+              value={editing.estimated_minutes_saved}
+              onChange={(e) =>
+                setEditing((cur) =>
+                  cur
+                    ? { ...cur, estimated_minutes_saved: e.target.value }
+                    : cur,
+                )
+              }
+              required
+            />
+            <Label>Confidence (0–100)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={editing.confidence_score}
+              onChange={(e) =>
+                setEditing((cur) =>
+                  cur ? { ...cur, confidence_score: e.target.value } : cur,
+                )
+              }
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm">
+                Save changes
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </Modal>
 
       {benchmarks.isLoading ? (

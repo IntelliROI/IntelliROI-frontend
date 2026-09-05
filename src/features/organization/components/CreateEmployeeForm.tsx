@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ROLES, ROLE_LABELS, type Role } from "@/constants/roles";
@@ -52,6 +53,7 @@ export function CreateEmployeeForm({
   managers = [],
   onSubmit,
   submitLabel = "Send invite",
+  companySlug,
   allowedRoles,
   defaultDepartmentId,
   defaultTeamId,
@@ -121,6 +123,12 @@ export function CreateEmployeeForm({
     }
     if (teamRequired && !form.team_id) {
       setError("Team is required to seat a Team Lead");
+      return;
+    }
+    if (jobRoles.length > 0 && !form.job_role_id) {
+      setError(
+        "Job role is required — it sets the hourly cost used to compute Estimated ROI.",
+      );
       return;
     }
     const parsed = employeeSchema.safeParse({
@@ -357,21 +365,49 @@ export function CreateEmployeeForm({
               </Select>
             </div>
           ) : null}
-          <div className="space-y-2">
-            <Label>Job role (optional)</Label>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>{jobRoles.length > 0 ? "Job role *" : "Job role"}</Label>
             <Select
               value={form.job_role_id}
               onChange={(e) =>
                 setForm((f) => ({ ...f, job_role_id: e.target.value }))
               }
+              required={jobRoles.length > 0}
+              disabled={jobRoles.length === 0}
             >
-              <option value="">Select job role</option>
+              <option value="">
+                {jobRoles.length === 0
+                  ? "No job roles yet — create one first"
+                  : "Select job role"}
+              </option>
               {jobRoles.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.role_name} · {r.currency} {r.hourly_cost}/hr
                 </option>
               ))}
             </Select>
+            {jobRoles.length === 0 ? (
+              <p className="text-xs text-danger">
+                No job roles exist yet. Estimated ROI cannot be calculated for
+                this person until one is assigned.{" "}
+                {companySlug ? (
+                  <Link
+                    href={`/${companySlug}/organization/job-roles`}
+                    className="text-accent underline-offset-2 hover:underline"
+                  >
+                    Create a job role
+                  </Link>
+                ) : (
+                  "Create one under Organization → Job Roles."
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-text-secondary/70">
+                Sets the hourly cost used to compute Estimated ROI. Required
+                for anyone who will use the AI Workspace — without it,
+                Estimated ROI stays at 0 for this person.
+              </p>
+            )}
           </div>
           {showReportsTo ? (
             <div className="space-y-2">

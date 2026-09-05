@@ -12,7 +12,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Panel } from "@/components/ui/panel";
-import { policiesApi, type CreatePolicyInput } from "@/features/ai-gateway/api/policies.api";
+import { Modal } from "@/components/ui/modal";
+import {
+  policiesApi,
+  type AiPolicy,
+  type CreatePolicyInput,
+} from "@/features/ai-gateway/api/policies.api";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { queryKeys } from "@/lib/api/query-keys";
@@ -25,6 +30,13 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
     effect: "deny" as CreatePolicyInput["effect"],
     department_id: "",
     team_id: "",
+    provider_id: "",
+    model_id: "",
+    daily_token_cap: "",
+  });
+  const [editing, setEditing] = useState<AiPolicy | null>(null);
+  const [editForm, setEditForm] = useState({
+    effect: "deny" as CreatePolicyInput["effect"],
     provider_id: "",
     model_id: "",
     daily_token_cap: "",
@@ -88,6 +100,61 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
       toast.error(err instanceof Error ? err.message : "Could not create policy");
     },
   });
+
+  const update = useMutation({
+    mutationFn: (input: CreatePolicyInput) =>
+      policiesApi.update(editing!.id, input),
+    onSuccess: async () => {
+      toast.success("Policy updated");
+      setEditing(null);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.policies(companySlug),
+      });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Could not update policy — this action may not be supported yet",
+      );
+    },
+  });
+
+  function openEdit(p: AiPolicy) {
+    setEditing(p);
+    setEditForm({
+      effect: p.effect,
+      provider_id: p.provider_id ? String(p.provider_id) : "",
+      model_id: p.model_id ? String(p.model_id) : "",
+      daily_token_cap: p.daily_token_cap ? String(p.daily_token_cap) : "",
+    });
+  }
+
+  function onSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    // Backend PATCH /policies/:id is a full replace, so scope_type and
+    // department_id/team_id must be preserved from the original policy —
+    // omitting them 400s (scope_type/effect are required) or silently wipes
+    // the rule's scope.
+    update.mutate({
+      scope_type: editing.scope_type,
+      department_id: editing.department_id,
+      team_id: editing.team_id,
+      status: editing.status,
+      effect: editForm.effect,
+      provider_id: editForm.provider_id ? Number(editForm.provider_id) : undefined,
+      model_id: editForm.model_id ? Number(editForm.model_id) : undefined,
+      daily_token_cap: editForm.daily_token_cap
+        ? Number(editForm.daily_token_cap)
+        : undefined,
+    });
+  }
+
+  const editSelectedProvider = (providers.data ?? []).find(
+    (p) => String(p.id) === editForm.provider_id,
+  );
+  const editModelOptions = editSelectedProvider?.model_entries ?? [];
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -284,6 +351,14 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
             status: p.status,
             action: (
               <Can resource="policies" action="manage">
+                <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => openEdit(p)}
+                >
+                  Edit
+                </Button>
                 <Button
                   size="sm"
                   variant="danger"
@@ -301,11 +376,107 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
                 >
                   Delete
                 </Button>
+                </div>
               </Can>
             ),
           }))}
         />
       )}
+
+      <Modal
+        open={editing != null}
+        onClose={() => setEditing(null)}
+        eyebrow="Governance"
+        title="Edit policy"
+        description="Update effect, provider/model, or the daily token cap for this rule."
+        size="md"
+      >
+        {editing ? (
+          <form onSubmit={onSaveEdit} className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="edit_effect">Effect</Label>
+              <Select
+                id="edit_effect"
+                value={editForm.effect}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    effect: e.target.value as CreatePolicyInput["effect"],
+                  }))
+                }
+              >
+                <option value="deny">Deny</option>
+                <option value="allow">Allow</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit_provider_id">Provider</Label>
+              <Select
+                id="edit_provider_id"
+                value={editForm.provider_id}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    provider_id: e.target.value,
+                    model_id: "",
+                  }))
+                }
+              >
+                <option value="">Any</option>
+                {(providers.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.display_name || p.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit_model_id">Model</Label>
+              <Select
+                id="edit_model_id"
+                value={editForm.model_id}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, model_id: e.target.value }))
+                }
+                disabled={!editForm.provider_id}
+              >
+                <option value="">Any</option>
+                {editModelOptions.map((m) => (
+                  <option key={m.id || m.name} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit_daily_token_cap">Daily token cap (employee)</Label>
+              <Input
+                id="edit_daily_token_cap"
+                type="number"
+                min={1}
+                placeholder="Optional"
+                value={editForm.daily_token_cap}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, daily_token_cap: e.target.value }))
+                }
+              />
+            </div>
+            <div className="col-span-full flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={update.isPending}>
+                {update.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
     </div>
   );
 }
