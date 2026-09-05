@@ -96,4 +96,19 @@ export const policiesApi = {
   async remove(id: number): Promise<void> {
     await apiRequest("ai", `/policies/${id}`, { method: "DELETE" });
   },
+
+  /**
+   * Update an existing policy rule. The backend PATCH is a full replace — it
+   * requires scope_type/effect (and department_id/team_id for scoped rules)
+   * on every call, not just the changed fields. Callers must pass the full
+   * policy shape (see PoliciesGovernance.openEdit/onSaveEdit), preserving the
+   * original scope, so unrelated fields aren't wiped out by the replace.
+   */
+  async update(id: number, input: CreatePolicyInput): Promise<AiPolicy> {
+    const raw = await apiRequest<PolicyDto>("ai", `/policies/${id}`, {
+      method: "PATCH",
+      body: toBody(input),
+    });
+    return toPolicy(raw);
+  },
 };

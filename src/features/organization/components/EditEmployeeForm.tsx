@@ -189,20 +189,32 @@ export function EditEmployeeForm({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Job role</Label>
+          <Label>{jobRoles.length > 0 ? "Job role *" : "Job role"}</Label>
           <Select
             value={form.job_role_id}
             onChange={(e) =>
               setForm((f) => ({ ...f, job_role_id: e.target.value }))
             }
           >
-            <option value="">No job role</option>
+            <option value="">
+              {jobRoles.length === 0 ? "No job roles created yet" : "No job role"}
+            </option>
             {jobRoles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.role_name} · {r.currency} {r.hourly_cost}/hr
               </option>
             ))}
           </Select>
+          {!form.job_role_id ? (
+            <p className="text-xs text-danger">
+              Estimated ROI stays at 0 for this person until a job role
+              (hourly cost) is assigned.
+            </p>
+          ) : (
+            <p className="text-xs text-text-secondary/70">
+              Hourly cost used to compute Estimated ROI.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Manager</Label>

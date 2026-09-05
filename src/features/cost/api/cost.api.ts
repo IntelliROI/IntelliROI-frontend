@@ -169,6 +169,31 @@ export const costApi = {
     return toBudget(raw);
   },
 
+  /**
+   * Update a budget's monthly limit / alert threshold.
+   * Backend PATCH contract is unconfirmed — callers should catch and surface
+   * a clear error toast rather than assume success.
+   */
+  async updateBudget(
+    id: number,
+    patch: { monthly_limit?: number; alert_percentage?: number },
+  ): Promise<Budget> {
+    const raw = await apiRequest<BudgetDto>("cost", `/budgets/${id}`, {
+      method: "PATCH",
+      body: patch,
+    });
+    return toBudget(raw);
+  },
+
+  /**
+   * Delete a budget.
+   * Backend DELETE contract is unconfirmed — callers should catch and surface
+   * a clear error toast rather than assume success.
+   */
+  async deleteBudget(id: number): Promise<void> {
+    await apiRequest("cost", `/budgets/${id}`, { method: "DELETE" });
+  },
+
   async costAlerts(): Promise<CostAlert[]> {
     const raw = await apiRequest<AlertDto[]>(
       "cost",

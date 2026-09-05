@@ -48,6 +48,15 @@ function cell(value?: string | null) {
   return text;
 }
 
+/** Missing job role silently zeroes Estimated ROI — make it visible, not a blank dash. */
+function JobRoleNotSetBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 border border-warning/30 bg-warning/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warning">
+      Not set
+    </span>
+  );
+}
+
 export default function EmployeesPage({
   params,
 }: {
@@ -117,11 +126,21 @@ export default function EmployeesPage({
     queryKey: queryKeys.company.jobRoles(params.companySlug),
     queryFn: () => organizationApi.listJobRoles(),
   });
+  // Also powers the "missing job role" banner below — kept unconditional so
+  // the CEO sees setup gaps without opening Invite/Add member first. Shares
+  // its cache with those modals (same query key), so no duplicate fetch.
   const allEmployees = useQuery({
     queryKey: queryKeys.company.employees(params.companySlug),
     queryFn: () => organizationApi.listEmployees(),
-    enabled: showInvite || showAddMember,
   });
+
+  const missingJobRoleCount = useMemo(
+    () =>
+      (allEmployees.data ?? []).filter(
+        (e) => !e.job_role_name || e.job_role_name === "—",
+      ).length,
+    [allEmployees.data],
+  );
   const teamsInDept = useMemo(
     () =>
       departmentId === ""
@@ -243,7 +262,7 @@ export default function EmployeesPage({
               ) : null}
             </>
           ) : (
-            cell(null)
+            <JobRoleNotSetBadge />
           )}
         </span>
       ),
@@ -321,7 +340,15 @@ export default function EmployeesPage({
       ),
       metrics: [
         { label: "ID", value: cell(e.employee_code) },
-        { label: "Role", value: <span className="text-[12px]">{cell(e.job_role_name)}</span> },
+        {
+          label: "Role",
+          value:
+            e.job_role_name && e.job_role_name !== "—" ? (
+              <span className="text-[12px]">{e.job_role_name}</span>
+            ) : (
+              <JobRoleNotSetBadge />
+            ),
+        },
         {
           label: "Est. ROI",
           value: (
@@ -548,6 +575,26 @@ export default function EmployeesPage({
           }}
         />
       )}
+
+      {missingJobRoleCount > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-0 border-l-2 border-l-warning bg-warning/5 px-4 py-3">
+          <p className="text-[13px] text-text-primary">
+            <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.14em] text-warning">
+              Setup gap
+            </span>
+            {missingJobRoleCount}{" "}
+            {missingJobRoleCount === 1 ? "person" : "people"} have no job role
+            assigned — Estimated ROI will show 0% for their AI usage until
+            it&apos;s set.
+          </p>
+          <Link
+            href={`/${params.companySlug}/organization/job-roles`}
+            className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:underline"
+          >
+            Manage job roles
+          </Link>
+        </div>
+      ) : null}
 
       <ListFilterBar
         search={search}

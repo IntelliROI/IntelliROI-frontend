@@ -16,6 +16,7 @@ import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { TrendAreaChart, ProviderDonut } from "@/components/charts/Charts";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { costApi } from "@/features/cost/api/cost.api";
@@ -340,7 +341,9 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                 className="px-5 py-4"
               >
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-                  Save {formatCurrency(fromUsd(rec.impact_monthly_usd), companyCurrency)}/mo
+                  {rec.impact_monthly_usd > 0
+                    ? `Save ${formatCurrency(fromUsd(rec.impact_monthly_usd), companyCurrency)}/mo`
+                    : "Setup"}
                 </p>
                 <p className="mt-2 text-[13px] font-medium text-text-primary">
                   {rec.title}
@@ -351,9 +354,17 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                 <div className="mt-3 flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() =>
-                      roiApi.updateRecommendation(rec.id, "accepted")
-                    }
+                    onClick={async () => {
+                      try {
+                        await roiApi.updateRecommendation(rec.id, "accepted");
+                        toast.success("Accepted");
+                        recommendations.refetch();
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Request failed",
+                        );
+                      }
+                    }}
                   >
                     <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Accept
@@ -361,9 +372,17 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() =>
-                      roiApi.updateRecommendation(rec.id, "dismissed")
-                    }
+                    onClick={async () => {
+                      try {
+                        await roiApi.updateRecommendation(rec.id, "dismissed");
+                        toast.message("Dismissed");
+                        recommendations.refetch();
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Request failed",
+                        );
+                      }
+                    }}
                   >
                     <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Dismiss
