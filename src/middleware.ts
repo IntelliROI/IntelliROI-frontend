@@ -41,11 +41,15 @@ function isApiProxy(pathname: string): boolean {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (
-    isApiProxy(pathname) ||
-    isStaticAsset(pathname) ||
-    isPublicPath(pathname)
-  ) {
+  if (isApiProxy(pathname)) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("ngrok-skip-browser-warning", "true");
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+  }
+
+  if (isStaticAsset(pathname) || isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
@@ -102,6 +106,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api-proxy/:path*",
     "/((?!_next/static|_next/image|favicon.ico|api-proxy|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
