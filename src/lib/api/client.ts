@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-import { services, type ServiceKey } from "@/config/site";
+import { services, shouldUseApiProxy, type ServiceKey } from "@/config/site";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   EMPTY_PAGE_META,
@@ -199,6 +199,9 @@ async function refreshAccessToken(): Promise<string | null> {
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
+            ...(shouldUseApiProxy() || services.auth.includes("ngrok")
+              ? { "ngrok-skip-browser-warning": "true" }
+              : {}),
           },
         },
       );
@@ -255,6 +258,11 @@ function createClient(service: ServiceKey, baseURL: string): AxiosInstance {
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+    }
+
+    const target = `${config.baseURL ?? ""}${config.url ?? ""}`;
+    if (shouldUseApiProxy() || target.includes("ngrok")) {
+      config.headers.set("ngrok-skip-browser-warning", "true");
     }
 
     return config;
