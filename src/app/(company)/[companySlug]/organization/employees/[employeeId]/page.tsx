@@ -138,6 +138,17 @@ export default function EmployeeDetailPage({
         <ChevronLeft className="h-3 w-3" strokeWidth={1.75} />
         Employees
       </Link>
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-hairline bg-surface font-mono text-[13px] font-medium text-accent">
+          {`${employee.first_name.slice(0, 1)}${employee.last_name.slice(0, 1)}`.toUpperCase()}
+        </div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary">
+          {pending ? "Pending invite" : "Active"}
+          {employee.team_name && employee.team_name !== "—"
+            ? ` · ${employee.team_name}`
+            : ""}
+        </p>
+      </div>
       <PageHeader
         eyebrow="Organization · Employee"
         title={employee.display_name}

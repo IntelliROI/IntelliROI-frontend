@@ -145,9 +145,10 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
       effect: editForm.effect,
       provider_id: editForm.provider_id ? Number(editForm.provider_id) : undefined,
       model_id: editForm.model_id ? Number(editForm.model_id) : undefined,
-      daily_token_cap: editForm.daily_token_cap
-        ? Number(editForm.daily_token_cap)
-        : undefined,
+      daily_token_cap:
+        editForm.effect === "allow" && editForm.daily_token_cap
+          ? Number(editForm.daily_token_cap)
+          : undefined,
     });
   }
 
@@ -174,9 +175,10 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
       team_id: form.scope_type === "team" ? Number(form.team_id) : undefined,
       provider_id: form.provider_id ? Number(form.provider_id) : undefined,
       model_id: form.model_id ? Number(form.model_id) : undefined,
-      daily_token_cap: form.daily_token_cap
-        ? Number(form.daily_token_cap)
-        : undefined,
+      daily_token_cap:
+        form.effect === "allow" && form.daily_token_cap
+          ? Number(form.daily_token_cap)
+          : undefined,
     });
   }
 
@@ -185,7 +187,7 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
       <PageHeader
         eyebrow="Governance"
         title="AI Policies"
-        description="Allow or deny providers and models by company, department, or team. Most specific scope wins. Chat returns 403 POLICY_DENIED when a rule blocks the request."
+        description="Allow or deny providers and models by company, department, or team. Most specific scope wins. An optional daily token cap applies to each person in that scope — not as a shared pool. Chat returns 403 POLICY_DENIED when a rule blocks the request."
       />
 
       <Can resource="policies" action="manage">
@@ -210,6 +212,10 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
                 <option value="department">Department</option>
                 <option value="team">Team</option>
               </Select>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary/70">
+                Who this rule applies to. Team beats department; department
+                beats company.
+              </p>
             </div>
             <div>
               <Label htmlFor="effect">Effect</Label>
@@ -220,6 +226,8 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
                   setForm((f) => ({
                     ...f,
                     effect: e.target.value as CreatePolicyInput["effect"],
+                    daily_token_cap:
+                      e.target.value === "deny" ? "" : f.daily_token_cap,
                   }))
                 }
               >
@@ -298,19 +306,35 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
                 ))}
               </Select>
             </div>
-            <div>
-              <Label htmlFor="daily_token_cap">Daily token cap (employee)</Label>
-              <Input
-                id="daily_token_cap"
-                type="number"
-                min={1}
-                placeholder="Optional"
-                value={form.daily_token_cap}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, daily_token_cap: e.target.value }))
-                }
-              />
-            </div>
+            {form.effect === "allow" ? (
+              <div>
+                <Label htmlFor="daily_token_cap">Daily token cap per person</Label>
+                <Input
+                  id="daily_token_cap"
+                  type="number"
+                  min={1}
+                  placeholder="Optional"
+                  value={form.daily_token_cap}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, daily_token_cap: e.target.value }))
+                  }
+                />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary/80">
+                  Applies to each person in the selected{" "}
+                  {form.scope_type === "department"
+                    ? "department"
+                    : form.scope_type === "team"
+                      ? "team"
+                      : "company"}
+                  — not as a shared pool. Leave empty for no cap.
+                </p>
+              </div>
+            ) : (
+              <p className="self-end text-[11px] leading-relaxed text-text-secondary/70">
+                Token caps apply on Allow rules. A Deny rule already blocks
+                chat for this scope.
+              </p>
+            )}
             <div className="flex items-end">
               <Button type="submit" size="sm" disabled={create.isPending}>
                 {create.isPending ? "Saving…" : "Add policy"}
@@ -334,7 +358,7 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
             { key: "effect", label: "Effect" },
             { key: "provider", label: "Provider" },
             { key: "model", label: "Model" },
-            { key: "cap", label: "Daily cap" },
+            { key: "cap", label: "Daily cap / person" },
             { key: "status", label: "Status" },
             { key: "action", label: "" },
           ]}
@@ -402,6 +426,8 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
                   setEditForm((f) => ({
                     ...f,
                     effect: e.target.value as CreatePolicyInput["effect"],
+                    daily_token_cap:
+                      e.target.value === "deny" ? "" : f.daily_token_cap,
                   }))
                 }
               >
@@ -448,19 +474,35 @@ export function PoliciesGovernance({ companySlug }: { companySlug: string }) {
                 ))}
               </Select>
             </div>
-            <div>
-              <Label htmlFor="edit_daily_token_cap">Daily token cap (employee)</Label>
-              <Input
-                id="edit_daily_token_cap"
-                type="number"
-                min={1}
-                placeholder="Optional"
-                value={editForm.daily_token_cap}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, daily_token_cap: e.target.value }))
-                }
-              />
-            </div>
+            {editForm.effect === "allow" ? (
+              <div>
+                <Label htmlFor="edit_daily_token_cap">
+                  Daily token cap per person
+                </Label>
+                <Input
+                  id="edit_daily_token_cap"
+                  type="number"
+                  min={1}
+                  placeholder="Optional"
+                  value={editForm.daily_token_cap}
+                  onChange={(e) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      daily_token_cap: e.target.value,
+                    }))
+                  }
+                />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary/80">
+                  Applies to each person in this rule’s scope — not as a shared
+                  pool. Leave empty for no cap.
+                </p>
+              </div>
+            ) : (
+              <p className="self-end text-[11px] leading-relaxed text-text-secondary/70">
+                Token caps apply on Allow rules. A Deny rule already blocks
+                chat for this scope.
+              </p>
+            )}
             <div className="col-span-full flex justify-end gap-2 pt-2">
               <Button
                 type="button"

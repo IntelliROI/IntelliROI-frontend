@@ -26,6 +26,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSetupHint";
+import {
+  markRecHandled,
+  readHandledRecIds,
+} from "@/features/roi/lib/handled-recommendations";
 
 /** Analytics has no "week" period_type — fold week into day for that call. */
 function toAnalyticsPeriod(period: RoiPeriod): "day" | "month" {
@@ -48,6 +52,9 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
   const company = useAuthStore((s) => s.company);
   const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const [period, setPeriod] = useState<RoiPeriod>("month");
+  const [hiddenRecIds, setHiddenRecIds] = useState(() =>
+    readHandledRecIds(companySlug),
+  );
   const analyticsPeriod = toAnalyticsPeriod(period);
 
   const roi = useQuery({
@@ -332,7 +339,10 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             />
           </div>
           <div className="divide-y divide-hairline">
-            {(recommendations.data ?? []).slice(0, 3).map((rec, i) => (
+            {(recommendations.data ?? [])
+              .filter((rec) => !hiddenRecIds.has(rec.id))
+              .slice(0, 3)
+              .map((rec, i) => (
               <motion.div
                 key={rec.id}
                 initial={{ opacity: 0, y: 8 }}
@@ -358,6 +368,8 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                       try {
                         await roiApi.updateRecommendation(rec.id, "accepted");
                         toast.success("Accepted");
+                        markRecHandled(companySlug, rec.id);
+                        setHiddenRecIds((prev) => new Set(prev).add(rec.id));
                         recommendations.refetch();
                       } catch (err) {
                         toast.error(
@@ -376,6 +388,8 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                       try {
                         await roiApi.updateRecommendation(rec.id, "dismissed");
                         toast.message("Dismissed");
+                        markRecHandled(companySlug, rec.id);
+                        setHiddenRecIds((prev) => new Set(prev).add(rec.id));
                         recommendations.refetch();
                       } catch (err) {
                         toast.error(
@@ -390,6 +404,13 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                 </div>
               </motion.div>
             ))}
+            {(recommendations.data ?? []).filter((rec) => !hiddenRecIds.has(rec.id))
+              .length === 0 ? (
+              <p className="px-5 py-8 text-[13px] text-text-secondary">
+                No open recommendations. Accepted and dismissed items stay
+                hidden.
+              </p>
+            ) : null}
           </div>
         </Panel>
       </div>

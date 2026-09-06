@@ -32,7 +32,11 @@ export default function BudgetsPage({
   );
   const intel = resolveIntelligenceScope(user);
   const [limit, setLimit] = useState("");
+  const [scopeType, setScopeType] = useState<"company" | "department" | "team">(
+    "company",
+  );
   const [departmentId, setDepartmentId] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [alertPct, setAlertPct] = useState("80");
   const [editing, setEditing] = useState<Budget | null>(null);
   const [editLimit, setEditLimit] = useState("");
@@ -65,21 +69,32 @@ export default function BudgetsPage({
   const departments = useQuery({
     queryKey: queryKeys.company.departments(params.companySlug),
     queryFn: () => organizationApi.listDepartments(),
-    enabled: intel.kind === "company",
+    enabled: intel.kind !== "unassigned",
+  });
+  const teams = useQuery({
+    queryKey: queryKeys.company.teams(params.companySlug),
+    queryFn: () => organizationApi.listTeams(),
+    enabled: intel.kind !== "unassigned",
   });
 
   const create = useMutation({
     mutationFn: () =>
       costApi.createBudget({
         monthly_limit: Number(limit),
-        department_id: departmentId ? Number(departmentId) : undefined,
+        department_id:
+          scopeType === "department" || scopeType === "team"
+            ? Number(departmentId)
+            : undefined,
+        team_id: scopeType === "team" ? Number(teamId) : undefined,
         alert_percentage: alertPct ? Number(alertPct) : undefined,
         currency: companyCurrency,
       }),
     onSuccess: async () => {
       toast.success("Budget created");
       setLimit("");
+      setScopeType("company");
       setDepartmentId("");
+      setTeamId("");
       await queryClient.invalidateQueries({
         queryKey: queryKeys.company.budgets(params.companySlug),
       });
@@ -152,7 +167,33 @@ export default function BudgetsPage({
       toast.error("Enter a monthly limit");
       return;
     }
+    if (scopeType === "department" && !departmentId) {
+      toast.error("Pick a department for a department budget");
+      return;
+    }
+    if (scopeType === "team" && (!departmentId || !teamId)) {
+      toast.error("Pick a department and team for a team budget");
+      return;
+    }
     create.mutate();
+  }
+
+  const deptName = (id?: number) =>
+    (departments.data ?? []).find((d) => d.id === id)?.department_name;
+  const teamName = (id?: number) =>
+    (teams.data ?? []).find((t) => t.id === id)?.team_name;
+  const teamsInDept = (teams.data ?? []).filter(
+    (t) => !departmentId || String(t.department_id) === departmentId,
+  );
+
+  function budgetScopeLabel(b: Budget) {
+    if (b.scope === "team") {
+      return teamName(b.team_id ?? b.scope_id) ?? `Team #${b.scope_id}`;
+    }
+    if (b.scope === "department") {
+      return deptName(b.department_id ?? b.scope_id) ?? `Department #${b.scope_id}`;
+    }
+    return "Company-wide";
   }
 
   return (
@@ -160,7 +201,7 @@ export default function BudgetsPage({
       <PageHeader
         eyebrow="Cost"
         title="Budgets"
-        description="Company and department spend limits with consumption tracking."
+        description="Monthly spend limits by company, department, or team. A budget warns at the alert % — it does not block chat. Use AI Policies to deny a model."
       />
       <Mosaic cols={2} className="mb-px">
         <KpiTile
@@ -182,9 +223,70 @@ export default function BudgetsPage({
           <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.18em] text-text-secondary">
             New budget ({companyCurrency})
           </p>
-          <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-4">
+          <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div>
-              <Label htmlFor="monthly_limit">Monthly limit</Label>
+              <Label htmlFor="scope_type">Scope</Label>
+              <Select
+                id="scope_type"
+                value={scopeType}
+                onChange={(e) => {
+                  const next = e.target.value as typeof scopeType;
+                  setScopeType(next);
+                  if (next === "company") {
+                    setDepartmentId("");
+                    setTeamId("");
+                  }
+                  if (next === "department") setTeamId("");
+                }}
+              >
+                <option value="company">Company-wide</option>
+                <option value="department">Department</option>
+                <option value="team">Team</option>
+              </Select>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary/70">
+                Who this monthly limit applies to.
+              </p>
+            </div>
+            {scopeType !== "company" ? (
+              <div>
+                <Label htmlFor="department_id">Department</Label>
+                <Select
+                  id="department_id"
+                  value={departmentId}
+                  onChange={(e) => {
+                    setDepartmentId(e.target.value);
+                    setTeamId("");
+                  }}
+                >
+                  <option value="">Select…</option>
+                  {(departments.data ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.department_name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : null}
+            {scopeType === "team" ? (
+              <div>
+                <Label htmlFor="team_id">Team</Label>
+                <Select
+                  id="team_id"
+                  value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
+                  disabled={!departmentId}
+                >
+                  <option value="">Select…</option>
+                  {teamsInDept.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.team_name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : null}
+            <div>
+              <Label htmlFor="monthly_limit">Monthly limit ({companyCurrency})</Label>
               <Input
                 id="monthly_limit"
                 type="number"
@@ -192,21 +294,9 @@ export default function BudgetsPage({
                 value={limit}
                 onChange={(e) => setLimit(e.target.value)}
               />
-            </div>
-            <div>
-              <Label htmlFor="department_id">Department (optional)</Label>
-              <Select
-                id="department_id"
-                value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-              >
-                <option value="">Company-wide</option>
-                {(departments.data ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.department_name}
-                  </option>
-                ))}
-              </Select>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary/70">
+                Max AI spend this calendar month.
+              </p>
             </div>
             <div>
               <Label htmlFor="alert_pct">Alert %</Label>
@@ -218,6 +308,9 @@ export default function BudgetsPage({
                 value={alertPct}
                 onChange={(e) => setAlertPct(e.target.value)}
               />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary/70">
+                Notify when consumed reaches this % of the limit.
+              </p>
             </div>
             <div className="flex items-end">
               <Button type="submit" size="sm" disabled={create.isPending}>
@@ -251,7 +344,7 @@ export default function BudgetsPage({
                 ? fromUsd(b.consumed)
                 : b.consumed;
             return {
-              scope: `${b.scope}${b.scope_id ? ` #${b.scope_id}` : ""}`,
+              scope: budgetScopeLabel(b),
               limit: formatCurrency(limit, companyCurrency),
               consumed: formatCurrency(consumed, companyCurrency),
               pct: `${b.monthly_limit > 0 ? Math.round((b.consumed / b.monthly_limit) * 100) : 0}%`,
@@ -264,7 +357,7 @@ export default function BudgetsPage({
                       onClick={() => {
                         setEditing(b);
                         setEditLimit(String(b.monthly_limit));
-                        setEditAlertPct("80");
+                        setEditAlertPct(String(b.alert_percentage ?? 80));
                       }}
                     >
                       Edit
@@ -353,8 +446,7 @@ export default function BudgetsPage({
         {deleting ? (
           <div className="space-y-4">
             <p className="text-sm text-text-secondary">
-              Delete the {deleting.scope}
-              {deleting.scope_id ? ` #${deleting.scope_id}` : ""} budget of{" "}
+              Delete the {budgetScopeLabel(deleting)} budget of{" "}
               {formatCurrency(deleting.monthly_limit, deleting.currency || companyCurrency)}?
             </p>
             <div className="flex justify-end gap-2">

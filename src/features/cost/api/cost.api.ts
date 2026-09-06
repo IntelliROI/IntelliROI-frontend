@@ -19,10 +19,13 @@ export type Budget = {
   id: number;
   scope: string;
   scope_id?: number;
+  department_id?: number;
+  team_id?: number;
   monthly_limit: number;
   consumed: number;
   period: string;
   currency: string;
+  alert_percentage?: number;
 };
 
 export type CostAlert = {
@@ -95,10 +98,13 @@ function toBudget(b: BudgetDto, consumed = 0, period = ""): Budget {
     id: b.id,
     scope: scoped.scope,
     scope_id: scoped.scope_id,
+    department_id: b.department_id ?? undefined,
+    team_id: b.team_id ?? undefined,
     monthly_limit: b.monthly_limit,
     consumed,
     period,
     currency: b.currency ?? "INR",
+    alert_percentage: b.alert_percentage,
   };
 }
 

@@ -15,6 +15,10 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { roiApi } from "@/features/roi/api/roi.api";
+import {
+  markRecHandled,
+  readHandledRecIds,
+} from "@/features/roi/lib/handled-recommendations";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -66,6 +70,9 @@ export default function RecommendationsPage({
   params: { companySlug: string };
 }) {
   const [view, setView] = useState<ViewMode>("table");
+  const [hiddenIds, setHiddenIds] = useState(() =>
+    readHandledRecIds(params.companySlug),
+  );
   const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
     params.companySlug,
   );
@@ -75,7 +82,13 @@ export default function RecommendationsPage({
     queryFn: () => roiApi.recommendations("open"),
   });
 
-  const list = recommendations.data ?? [];
+  function hideRec(id: number) {
+    markRecHandled(params.companySlug, id);
+    setHiddenIds((prev) => new Set(prev).add(id));
+    recommendations.refetch();
+  }
+
+  const list = (recommendations.data ?? []).filter((r) => !hiddenIds.has(r.id));
 
   const rows = list.map((r) => ({
     title: (
@@ -101,7 +114,7 @@ export default function RecommendationsPage({
         {r.scope}
       </span>
     ),
-    action: <RecActions id={r.id} onDone={() => recommendations.refetch()} />,
+    action: <RecActions id={r.id} onDone={() => hideRec(r.id)} />,
   }));
 
   const cards: GridCard[] = list.map((r) => ({
@@ -123,7 +136,7 @@ export default function RecommendationsPage({
         ),
       },
     ],
-    action: <RecActions id={r.id} onDone={() => recommendations.refetch()} />,
+    action: <RecActions id={r.id} onDone={() => hideRec(r.id)} />,
     accent: true,
   }));
 

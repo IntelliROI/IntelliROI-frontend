@@ -121,10 +121,7 @@ export function TeamDashboard({
         queryKey: queryKeys.company.departments(companySlug),
       }),
       queryClient.invalidateQueries({
-        queryKey: queryKeys.company.teams(companySlug),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ["company", companySlug, "teams", departmentId],
+        queryKey: queryKeys.company.teamsRoot(companySlug),
       }),
       queryClient.invalidateQueries({
         queryKey: ["company", companySlug, "projects"],

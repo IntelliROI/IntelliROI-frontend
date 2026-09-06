@@ -10,6 +10,7 @@ import {
   DEFAULT_COUNTRY_ISO,
   digitsOnly,
   findCountry,
+  isValidNationalNumber,
   type CountryIso,
 } from "@/constants/locale";
 import { lineManagers } from "@/lib/org/line-managers";
@@ -67,6 +68,7 @@ export function CreateEmployeeForm({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [nextStep, setNextStep] = useState<{
     role: Role;
     name: string;
@@ -113,6 +115,22 @@ export function CreateEmployeeForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const national = form.phone_national.trim();
+    if (!national) {
+      setPhoneError("Mobile number is required");
+      setError(null);
+      return;
+    }
+    if (!isValidNationalNumber(form.phone_iso, national)) {
+      setPhoneError(
+        country
+          ? `Enter a ${country.min === country.max ? country.min : `${country.min}–${country.max}`}-digit mobile number for ${country.name}`
+          : "Enter a valid mobile number for the selected country",
+      );
+      setError(null);
+      return;
+    }
+    setPhoneError(null);
     if (!form.department_id) {
       setError(
         role === ROLES.DEPARTMENT_HEAD
@@ -268,12 +286,14 @@ export function CreateEmployeeForm({
             <Label>Phone country</Label>
             <Select
               value={form.phone_iso}
-              onChange={(e) =>
+              onChange={(e) => {
+                setPhoneError(null);
                 setForm((f) => ({
                   ...f,
                   phone_iso: e.target.value as CountryIso,
-                }))
-              }
+                  phone_national: "",
+                }));
+              }}
             >
               {COUNTRIES.map((c) => (
                 <option key={c.iso} value={c.iso}>
@@ -283,17 +303,32 @@ export function CreateEmployeeForm({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Phone</Label>
+            <Label>Mobile number</Label>
             <Input
+              type="tel"
+              inputMode="numeric"
               value={form.phone_national}
-              onChange={(e) =>
+              onChange={(e) => {
+                setPhoneError(null);
                 setForm((f) => ({
                   ...f,
-                  phone_national: digitsOnly(e.target.value),
-                }))
-              }
+                  phone_national: digitsOnly(e.target.value).slice(
+                    0,
+                    country?.max ?? 15,
+                  ),
+                }));
+              }}
               placeholder={country ? `${country.min}–${country.max} digits` : ""}
+              required
             />
+            {phoneError ? (
+              <p className="text-xs text-danger">{phoneError}</p>
+            ) : (
+              <p className="text-[11px] text-text-secondary/70">
+                Digits only, without the country code
+                {country ? ` (${country.dial})` : ""}.
+              </p>
+            )}
           </div>
         </div>
       </section>

@@ -103,6 +103,18 @@ function toDepartment(d: DepartmentDto): Department {
   };
 }
 
+function countEmployeesByDepartment(
+  profiles: Awaited<ReturnType<typeof authApi.listEmployees>>,
+): Map<number, number> {
+  const countByDept = new Map<number, number>();
+  for (const p of profiles) {
+    const did = p.user.department_id;
+    if (did == null) continue;
+    countByDept.set(did, (countByDept.get(did) ?? 0) + 1);
+  }
+  return countByDept;
+}
+
 function toTeam(t: TeamDto): Team {
   return {
     id: t.id,
@@ -157,9 +169,17 @@ async function listDepartmentsPage(
     q: query.q,
     status: toApiStatus(query.status),
   });
-  const page = await pagedRequest<DepartmentDto>("org", path);
+  const [page, profiles] = await Promise.all([
+    pagedRequest<DepartmentDto>("org", path),
+    authApi.listEmployees().catch(() => [] as Awaited<ReturnType<typeof authApi.listEmployees>>),
+  ]);
+  const countByDept = countEmployeesByDepartment(profiles);
   return {
-    items: page.items.map(toDepartment),
+    items: page.items.map((d) => {
+      const dept = toDepartment(d);
+      dept.employee_count = countByDept.get(d.id) ?? 0;
+      return dept;
+    }),
     meta: page.meta,
   };
 }
@@ -174,8 +194,13 @@ async function listDepartments(): Promise<Department[]> {
 }
 
 async function getDepartment(id: number): Promise<Department> {
-  const res = await apiRequest<DepartmentDto>("org", `/departments/${id}`);
-  return toDepartment(res);
+  const [res, profiles] = await Promise.all([
+    apiRequest<DepartmentDto>("org", `/departments/${id}`),
+    authApi.listEmployees().catch(() => [] as Awaited<ReturnType<typeof authApi.listEmployees>>),
+  ]);
+  const dept = toDepartment(res);
+  dept.employee_count = countEmployeesByDepartment(profiles).get(id) ?? 0;
+  return dept;
 }
 
 async function createDepartment(input: CreateDepartmentInput): Promise<Department> {
