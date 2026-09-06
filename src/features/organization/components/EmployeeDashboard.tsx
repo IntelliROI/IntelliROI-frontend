@@ -76,20 +76,46 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
     );
   }
 
+  const header = (
+    <PageHeader
+      eyebrow="Personal · Workspace"
+      title={`${user?.first_name ?? "You"}'s AI pulse`}
+      description="Personal usage, time saved, and Estimated ROI — only your data."
+      actions={
+        <div className="flex items-center gap-2">
+          <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
+          <Button asChild>
+            <Link href={`/${companySlug}/ai-workspace`}>
+              <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Open AI Workspace
+              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </Button>
+        </div>
+      }
+    />
+  );
+
   if (roi.isLoading) {
     return (
-      <div className="space-y-px bg-hairline">
-        <LoadingBlock className="h-44 border-0" />
-        <LoadingBlock className="h-64 border-0" />
+      <div>
+        {header}
+        <div className="space-y-px bg-hairline">
+          <LoadingBlock className="h-44 border-0" />
+          <LoadingBlock className="h-64 border-0" />
+        </div>
       </div>
     );
   }
 
   if (!roi.data) {
     return (
-      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
-        Could not load your Estimated ROI from the live service.
-      </p>
+      <div>
+        {header}
+        <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+          Could not load your Estimated ROI from the live service.
+        </p>
+      </div>
     );
   }
 
@@ -97,23 +123,7 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
 
   return (
     <div>
-      <PageHeader
-        eyebrow="Personal · Workspace"
-        title={`${user?.first_name ?? "You"}'s AI pulse`}
-        description="Personal usage, time saved, and Estimated ROI — only your data."
-        actions={
-          <div className="flex items-center gap-2">
-            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
-            <Button asChild>
-              <Link href={`/${companySlug}/ai-workspace`}>
-                <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Open AI Workspace
-                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </Link>
-            </Button>
-          </div>
-        }
-      />
+      {header}
 
       <div className="mb-px grid gap-px bg-hairline lg:grid-cols-12">
         <MetricTile

@@ -12,7 +12,9 @@ import {
   registerCompanyStepSchema,
   registerSchema,
 } from "@/features/auth/schemas/auth.schema";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
+import { seedMeCache } from "@/features/auth/hooks/useAuth";
 import { getHomePath } from "@/lib/rbac/route-access";
 import { ROLES } from "@/constants/roles";
 import { COUNTRIES, CURRENCIES } from "@/constants/locale";
@@ -46,6 +48,7 @@ type FormState = {
 
 export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((s) => s.setSession);
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
@@ -150,6 +153,7 @@ export function RegisterForm({ embedded, onNavigate }: RegisterFormProps) {
         refreshToken: session.refresh_token,
         onboardingComplete: true,
       });
+      seedMeCache(queryClient, session.user);
       toast.success("Company registered");
       if (session.user.role === ROLES.SUPER_ADMIN) {
         router.replace("/super-admin/dashboard");

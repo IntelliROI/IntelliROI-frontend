@@ -31,7 +31,18 @@ export function SuperAdminDashboard() {
     queryFn: () => platformApi.providerTenants(),
   });
 
-  if (companies.isLoading) return <LoadingBlock className="h-96" />;
+  if (companies.isLoading) {
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Platform"
+          title="Super Admin Control Plane"
+          description="Customer tenants on this IntelliROI instance. Revenue and platform-wide AI spend wait on billing."
+        />
+        <LoadingBlock className="h-96" />
+      </div>
+    );
+  }
 
   const tenants = companies.data ?? [];
   const m = mergePlatformMetrics(tenants, metrics.data);
