@@ -7,14 +7,14 @@ import {
   CheckCircle2,
   Download,
   FileSpreadsheet,
+  Info,
   Loader2,
   UploadCloud,
-  X,
   XCircle,
 } from "lucide-react";
 import { DataTable } from "@/components/feedback/States";
 import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/panel";
+import { Modal } from "@/components/ui/modal";
 import { ApiError } from "@/lib/api/client";
 import {
   organizationApi,
@@ -22,6 +22,10 @@ import {
   type ImportPreview,
   type ImportPreviewAction,
 } from "@/features/organization/api/organization.api";
+import {
+  IMPORT_FIELD_GUIDES,
+  type ImportFieldGuide,
+} from "@/features/organization/data/import-templates";
 import {
   useImportJob,
   useImportRows,
@@ -38,8 +42,12 @@ const ACTION_STYLES: Record<ImportPreviewAction, string> = {
   fail: "text-danger",
 };
 
+/** Data rows = non-empty lines that are not comments (# …) or the header. */
 function countDataRows(csvText: string): number {
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim() !== "");
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\uFEFF/, "").trim())
+    .filter((l) => l !== "" && !l.startsWith("#"));
   return Math.max(0, lines.length - 1);
 }
 
@@ -82,10 +90,45 @@ function StatTile({
   );
 }
 
+function FieldGuide({ fields }: { fields: ImportFieldGuide[] }) {
+  return (
+    <div className="border border-hairline bg-surface/10 px-3 py-2.5">
+      <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/60">
+        <Info className="h-3 w-3" strokeWidth={1.5} />
+        Columns
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {fields.map((f) => (
+          <span
+            key={f.name}
+            title={f.note}
+            className={cn(
+              "inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[10px]",
+              f.required && "border-accent/40 text-accent",
+              !f.required && f.recommended && "border-accent-blue/50 text-accent-blue",
+              !f.required && !f.recommended && "border-hairline text-text-secondary/70",
+            )}
+          >
+            {f.name}
+            {f.required ? <span aria-hidden>*</span> : null}
+            {!f.required && f.recommended ? <span aria-hidden>†</span> : null}
+          </span>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-text-secondary/60">
+        <span className="text-accent">*</span> required ·{" "}
+        <span className="text-accent-blue">†</span> recommended (for Estimated ROI)
+        · others optional. Example rows in the template start with <code>#</code>{" "}
+        and are skipped — remove the <code>#</code> to import a row.
+      </p>
+    </div>
+  );
+}
+
 type Props = {
   companySlug: string;
   entity: ImportEntity;
-  /** Shown in the panel header, e.g. "Import departments". */
+  /** Shown in the modal header, e.g. "Import departments". */
   title: string;
   /** One line describing what a row creates/matches. */
   description: string;
@@ -271,31 +314,30 @@ export function EntityImportPanel({
       : 0;
 
   return (
-    <Panel className="mb-6 p-5">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-            {title}
-          </p>
-          <p className="mt-1 text-[12px] text-text-secondary/70">{description}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => downloadCsv(templateFilename, templateCsv)}
-          >
-            <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Template
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
-        </div>
-      </div>
-
+    <Modal
+      open
+      onClose={onClose}
+      eyebrow="Organization"
+      title={title}
+      description={description}
+      size="xl"
+    >
       {!importUuid && (
         <>
+          <div className="mb-4 flex flex-col gap-3">
+            <FieldGuide fields={IMPORT_FIELD_GUIDES[entity]} />
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => downloadCsv(templateFilename, templateCsv)}
+              >
+                <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Download template
+              </Button>
+            </div>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -329,6 +371,14 @@ export function EntityImportPanel({
               </span>
             )}
           </button>
+
+          {fileName && rowCount === 0 && (
+            <p className="mt-3 flex items-center gap-2 font-mono text-[11px] text-text-secondary/70">
+              <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.5} />
+              No data rows found. Example rows starting with <code>#</code> are
+              skipped — remove the <code>#</code> or add your own rows.
+            </p>
+          )}
 
           {rowCount > MAX_ROWS && (
             <p className="mt-3 flex items-center gap-2 font-mono text-[11px] text-danger">
@@ -458,6 +508,14 @@ export function EntityImportPanel({
                 </span>
               </p>
 
+              {job.status === "queued" && (
+                <p className="mb-3 flex items-start gap-2 border border-hairline bg-surface/10 px-3 py-2 font-mono text-[11px] leading-relaxed text-text-secondary/70">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                  Waiting for the import worker. If this stays queued, the
+                  background worker (make run-org-worker) may not be running.
+                </p>
+              )}
+
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <StatTile label="Total" value={job.total_rows} />
                 <StatTile label="Created" value={job.created_rows} tone="accent" />
@@ -531,6 +589,6 @@ export function EntityImportPanel({
           )}
         </div>
       )}
-    </Panel>
+    </Modal>
   );
 }
