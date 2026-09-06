@@ -49,7 +49,7 @@ export function RankBar({
   percent: number;
   href?: string;
 }) {
-  const width = Math.max(4, Math.min(100, percent));
+  const width = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
   const inner = (
     <>
       <div className="mb-1.5 flex items-center justify-between gap-3">
@@ -59,10 +59,12 @@ export function RankBar({
         </span>
       </div>
       <div className="h-[3px] w-full bg-hairline">
-        <div
-          className="h-full bg-accent transition-[width] duration-700 ease-out-expo"
-          style={{ width: `${width}%` }}
-        />
+        {width > 0 ? (
+          <div
+            className="h-full bg-accent transition-[width] duration-700 ease-out-expo"
+            style={{ width: `${width}%` }}
+          />
+        ) : null}
       </div>
     </>
   );
