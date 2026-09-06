@@ -2,12 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { authApi } from "@/features/auth/api/auth.api";
 import { loginSchema } from "@/features/auth/schemas/auth.schema";
+import { seedMeCache } from "@/features/auth/hooks/useAuth";
 import { useAuthStore } from "@/stores/auth-store";
 import { ROLES } from "@/constants/roles";
 import { getHomePath } from "@/lib/rbac/route-access";
@@ -20,6 +22,7 @@ type LoginFormProps = {
 
 export function LoginForm({ embedded, onNavigate }: LoginFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +47,7 @@ export function LoginForm({ embedded, onNavigate }: LoginFormProps) {
         refreshToken: session.refresh_token,
         onboardingComplete: true,
       });
+      seedMeCache(queryClient, session.user);
       toast.success("Authenticated");
 
       if (session.user.role === ROLES.SUPER_ADMIN) {

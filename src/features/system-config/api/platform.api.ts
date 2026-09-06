@@ -1,4 +1,5 @@
-import { apiRequest, pagedRequest } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
 import { type Company } from "@/types/auth.types";
 import { slugify } from "@/lib/utils";
 
@@ -18,6 +19,28 @@ export type GatewayHealth = {
   live: boolean;
   ready: boolean;
   detail: string;
+};
+
+export type PlatformProviderTenant = {
+  id: number;
+  company_uuid: string;
+  company_name: string;
+  provider_name: string;
+  display_name: string;
+  key_alias: string;
+  has_key: boolean;
+  status: string;
+};
+
+type PlatformProviderTenantDto = {
+  id?: number;
+  company_uuid?: string;
+  company_name?: string;
+  provider_name?: string;
+  display_name?: string;
+  key_alias?: string;
+  has_key?: boolean;
+  status?: string;
 };
 
 type TenantDto = {
@@ -59,10 +82,67 @@ function toTenant(c: TenantDto): PlatformTenant {
   };
 }
 
+export function tenantKpisFromList(tenants: PlatformTenant[]): PlatformMetrics {
+  const statusOf = (s?: string) => (s ?? "").trim().toLowerCase();
+  return {
+    tenant_count: tenants.length,
+    active_companies: tenants.filter((t) => statusOf(t.status) === "active").length,
+    suspended_companies: tenants.filter((t) => statusOf(t.status) === "suspended")
+      .length,
+    seated_users: tenants.reduce((n, t) => n + (t.user_count ?? 0), 0),
+  };
+}
+
+/** Prefer API totals, but never show fewer suspended/active than the visible tenant list. */
+export function mergePlatformMetrics(
+  tenants: PlatformTenant[],
+  metrics?: PlatformMetrics | null,
+): PlatformMetrics {
+  const fromList = tenantKpisFromList(tenants);
+  if (!metrics) return fromList;
+  return {
+    tenant_count: Math.max(metrics.tenant_count, fromList.tenant_count),
+    active_companies: Math.max(metrics.active_companies, fromList.active_companies),
+    suspended_companies: Math.max(
+      metrics.suspended_companies,
+      fromList.suspended_companies,
+    ),
+    seated_users: metrics.seated_users || fromList.seated_users,
+  };
+}
+
 export const platformApi = {
   async companies(): Promise<PlatformTenant[]> {
-    const page = await pagedRequest<TenantDto>("auth", "/platform/companies");
+    const page = await pagedRequest<TenantDto>(
+      "auth",
+      withQuery("/platform/companies", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
+    );
     return page.items.map(toTenant);
+  },
+
+  async providerTenants(companyUuid?: string): Promise<PlatformProviderTenant[]> {
+    try {
+      const page = await pagedRequest<PlatformProviderTenantDto>(
+        "ai",
+        withQuery("/providers/platform/tenants", {
+          page: 1,
+          page_size: LIST_PAGE_SIZE_MAX,
+          company_uuid: companyUuid,
+        }),
+      );
+      return page.items.map((row) => ({
+        id: row.id ?? 0,
+        company_uuid: row.company_uuid ?? "",
+        company_name: row.company_name ?? "",
+        provider_name: row.provider_name ?? "",
+        display_name: row.display_name ?? row.provider_name ?? "",
+        key_alias: row.key_alias ?? "",
+        has_key: row.has_key !== false,
+        status: row.status ?? "active",
+      }));
+    } catch {
+      return [];
+    }
   },
 
   async company(uuid: string): Promise<PlatformTenant> {

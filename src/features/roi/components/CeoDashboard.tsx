@@ -99,25 +99,51 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
     [analytics.data],
   );
 
+  const header = (
+    <PageHeader
+      eyebrow="Executive · Company"
+      title={`Good ${greeting()}, ${user?.first_name ?? "there"}`}
+      description={`${company?.name ?? "Company"} — is AI investment producing Estimated ROI?`}
+      actions={
+        <div className="flex items-center gap-2">
+          <LiveDot label="Live" />
+          <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
+          <Button asChild variant="secondary" size="sm">
+            <Link href={`/${companySlug}/roi`}>
+              Full ROI
+              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </Button>
+        </div>
+      }
+    />
+  );
+
   if (roi.isLoading || analytics.isLoading) {
     return (
-      <div className="space-y-px bg-hairline">
-        <LoadingBlock className="h-48 border-0" />
-        <div className="grid gap-px md:grid-cols-3">
-          <LoadingBlock className="h-28 border-0" />
-          <LoadingBlock className="h-28 border-0" />
-          <LoadingBlock className="h-28 border-0" />
+      <div>
+        {header}
+        <div className="space-y-px bg-hairline">
+          <LoadingBlock className="h-48 border-0" />
+          <div className="grid gap-px md:grid-cols-3">
+            <LoadingBlock className="h-28 border-0" />
+            <LoadingBlock className="h-28 border-0" />
+            <LoadingBlock className="h-28 border-0" />
+          </div>
+          <LoadingBlock className="h-72 border-0" />
         </div>
-        <LoadingBlock className="h-72 border-0" />
       </div>
     );
   }
 
   if (!roi.data) {
     return (
-      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
-        Could not load Estimated ROI from the live service.
-      </p>
+      <div>
+        {header}
+        <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+          Could not load Estimated ROI from the live service.
+        </p>
+      </div>
     );
   }
 
@@ -133,23 +159,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
 
   return (
     <div>
-      <PageHeader
-        eyebrow="Executive · Company"
-        title={`Good ${greeting()}, ${user?.first_name ?? "there"}`}
-        description={`${company?.name ?? "Company"} — is AI investment producing Estimated ROI?`}
-        actions={
-          <div className="flex items-center gap-2">
-            <LiveDot label="Live" />
-            <PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />
-            <Button asChild variant="secondary" size="sm">
-              <Link href={`/${companySlug}/roi`}>
-                Full ROI
-                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </Link>
-            </Button>
-          </div>
-        }
-      />
+      {header}
 
       {/* Hero mosaic — Estimated ROI dominates */}
       <div className="mb-px grid gap-px bg-hairline lg:grid-cols-12">

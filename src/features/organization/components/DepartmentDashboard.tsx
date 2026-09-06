@@ -58,14 +58,31 @@ export function DepartmentDashboard({
   });
 
   if (department.isLoading || roi.isLoading) {
-    return <LoadingBlock className="h-80" />;
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Department"
+          title="Department Dashboard"
+          description="Team performance, budget burn, and benchmark approvals."
+          actions={<PeriodSwitcher value={period} onChange={(p) => setPeriod(p as RoiPeriod)} variant="roi" />}
+        />
+        <LoadingBlock className="h-80" />
+      </div>
+    );
   }
 
   if (!department.data || !roi.data) {
     return (
-      <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
-        Could not load department data from the live service.
-      </p>
+      <div>
+        <PageHeader
+          eyebrow="Department"
+          title="Department Dashboard"
+          description="Team performance, budget burn, and benchmark approvals."
+        />
+        <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
+          Could not load department data from the live service.
+        </p>
+      </div>
     );
   }
 

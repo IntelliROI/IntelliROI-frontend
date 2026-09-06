@@ -16,10 +16,7 @@ export function RequireAuth({
 }) {
   const router = useRouter();
   const { user, isHydrated, accessToken } = useAuthStore();
-  const me = useMeQuery(isHydrated && Boolean(accessToken));
-
-  const meReady =
-    !isHydrated || !accessToken || me.isSuccess || me.isError;
+  useMeQuery(isHydrated && Boolean(accessToken));
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -32,7 +29,7 @@ export function RequireAuth({
     }
   }, [isHydrated, accessToken, user, roles, router]);
 
-  if (!isHydrated || !user || !meReady) {
+  if (!isHydrated || !user || !accessToken) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink p-8">
         <LoadingBlock className="h-24 w-full max-w-md" />

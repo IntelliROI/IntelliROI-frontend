@@ -139,7 +139,7 @@ export default function ProjectsPage({
         : "text-text-secondary/60";
 
   async function assignMember() {
-    if (!assigning || !memberUuid) return;
+    if (!assigning || !memberUuid || assigning.status !== "active") return;
     try {
       await organizationApi.addProjectMember(assigning.id, memberUuid);
       toast.success(`Added member to ${assigning.project_name}`);
@@ -170,13 +170,15 @@ export default function ProjectsPage({
     return (
       <RowActions>
         <Can resource="projects" action="edit">
-          <AddMemberAction onClick={() => setAssigning(p)} />
           {p.status === "active" ? (
-            <IconAction
-              label="Mark complete"
-              icon={CheckCircle2}
-              onClick={() => void changeStatus(p, "completed")}
-            />
+            <>
+              <AddMemberAction onClick={() => setAssigning(p)} />
+              <IconAction
+                label="Mark complete"
+                icon={CheckCircle2}
+                onClick={() => void changeStatus(p, "completed")}
+              />
+            </>
           ) : p.status === "completed" ? (
             <IconAction
               label="Reactivate"

@@ -1,13 +1,30 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
+import { platformApi } from "@/features/system-config/api/platform.api";
 
 export default function ProvidersPage() {
   const providers = useQuery({
     queryKey: ["platform", "providers"],
     queryFn: () => aiGatewayApi.listProviders(),
+  });
+  const bindings = useQuery({
+    queryKey: ["platform", "provider-tenants"],
+    queryFn: () => platformApi.providerTenants(),
+  });
+
+  const rows = (providers.data ?? []).map((p) => {
+    const usedBy = (bindings.data ?? []).filter((b) => b.provider_name === p.name);
+    const names = usedBy.map((b) => b.company_name).filter(Boolean);
+    return {
+      name: p.display_name,
+      models: p.models.join(", ") || "—",
+      tenants: names.length ? names.join(", ") : "None configured",
+      status: p.status,
+    };
   });
 
   return (
@@ -15,7 +32,7 @@ export default function ProvidersPage() {
       <PageHeader
         eyebrow="Catalog"
         title="Global AI Providers"
-        description="Seeded catalog from GET /providers (read-only). Company keys live on each tenant AI Providers screen."
+        description="Seeded catalog plus which customer tenants have an active key. Secrets are never shown."
       />
       {providers.isLoading ? (
         <LoadingBlock className="h-48" />
@@ -24,17 +41,19 @@ export default function ProvidersPage() {
           columns={[
             { key: "name", label: "Provider" },
             { key: "models", label: "Models" },
+            { key: "tenants", label: "Tenants with key" },
             { key: "status", label: "Status" },
-            { key: "latency", label: "Latency", align: "right" },
           ]}
-          rows={(providers.data ?? []).map((p) => ({
-            name: p.display_name,
-            models: p.models.join(", "),
-            status: p.status,
-            latency: p.latency_ms > 0 ? `${p.latency_ms}ms` : "—",
-          }))}
+          rows={rows}
         />
       )}
+      <p className="mt-4 text-xs text-text-secondary">
+        Company keys are added on each tenant AI Providers screen.{" "}
+        <Link href="/super-admin/companies" className="text-accent">
+          Inspect a company
+        </Link>
+        .
+      </p>
     </div>
   );
 }

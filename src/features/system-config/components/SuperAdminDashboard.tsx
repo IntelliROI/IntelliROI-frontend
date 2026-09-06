@@ -5,7 +5,10 @@ import Link from "next/link";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Mosaic, Panel } from "@/components/ui/panel";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
-import { platformApi } from "@/features/system-config/api/platform.api";
+import {
+  mergePlatformMetrics,
+  platformApi,
+} from "@/features/system-config/api/platform.api";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight } from "lucide-react";
@@ -23,15 +26,32 @@ export function SuperAdminDashboard() {
     queryKey: ["platform", "providers"],
     queryFn: () => aiGatewayApi.listProviders(),
   });
+  const providerTenants = useQuery({
+    queryKey: ["platform", "provider-tenants"],
+    queryFn: () => platformApi.providerTenants(),
+  });
 
-  if (companies.isLoading || metrics.isLoading) return <LoadingBlock className="h-96" />;
+  if (companies.isLoading) {
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Platform"
+          title="Super Admin Control Plane"
+          description="Customer tenants on this IntelliROI instance. Revenue and platform-wide AI spend wait on billing."
+        />
+        <LoadingBlock className="h-96" />
+      </div>
+    );
+  }
 
   const tenants = companies.data ?? [];
-  const m = metrics.data;
-  const active = m?.active_companies ?? 0;
-  const suspended = m?.suspended_companies ?? 0;
-  const seats = m?.seated_users ?? 0;
-  const tenantCount = m?.tenant_count ?? tenants.length;
+  const m = mergePlatformMetrics(tenants, metrics.data);
+  const active = m.active_companies;
+  const suspended = m.suspended_companies;
+  const seats = m.seated_users;
+  const tenantCount = m.tenant_count;
+  const bindings = providerTenants.data ?? [];
+  const tenantsWithKeys = new Set(bindings.map((b) => b.company_uuid)).size;
 
   return (
     <div>
@@ -94,21 +114,28 @@ export function SuperAdminDashboard() {
           />
         </Panel>
         <Panel className="border-0 bg-ink p-6 lg:col-span-2">
-          <h2 className="mb-3 font-medium text-text-primary">
-            Seeded provider catalog
+          <h2 className="mb-1 font-medium text-text-primary">
+            Provider catalog
           </h2>
+          <p className="mb-3 text-xs text-text-secondary">
+            {tenantsWithKeys} tenant{tenantsWithKeys === 1 ? "" : "s"} have a
+            configured key
+          </p>
           <ul className="space-y-2">
-            {(providers.data ?? []).map((p) => (
-              <li
-                key={p.name}
-                className="flex items-center justify-between border border-hairline px-3 py-2"
-              >
-                <span className="text-sm text-text-primary">{p.display_name}</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-secondary">
-                  {p.status}
-                </span>
-              </li>
-            ))}
+            {(providers.data ?? []).map((p) => {
+              const usedBy = bindings.filter((b) => b.provider_name === p.name);
+              return (
+                <li
+                  key={p.name}
+                  className="flex items-center justify-between border border-hairline px-3 py-2"
+                >
+                  <span className="text-sm text-text-primary">{p.display_name}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-secondary">
+                    {usedBy.length} tenant{usedBy.length === 1 ? "" : "s"}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </Panel>
       </div>

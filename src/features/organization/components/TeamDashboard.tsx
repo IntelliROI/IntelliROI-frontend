@@ -173,7 +173,25 @@ export function TeamDashboard({
     }
   }
 
-  if (teams.isLoading || roi.isLoading) return <LoadingBlock className="h-80" />;
+  if (teams.isLoading || roi.isLoading) {
+    return (
+      <div>
+        <PageHeader
+          eyebrow="Team"
+          title={`Team ${teamId}`}
+          description="Staff this team, review Estimated ROI, then attach projects for delivery attribution."
+          actions={
+            <PeriodSwitcher
+              value={period}
+              onChange={(p) => setPeriod(p as RoiPeriod)}
+              variant="roi"
+            />
+          }
+        />
+        <LoadingBlock className="h-80" />
+      </div>
+    );
+  }
 
   const team = teams.data?.find((t) => t.id === teamId);
 

@@ -1,9 +1,20 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { authApi } from "@/features/auth/api/auth.api";
 import { queryKeys } from "@/lib/api/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
+import type { User } from "@/types/auth.types";
+
+/** So RequireAuth does not wait on a second /auth/me after login/register. */
+export function seedMeCache(queryClient: QueryClient, user: User) {
+  queryClient.setQueryData(queryKeys.auth.me(), user);
+}
 
 export function useSession() {
   const user = useAuthStore((s) => s.user);
@@ -36,6 +47,7 @@ export function useMeQuery(enabled = true) {
 
 export function useLoginMutation() {
   const setSession = useAuthStore((s) => s.setSession);
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: authApi.login,
     onSuccess: (session) => {
@@ -45,6 +57,7 @@ export function useLoginMutation() {
         accessToken: session.access_token,
         refreshToken: session.refresh_token,
       });
+      seedMeCache(queryClient, session.user);
     },
   });
 }
