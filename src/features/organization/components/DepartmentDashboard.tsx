@@ -5,7 +5,7 @@ import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { KpiTile } from "@/components/dashboard/KpiTile";
 import { Mosaic } from "@/components/ui/panel";
-import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
+import { PageHeader, LoadingBlock, DataTable, EmptyState } from "@/components/feedback/States";
 import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
@@ -48,6 +48,14 @@ export function DepartmentDashboard({
     queryKey: ["company", companySlug, "benchmarks", "pending"],
     queryFn: () => businessContextApi.listBenchmarks(),
   });
+  const categories = useQuery({
+    queryKey: ["company", companySlug, "task-categories"],
+    queryFn: () => businessContextApi.listTaskCategories(),
+  });
+  const roles = useQuery({
+    queryKey: ["company", companySlug, "job-roles"],
+    queryFn: () => organizationApi.listJobRoles(),
+  });
 
   if (department.isLoading || roi.isLoading) {
     return <LoadingBlock className="h-80" />;
@@ -63,6 +71,11 @@ export function DepartmentDashboard({
 
   const d = department.data;
   const r = roi.data;
+  const pending = (benchmarks.data ?? []).filter((b) => b.status === "pending");
+  const catName = (id: number) =>
+    (categories.data ?? []).find((c) => c.id === id)?.name ?? `Category ${id}`;
+  const roleName = (id: number) =>
+    (roles.data ?? []).find((jr) => jr.id === id)?.role_name ?? `Role ${id}`;
 
   return (
     <div>
@@ -90,8 +103,8 @@ export function DepartmentDashboard({
         <KpiTile label="Active people" value={d.employee_count} format="number" />
       </Mosaic>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div>
+      <div className="mt-8 grid gap-6 grid-cols-1 lg:grid-cols-2">
+        <div className="min-w-0">
           <h2 className="mb-4 font-medium text-text-primary">Teams</h2>
           <DataTable
             columns={[
@@ -125,62 +138,74 @@ export function DepartmentDashboard({
           />
         </div>
 
-        <div>
+        <div className="min-w-0">
           <h2 className="mb-4 font-medium text-text-primary">
             Benchmark approval queue
           </h2>
-          <div className="space-y-px bg-hairline">
-            {(benchmarks.data ?? [])
-              .filter((b) => b.status === "pending")
-              .map((b) => (
-              <div key={b.id} className="bg-ink p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                  Category {b.task_category_id} · Role {b.job_role_id}
-                </p>
-                <p className="mt-2 text-sm text-text-primary">
-                  {b.estimated_minutes_saved} min saved
-                </p>
-                <p className="mt-1 text-xs text-text-secondary">
-                  Status {b.status}
-                </p>
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await businessContextApi.approveBenchmark(b.id);
-                        toast.success("Benchmark approved");
-                        benchmarks.refetch();
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error ? err.message : "Request failed",
-                        );
-                      }
-                    }}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={async () => {
-                      try {
-                        await businessContextApi.rejectBenchmark(b.id);
-                        toast.message("Benchmark rejected");
-                        benchmarks.refetch();
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error ? err.message : "Request failed",
-                        );
-                      }
-                    }}
-                  >
-                    Reject
-                  </Button>
+          {pending.length === 0 ? (
+            <EmptyState
+              title="No pending benchmarks"
+              description="Owners auto-approve on create. Open Task Benchmarks to edit minutes saved or confidence."
+              action={
+                <Button asChild size="sm" variant="secondary">
+                  <Link href={`/${companySlug}/business-context/task-benchmarks`}>
+                    Open Task Benchmarks
+                  </Link>
+                </Button>
+              }
+            />
+          ) : (
+            <div className="space-y-px bg-hairline">
+              {pending.map((b) => (
+                <div key={b.id} className="bg-ink p-4">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+                    {catName(b.task_category_id)} · {roleName(b.job_role_id)}
+                  </p>
+                  <p className="mt-2 text-sm text-text-primary">
+                    {b.estimated_minutes_saved} min saved
+                  </p>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Status {b.status} · {b.confidence_score}% confidence
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await businessContextApi.approveBenchmark(b.id);
+                          toast.success("Benchmark approved");
+                          benchmarks.refetch();
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Request failed",
+                          );
+                        }
+                      }}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          await businessContextApi.rejectBenchmark(b.id);
+                          toast.message("Benchmark rejected");
+                          benchmarks.refetch();
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Request failed",
+                          );
+                        }
+                      }}
+                    >
+                      Reject
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

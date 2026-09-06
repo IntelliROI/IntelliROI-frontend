@@ -96,21 +96,23 @@ export function CreateProjectForm({
           ))}
         </Select>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="team_id">Team</Label>
-        <Select
-          id="team_id"
-          value={form.team_id}
-          onChange={(e) => setForm((f) => ({ ...f, team_id: e.target.value }))}
-        >
-          <option value="">No team</option>
-          {teamsInDept.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.team_name}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {form.department_id ? (
+        <div className="space-y-2">
+          <Label htmlFor="team_id">Team</Label>
+          <Select
+            id="team_id"
+            value={form.team_id}
+            onChange={(e) => setForm((f) => ({ ...f, team_id: e.target.value }))}
+          >
+            <option value="">No team</option>
+            {teamsInDept.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.team_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : null}
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="description">Description</Label>
         <Textarea

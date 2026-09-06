@@ -402,7 +402,10 @@ export function DataTable({
 
   return (
     <div
-      className={cn("overflow-hidden border border-hairline", maxHeight && "overflow-y-auto")}
+      className={cn(
+        "overflow-x-auto border border-hairline",
+        maxHeight && "overflow-y-auto",
+      )}
       style={maxHeight ? { maxHeight } : undefined}
     >
       <table className="w-full min-w-[640px] border-collapse text-left">

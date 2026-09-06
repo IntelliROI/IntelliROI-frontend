@@ -105,7 +105,7 @@ export default function TeamsPage({
 
   async function invalidateTeams() {
     await queryClient.invalidateQueries({
-      queryKey: queryKeys.company.teams(params.companySlug),
+      queryKey: queryKeys.company.teamsRoot(params.companySlug),
     });
   }
 

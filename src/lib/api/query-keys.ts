@@ -12,6 +12,9 @@ export const queryKeys = {
     ) => ["company", companySlug, "departments", "list", query] as const,
     department: (companySlug: string, departmentId: number) =>
       ["company", companySlug, "department", departmentId] as const,
+    /** Prefix for every teams query (list, dropdown, dept-filtered). */
+    teamsRoot: (companySlug: string) =>
+      ["company", companySlug, "teams"] as const,
     teams: (companySlug: string, departmentId?: number) =>
       ["company", companySlug, "teams", departmentId ?? "all"] as const,
     teamsPage: (
