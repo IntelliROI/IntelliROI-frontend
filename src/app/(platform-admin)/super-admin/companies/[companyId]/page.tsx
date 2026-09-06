@@ -18,6 +18,10 @@ export default function CompanyDetailPage({
     queryKey: ["platform", "company", params.companyId],
     queryFn: () => platformApi.company(params.companyId),
   });
+  const keys = useQuery({
+    queryKey: ["platform", "provider-tenants", params.companyId],
+    queryFn: () => platformApi.providerTenants(params.companyId),
+  });
 
   const patch = useMutation({
     mutationFn: (status: "active" | "suspended") =>
@@ -27,6 +31,7 @@ export default function CompanyDetailPage({
         row.status === "suspended" ? "Tenant suspended" : "Tenant reactivated",
       );
       await queryClient.invalidateQueries({ queryKey: ["platform", "companies"] });
+      await queryClient.invalidateQueries({ queryKey: ["platform", "metrics"] });
       await queryClient.invalidateQueries({
         queryKey: ["platform", "company", params.companyId],
       });
@@ -77,6 +82,38 @@ export default function CompanyDetailPage({
         >
           {nextStatus === "suspended" ? "Suspend tenant" : "Reactivate tenant"}
         </Button>
+      </Panel>
+      <Panel className="mt-px p-6">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
+          Configured AI providers
+        </p>
+        <p className="mt-2 text-sm text-text-secondary">
+          Active keys only. Secrets stay on the tenant — Super Admin sees aliases.
+        </p>
+        <ul className="mt-4 space-y-2">
+          {(keys.data ?? []).length === 0 ? (
+            <li className="text-sm text-text-secondary">No active provider keys.</li>
+          ) : (
+            (keys.data ?? []).map((row) => (
+              <li
+                key={row.id}
+                className="flex items-center justify-between border border-hairline px-3 py-2"
+              >
+                <span className="text-sm text-text-primary">
+                  {row.display_name}
+                  {row.key_alias ? (
+                    <span className="ml-2 font-mono text-[10px] text-text-secondary">
+                      {row.key_alias}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent">
+                  {row.status}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
       </Panel>
     </div>
   );
