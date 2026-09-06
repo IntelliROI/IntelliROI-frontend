@@ -12,7 +12,6 @@ import {
   Settings,
   Shield,
   Sparkles,
-  UploadCloud,
   Users,
   Wallet,
   UserRound,
@@ -392,15 +391,6 @@ export function getCompanyNav(
       icon: FolderKanban,
       resource: "projects",
       action: "view",
-      section: "Organization",
-    },
-    {
-      id: "bulk-import",
-      label: "Bulk Import",
-      href: `${base}/organization/import`,
-      icon: UploadCloud,
-      resource: "departments",
-      action: "manage",
       section: "Organization",
     },
     {

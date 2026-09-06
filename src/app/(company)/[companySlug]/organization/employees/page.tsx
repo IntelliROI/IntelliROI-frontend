@@ -565,7 +565,7 @@ export default function EmployeesPage({
           companySlug={params.companySlug}
           entity="people"
           title="Import employees"
-          description="Columns match the Add employee form: email, first_name, last_name, role, employee_code, phone, designation, department_name, team_name, manager_email, joining_date. Department/team must already exist."
+          description="Columns match the Add employee form. Include job_role (an existing Job Role name) so imported people get an hourly cost — without it Estimated ROI is 0. Department/team must already exist."
           templateCsv={EMPLOYEES_IMPORT_TEMPLATE}
           templateFilename="employees-import-template.csv"
           showInviteToggle
