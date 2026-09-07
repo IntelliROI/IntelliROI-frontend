@@ -58,6 +58,11 @@ export function DepartmentDashboard({
     queryFn: () => organizationApi.listJobRoles(),
   });
 
+  const teamAgg = useMemo(
+    () => aggregateRoiSummaries(teamRoi.map((q) => q.data)),
+    [teamRoi],
+  );
+
   if (department.isLoading || roi.isLoading) {
     return (
       <div>
@@ -88,10 +93,6 @@ export function DepartmentDashboard({
   }
 
   const d = department.data;
-  const teamAgg = useMemo(
-    () => aggregateRoiSummaries(teamRoi.map((q) => q.data)),
-    [teamRoi],
-  );
   // Prefer sum of team ROI rows when present so dept KPIs match the Teams table.
   const r =
     (teams.data?.length ?? 0) > 0 && teamRoi.some((q) => q.data)

@@ -19,5 +19,5 @@ export function markRecHandled(companySlug: string, id: number) {
   if (typeof window === "undefined" || !Number.isFinite(id) || id <= 0) return;
   const next = readHandledRecIds(companySlug);
   next.add(id);
-  sessionStorage.setItem(storageKey(companySlug), JSON.stringify([...next]));
+  sessionStorage.setItem(storageKey(companySlug), JSON.stringify(Array.from(next)));
 }
