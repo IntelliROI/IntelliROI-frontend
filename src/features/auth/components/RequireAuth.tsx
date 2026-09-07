@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useMeQuery } from "@/features/auth/hooks/useAuth";
 import { type Role } from "@/constants/roles";
-import { LoadingBlock } from "@/components/feedback/States";
+import { PageLoader } from "@/components/feedback/States";
 
 export function RequireAuth({
   children,
@@ -30,11 +30,7 @@ export function RequireAuth({
   }, [isHydrated, accessToken, user, roles, router]);
 
   if (!isHydrated || !user || !accessToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ink p-8">
-        <LoadingBlock className="h-24 w-full max-w-md" />
-      </div>
-    );
+    return <PageLoader label="Loading session" />;
   }
 
   if (roles && !roles.includes(user.role)) return null;

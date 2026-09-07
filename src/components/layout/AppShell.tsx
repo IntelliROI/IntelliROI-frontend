@@ -21,6 +21,11 @@ import { useUiStore } from "@/stores/ui-store";
 import { LiveDot } from "@/components/ui/panel";
 import { authApi } from "@/features/auth/api/auth.api";
 import { roleThemeFromRole } from "@/lib/theme/role-theme";
+import { RouteTransitionLoader } from "@/components/feedback/States";
+
+function pathMatchesHref(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /* ─────────────────────────────────────────────
    Avatar helpers
@@ -107,22 +112,32 @@ function Tooltip({ label, children }: { label: string; children: ReactNode }) {
 function NavListItem({
   item,
   pathname,
+  pendingHref,
   collapsed,
   onNavigate,
+  onPending,
 }: {
   item: NavItem;
   pathname: string;
+  pendingHref: string | null;
   collapsed?: boolean;
   onNavigate?: () => void;
+  onPending: (href: string) => void;
 }) {
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const current = pathMatchesHref(pathname, item.href);
+  const pending = pendingHref === item.href;
+  const active = current || pending;
   const Icon = item.icon;
 
   const linkContent = (
     <Link
       href={item.href}
-      prefetch={false}
-      onClick={onNavigate}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (pathname === item.href) return;
+        onPending(item.href);
+        onNavigate?.();
+      }}
       className={cn(
         "group relative flex items-center gap-3 transition-all duration-150",
         collapsed ? "h-9 w-9 justify-center p-0" : "h-9 px-3",
@@ -131,8 +146,8 @@ function NavListItem({
           : "text-text-secondary/80 hover:bg-surface/70 hover:text-text-primary",
       )}
       title={collapsed ? item.label : undefined}
+      aria-current={current ? "page" : undefined}
     >
-      {/* Left accent bar */}
       {active && (
         <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent" />
       )}
@@ -152,9 +167,14 @@ function NavListItem({
           <span className="flex-1 truncate text-[13px] font-medium leading-none tracking-tight">
             {item.label}
           </span>
-          {active && (
+          {pending ? (
+            <span
+              className="ml-auto h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
+              aria-hidden
+            />
+          ) : current ? (
             <span className="ml-auto h-1 w-1 shrink-0 rounded-full bg-accent" />
-          )}
+          ) : null}
         </>
       )}
     </Link>
@@ -173,13 +193,17 @@ function NavListItem({
 function NavList({
   nav,
   pathname,
+  pendingHref,
   collapsed,
   onNavigate,
+  onPending,
 }: {
   nav: NavItem[];
   pathname: string;
+  pendingHref: string | null;
   collapsed?: boolean;
   onNavigate?: () => void;
+  onPending: (href: string) => void;
 }) {
   let lastSection: string | undefined;
 
@@ -205,8 +229,10 @@ function NavList({
             <NavListItem
               item={item}
               pathname={pathname}
+              pendingHref={pendingHref}
               collapsed={collapsed}
               onNavigate={onNavigate}
+              onPending={onPending}
             />
           </li>
         );
@@ -224,13 +250,16 @@ function UserMenu({
   roleLabel,
   profileHref,
   onLogout,
+  onPending,
 }: {
   firstName?: string;
   lastName?: string;
   roleLabel: string;
   profileHref?: string;
   onLogout: () => void;
+  onPending?: (href: string) => void;
 }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -299,7 +328,10 @@ function UserMenu({
             {profileHref ? (
               <Link
                 href={profileHref}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  if (pathname !== profileHref) onPending?.(profileHref);
+                }}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-[13px]",
                   "text-text-secondary transition-colors hover:bg-surface/70 hover:text-text-primary",
@@ -344,6 +376,7 @@ export function AppShell({
   const router = useRouter();
   const { sidebarCollapsed, toggleSidebar } = useUiStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
   const refreshToken = useAuthStore((s) => s.refreshToken);
@@ -367,10 +400,16 @@ export function AppShell({
     }
   }
 
-  /* Close mobile drawer on route change */
   useEffect(() => {
     setMobileOpen(false);
+    setPendingHref(null);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!pendingHref) return;
+    const timer = window.setTimeout(() => setPendingHref(null), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [pendingHref]);
 
   return (
     <div data-role-theme={roleTheme} className="flex min-h-screen bg-ink">
@@ -429,7 +468,13 @@ export function AppShell({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3" aria-label="Primary">
-          <NavList nav={nav} pathname={pathname} collapsed={sidebarCollapsed} />
+          <NavList
+            nav={nav}
+            pathname={pathname}
+            pendingHref={pendingHref}
+            collapsed={sidebarCollapsed}
+            onPending={setPendingHref}
+          />
         </nav>
 
         {/* Bottom user strip */}
@@ -497,7 +542,9 @@ export function AppShell({
               <NavList
                 nav={nav}
                 pathname={pathname}
+                pendingHref={pendingHref}
                 onNavigate={() => setMobileOpen(false)}
+                onPending={setPendingHref}
               />
             </nav>
 
@@ -558,7 +605,11 @@ export function AppShell({
             {/* Notifications */}
             <Link
               href={notifyHref}
-              prefetch={false}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                if (notifyHref === "#" || pathname === notifyHref) return;
+                setPendingHref(notifyHref);
+              }}
               className={cn(
                 "relative flex h-8 w-8 items-center justify-center",
                 "text-text-secondary/70 transition-colors hover:bg-surface/70 hover:text-text-primary",
@@ -584,6 +635,7 @@ export function AppShell({
                   : undefined
               }
               onLogout={handleLogout}
+              onPending={setPendingHref}
             />
           </div>
         </header>
@@ -591,13 +643,14 @@ export function AppShell({
         {/* ── Page content ── */}
         <main
           className={cn(
-            "flex min-h-0 w-full flex-1 flex-col",
+            "relative flex min-h-0 w-full flex-1 flex-col",
             pathname.includes("/ai-workspace")
               ? "max-w-none overflow-hidden p-0"
               : "mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8",
           )}
         >
           {children}
+          {pendingHref ? <RouteTransitionLoader label="Loading" /> : null}
         </main>
       </div>
     </div>
