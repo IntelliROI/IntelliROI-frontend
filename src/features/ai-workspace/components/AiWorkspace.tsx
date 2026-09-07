@@ -352,11 +352,14 @@ export function AiWorkspace({
         return;
       }
 
-      // Prefer live activeId; fall back to URL / store so remount races never drop the thread.
+      // Prefer live activeId / URL. Only use the persisted store id when this
+      // thread already has messages — never continue a stale uuid on New chat.
       const threadId =
         activeId ||
         conversationId ||
-        useChatStore.getState().activeConversationId ||
+        (messagesRef.current.length > 0
+          ? useChatStore.getState().activeConversationId
+          : null) ||
         undefined;
 
       setDraft("");
@@ -399,13 +402,18 @@ export function AiWorkspace({
 
         if (stopStreamRef.current) return;
 
-        setActiveId(res.conversation_uuid);
-        setActiveConversationId(res.conversation_uuid);
+        const threadUuid = res.conversation_uuid;
+        if (!threadUuid) {
+          throw new Error("Chat succeeded but returned no conversation id");
+        }
 
-        if (!conversationId || conversationId !== res.conversation_uuid) {
+        setActiveId(threadUuid);
+        setActiveConversationId(threadUuid);
+
+        if (!conversationId || conversationId !== threadUuid) {
           // Soft URL update — layout stays mounted; keep local messages.
           router.replace(
-            `/${companySlug}/ai-workspace/${res.conversation_uuid}`,
+            `/${companySlug}/ai-workspace/${threadUuid}`,
             { scroll: false },
           );
         }
@@ -421,9 +429,9 @@ export function AiWorkspace({
                 }
               : m,
           );
-          cacheThread(res.conversation_uuid, next);
+          cacheThread(threadUuid, next);
           queryClient.setQueryData(
-            queryKeys.company.conversation(companySlug, res.conversation_uuid),
+            queryKeys.company.conversation(companySlug, threadUuid),
             (old: unknown) => {
               const base =
                 old && typeof old === "object"
@@ -431,7 +439,7 @@ export function AiWorkspace({
                   : {};
               return {
                 ...base,
-                uuid: res.conversation_uuid,
+                uuid: threadUuid,
                 messages: next.map((m) => ({
                   id: m.id,
                   role: m.role,
@@ -444,15 +452,40 @@ export function AiWorkspace({
         });
         clearStreaming();
 
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.company.conversations(companySlug),
-        });
+        const listKey = queryKeys.company.conversations(companySlug);
+        queryClient.setQueryData(
+          listKey,
+          (old: unknown) => {
+            const list = Array.isArray(old) ? [...old] : [];
+            const existing = list.find(
+              (c: { uuid?: string }) => c.uuid === threadUuid,
+            ) as
+              | {
+                  uuid: string;
+                  title: string;
+                  provider: string;
+                  model: string;
+                  updated_at: string;
+                  message_count: number;
+                  pinned: boolean;
+                }
+              | undefined;
+            const row = {
+              uuid: threadUuid,
+              title: existing?.title || prompt.slice(0, 80) || "Untitled",
+              provider: res.provider || existing?.provider || provider,
+              model: res.model || existing?.model || model,
+              updated_at: new Date().toISOString(),
+              message_count: (existing?.message_count ?? 0) + 2,
+              pinned: existing?.pinned ?? false,
+            };
+            return [row, ...list.filter((c: { uuid?: string }) => c.uuid !== threadUuid)];
+          },
+        );
+        void queryClient.invalidateQueries({ queryKey: listKey });
         // Soft refresh detail in background without forcing a blank paint.
         void queryClient.invalidateQueries({
-          queryKey: queryKeys.company.conversation(
-            companySlug,
-            res.conversation_uuid,
-          ),
+          queryKey: queryKeys.company.conversation(companySlug, threadUuid),
         });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
@@ -524,7 +557,12 @@ export function AiWorkspace({
     Boolean(activeId) &&
     conversation.isLoading &&
     messages.length === 0;
-  const empty = !loadingThread && messages.length === 0;
+  const hydrateFailed =
+    needsHydrate &&
+    Boolean(activeId) &&
+    conversation.isError &&
+    messages.length === 0;
+  const empty = !loadingThread && !hydrateFailed && messages.length === 0;
   // Only warn when the list loaded successfully and is empty — a failed
   // request (e.g. old 403) must not look like "no company keys".
   const noProviderConfigured =
@@ -536,6 +574,7 @@ export function AiWorkspace({
         companySlug={companySlug}
         conversations={conversations.data ?? []}
         loading={conversations.isLoading}
+        loadError={conversations.isError}
         activeId={activeId}
         pinnedIds={pinnedIds}
         onTogglePin={togglePin}
@@ -551,6 +590,13 @@ export function AiWorkspace({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loadingThread ? (
             <AiChatLoader label="Loading conversation…" />
+          ) : hydrateFailed ? (
+            <div className="flex h-full flex-col items-center justify-center px-4">
+              <p className="max-w-md text-center text-[13px] text-text-secondary">
+                This conversation could not be loaded. It may have been deleted
+                or belongs to another account.
+              </p>
+            </div>
           ) : empty ? (
             <div className="flex h-full flex-col items-center justify-center px-4 pb-8 pt-12">
               <div className="mb-4">
