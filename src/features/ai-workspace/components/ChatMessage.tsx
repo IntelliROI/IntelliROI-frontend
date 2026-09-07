@@ -12,6 +12,8 @@ export type ChatMessageView = {
   /** True while waiting on the provider — no content yet. Not real token streaming. */
   thinking?: boolean;
   stopped?: boolean;
+  /** True when the bubble shows a transport/gateway failure (not model text). */
+  isError?: boolean;
 };
 
 /**
@@ -131,6 +133,9 @@ export function ChatMessageBubble({
             {message.stopped && (
               <span className="text-[11px] text-warning">Stopped</span>
             )}
+            {message.isError && (
+              <span className="text-[11px] text-warning">Error</span>
+            )}
           </div>
 
           {message.thinking ? (
@@ -138,7 +143,8 @@ export function ChatMessageBubble({
           ) : (
             <div
               className={cn(
-                "whitespace-pre-wrap break-words text-[15px] leading-6 text-text-primary",
+                "whitespace-pre-wrap break-words text-[15px] leading-6",
+                message.isError ? "text-warning" : "text-text-primary",
                 message.isStreaming && !message.content && "min-h-[1.5rem]",
               )}
             >
@@ -149,7 +155,7 @@ export function ChatMessageBubble({
             </div>
           )}
 
-          {message.content && !message.isStreaming && (
+          {message.content && !message.isStreaming && !message.isError && (
             <div className="mt-1.5 flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
               <ActionBtn onClick={copy} label={copied ? "Copied" : "Copy"}>
                 {copied ? (

@@ -67,7 +67,6 @@ export function AiWorkspace({
     setProvider,
     setModel,
     setActiveConversationId,
-    activeConversationId,
   } = useChatStore();
 
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
@@ -84,7 +83,8 @@ export function AiWorkspace({
   const prevUrlIdRef = useRef<string | undefined>(conversationId);
   /** Only true when user clicked New chat — blank URL must not wipe the thread. */
   const explicitNewChatRef = useRef(false);
-  const restoredRouteRef = useRef(false);
+  /** Blank workspace stays blank; sidebar is the way back into old threads. */
+  const restoredRouteRef = useRef(true);
   /** In-memory thread cache so sidebar switches paint immediately. */
   const threadCacheRef = useRef<Map<string, ChatMessageView[]>>(new Map());
   const messagesRef = useRef(messages);
@@ -287,22 +287,7 @@ export function AiWorkspace({
     setActiveConversationId,
   ]);
 
-  // Restore last conversation when entering Workspace without a URL id.
-  useEffect(() => {
-    if (restoredRouteRef.current) return;
-    if (conversationId) {
-      restoredRouteRef.current = true;
-      return;
-    }
-    if (explicitNewChatRef.current) return;
-    const stored = activeConversationId;
-    if (!stored) {
-      restoredRouteRef.current = true;
-      return;
-    }
-    restoredRouteRef.current = true;
-    router.replace(`/${companySlug}/ai-workspace/${stored}`, { scroll: false });
-  }, [conversationId, activeConversationId, companySlug, router]);
+  // Blank /ai-workspace is a fresh thread — pick history from the sidebar.
 
   useEffect(() => {
     if (providerAutoSelectedRef.current) return;
@@ -524,23 +509,20 @@ export function AiWorkspace({
             ? "This request is blocked by an AI policy (provider, model, or daily token cap)."
             : err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED"
               ? "This provider has no company API key. Ask an owner to add one under AI Providers."
-              : err instanceof ApiError && err.code === "INTERNAL_ERROR"
-                ? `Gateway error: ${err.message || "internal server error"}`
-                : err instanceof Error
-                  ? err.message
-                  : "Request failed";
+              : err instanceof ApiError && err.code === "GATEWAY_TIMEOUT"
+                ? "The model took too long (or the tunnel timed out). Try a shorter prompt or retry."
+                : err instanceof ApiError && err.code === "REQUEST_CANCELLED"
+                  ? "Request cancelled."
+                  : err instanceof ApiError && err.code === "INTERNAL_ERROR"
+                    ? `Gateway error: ${err.message || "internal server error"}`
+                    : err instanceof Error
+                      ? err.message
+                      : "Request failed";
         toast.error(message);
+        // Keep the user bubble; drop the empty assistant placeholder so the
+        // error is not mistaken for a model reply.
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId
-              ? {
-                  ...m,
-                  content: m.content || message,
-                  isStreaming: false,
-                  thinking: false,
-                }
-              : m,
-          ),
+          prev.filter((m) => m.id !== assistantId),
         );
       } finally {
         setBusy(false);

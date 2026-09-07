@@ -1,5 +1,7 @@
-import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery, ApiError } from "@/lib/api/client";
 import { LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
+import { services, shouldUseApiProxy } from "@/config/site";
+import { useAuthStore } from "@/stores/auth-store";
 
 export type ProviderModel = {
   id: number;
@@ -169,6 +171,175 @@ function toChat(r: ChatDto): ChatResponse {
   };
 }
 
+function chatAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "text/event-stream",
+    "Content-Type": "application/json",
+  };
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("intelliroi_access_token")
+      : null;
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+function applyNgrokHeader(headers: Record<string, string>, url: string) {
+  if (shouldUseApiProxy() || url.includes("ngrok")) {
+    headers["ngrok-skip-browser-warning"] = "true";
+  }
+}
+
+function unwrapEnvelope<T>(payload: unknown): T {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "data" in payload &&
+    (payload as { data: unknown }).data !== undefined
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
+async function readErrorBody(res: Response): Promise<ApiError> {
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    body = undefined;
+  }
+  const nested =
+    body && typeof body === "object"
+      ? (body as { error?: { code?: string; message?: string }; message?: string })
+      : undefined;
+  const code =
+    nested?.error && typeof nested.error === "object"
+      ? nested.error.code
+      : undefined;
+  const message =
+    (nested?.error && typeof nested.error === "object"
+      ? nested.error.message
+      : undefined) ||
+    nested?.message ||
+    res.statusText ||
+    "Request failed";
+  return new ApiError(message, res.status, body, code);
+}
+
+/**
+ * Parse SSE from POST /chat?stream=true. Keepalive `ping` events are ignored;
+ * `message` carries the completed reply; `error` raises ApiError.
+ */
+async function parseChatSSE(
+  res: Response,
+  signal?: AbortSignal,
+): Promise<ChatResponse> {
+  if (!res.body) {
+    throw new ApiError("Empty chat stream", res.status);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const acc: { reply: ChatResponse | null; err: ApiError | null } = {
+    reply: null,
+    err: null,
+  };
+
+  const handleBlock = (block: string) => {
+    const lines = block.split("\n");
+    let event = "message";
+    const dataLines: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+    }
+    if (dataLines.length === 0) return;
+    const raw = dataLines.join("\n");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    if (event === "ping" || event === "done") return;
+    if (event === "error") {
+      const err = parsed as { code?: string; message?: string };
+      acc.err = new ApiError(
+        err.message || "Chat failed",
+        500,
+        parsed,
+        err.code,
+      );
+      return;
+    }
+    if (event === "conversation") {
+      const conv = parsed as { conversation_uuid?: string; uuid?: string };
+      const uuid = (conv.conversation_uuid || conv.uuid || "").trim();
+      if (!acc.reply) {
+        acc.reply = {
+          request_uuid: "",
+          conversation_uuid: uuid,
+          content: "",
+          provider: "",
+          model: "",
+          tokens_in: 0,
+          tokens_out: 0,
+        };
+      } else if (uuid) {
+        acc.reply.conversation_uuid = uuid;
+      }
+      return;
+    }
+    if (event === "message") {
+      const root = (parsed ?? {}) as Record<string, unknown>;
+      const nested =
+        root.data && typeof root.data === "object"
+          ? (root.data as ChatDto)
+          : null;
+      const merged: ChatDto = {
+        ...(root as ChatDto),
+        ...(nested ?? {}),
+      };
+      const next = toChat(merged);
+      acc.reply = {
+        ...next,
+        conversation_uuid:
+          chatThreadUuid(merged) || acc.reply?.conversation_uuid || "",
+      };
+    }
+  };
+
+  while (true) {
+    if (signal?.aborted) {
+      await reader.cancel().catch(() => undefined);
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      if (part.trim()) handleBlock(part.replace(/\r/g, ""));
+    }
+  }
+  if (buffer.trim()) handleBlock(buffer.replace(/\r/g, ""));
+
+  if (acc.err) throw acc.err;
+  if (!acc.reply?.conversation_uuid) {
+    throw new ApiError(
+      acc.reply
+        ? "Chat succeeded but returned no conversation id"
+        : "Chat stream ended without a reply",
+      502,
+    );
+  }
+  return acc.reply;
+}
+
 export const aiGatewayApi = {
   async listProviders(): Promise<Provider[]> {
     const page = await pagedRequest<ProviderDto>(
@@ -205,6 +376,10 @@ export const aiGatewayApi = {
     await apiRequest("ai", `/providers/keys/${id}`, { method: "DELETE" });
   },
 
+  /**
+   * Chat via SSE keepalives (default on the gateway). Falls back to JSON
+   * `?stream=false` if the response is not an event stream.
+   */
   async chat(
     input: ChatInput,
     options?: { signal?: AbortSignal },
@@ -221,11 +396,82 @@ export const aiGatewayApi = {
       body.uuid = input.conversation_uuid;
     }
 
-    const raw = await apiRequest<ChatDto>("ai", "/chat", {
+    const base = services.ai.replace(/\/$/, "");
+    const url = `${base}/chat?stream=true`;
+    const headers = chatAuthHeaders();
+    applyNgrokHeader(headers, url);
+
+    const res = await fetch(url, {
       method: "POST",
-      body,
+      headers,
+      body: JSON.stringify(body),
       signal: options?.signal,
     });
+
+    if (res.status === 401) {
+      // One refresh attempt, then retry once (mirrors axios interceptor).
+      const refreshToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem("intelliroi_refresh_token") ||
+            useAuthStore.getState().refreshToken
+          : null;
+      if (refreshToken) {
+        try {
+          const refreshUrl = `${services.auth.replace(/\/$/, "")}/auth/refresh`;
+          const refreshHeaders: Record<string, string> = {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          };
+          applyNgrokHeader(refreshHeaders, refreshUrl);
+          const refreshed = await fetch(refreshUrl, {
+            method: "POST",
+            headers: refreshHeaders,
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+          if (refreshed.ok) {
+            const payload = unwrapEnvelope<{
+              access_token?: string;
+              refresh_token?: string;
+            }>(await refreshed.json());
+            if (payload.access_token) {
+              useAuthStore.getState().setTokens({
+                accessToken: payload.access_token,
+                refreshToken: payload.refresh_token || refreshToken,
+              });
+              const retryHeaders = chatAuthHeaders();
+              applyNgrokHeader(retryHeaders, url);
+              const retry = await fetch(url, {
+                method: "POST",
+                headers: retryHeaders,
+                body: JSON.stringify(body),
+                signal: options?.signal,
+              });
+              if (!retry.ok) throw await readErrorBody(retry);
+              const retryCt = retry.headers.get("content-type") ?? "";
+              if (retryCt.includes("text/event-stream")) {
+                return parseChatSSE(retry, options?.signal);
+              }
+              const raw = unwrapEnvelope<ChatDto>(await retry.json());
+              return toChat(raw);
+            }
+          }
+        } catch (err) {
+          if (err instanceof ApiError) throw err;
+        }
+      }
+      throw new ApiError("Unauthorized", 401, undefined, "UNAUTHORIZED");
+    }
+
+    if (!res.ok) {
+      throw await readErrorBody(res);
+    }
+
+    const ct = res.headers.get("content-type") ?? "";
+    if (ct.includes("text/event-stream")) {
+      return parseChatSSE(res, options?.signal);
+    }
+
+    const raw = unwrapEnvelope<ChatDto>(await res.json());
     return toChat(raw);
   },
 

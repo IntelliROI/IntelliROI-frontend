@@ -1,10 +1,18 @@
 /**
  * Public api-gateway (:8080). Per-service NEXT_PUBLIC_*_BASE overrides are optional.
  *
- * On HTTPS hosts (e.g. Netlify) the browser MUST use same-origin `/api-proxy/*`.
- * Next/Netlify then forward to HTTP upstreams (avoids Mixed Content).
- * Upstream hosts are configured via *_UPSTREAM / next.config / netlify.toml.
+ * Routing rules (in order):
+ * 1. Explicit https:// bases (ngrok / real TLS API) → call them directly.
+ *    Avoids Netlify /api-proxy idle timeouts on long chat completions.
+ * 2. NEXT_PUBLIC_USE_API_PROXY=true → same-origin /api-proxy/* (Netlify Mixed Content).
+ * 3. HTTPS page + http:// API base → /api-proxy/* (browser would block Mixed Content).
+ * 4. Otherwise → env base or local gateway :8080.
  */
+
+/** True when value is an absolute https URL (ngrok, Cloudflare Tunnel, etc.). */
+export function isHttpsApiBase(value?: string | null): boolean {
+  return Boolean(value && /^https:\/\//i.test(value.trim()));
+}
 
 /** HTTPS pages cannot call http:// backends — browsers block Mixed Content. */
 export function shouldUseApiProxy(): boolean {
@@ -15,25 +23,51 @@ export function shouldUseApiProxy(): boolean {
   return false;
 }
 
+function trimBase(value: string): string {
+  return value.replace(/\/$/, "");
+}
+
 function directApiBase(): string {
   return process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8080";
 }
 
+/**
+ * Resolve a service root. Prefer explicit HTTPS (ngrok) over /api-proxy even when
+ * the page is HTTPS or USE_API_PROXY is set — Mixed Content is not an issue then.
+ */
 function serviceBase(
   proxyPath: string,
   envValue: string | undefined,
 ): string {
-  if (shouldUseApiProxy()) return proxyPath;
-  return envValue ?? directApiBase();
+  const explicit = envValue?.trim();
+  if (explicit && isHttpsApiBase(explicit)) {
+    return trimBase(explicit);
+  }
+
+  if (process.env.NEXT_PUBLIC_USE_API_PROXY === "true") {
+    return proxyPath;
+  }
+
+  if (typeof window !== "undefined" && window.location.protocol === "https:") {
+    // HTTPS UI + missing/HTTP API → same-origin proxy only.
+    if (!explicit || /^http:\/\//i.test(explicit)) {
+      return proxyPath;
+    }
+  }
+
+  return trimBase(explicit ?? directApiBase());
 }
 
-export const API_BASE = shouldUseApiProxy()
-  ? "/api-proxy/gateway"
-  : directApiBase();
+export const API_BASE = (() => {
+  const gateway = process.env.NEXT_PUBLIC_API_BASE?.trim();
+  if (gateway && isHttpsApiBase(gateway)) return trimBase(gateway);
+  if (shouldUseApiProxy()) return "/api-proxy/gateway";
+  return trimBase(directApiBase());
+})();
 
 /**
  * Service roots. Getters re-evaluate so an HTTPS tab never keeps a baked-in
- * `http://` NEXT_PUBLIC_*_BASE (Mixed Content).
+ * `http://` NEXT_PUBLIC_*_BASE (Mixed Content) unless an https override is set.
  */
 export const services = {
   get auth() {
