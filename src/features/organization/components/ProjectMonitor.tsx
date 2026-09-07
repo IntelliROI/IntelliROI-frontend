@@ -43,7 +43,7 @@ export function ProjectMonitor({
     queryFn: () => organizationApi.listTeams(),
   });
   const members = useQuery({
-    queryKey: ["company", companySlug, "projects", projectId, "members"],
+    queryKey: queryKeys.company.projectMembers(companySlug, projectId),
     queryFn: () => organizationApi.listProjectMembers(projectId),
   });
   const employees = useQuery({

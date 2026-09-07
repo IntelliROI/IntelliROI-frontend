@@ -144,6 +144,36 @@ export function SectionLoader({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   RouteTransitionLoader — overlay the main pane while a sidebar tab loads
+───────────────────────────────────────────────────────────────────────── */
+export function RouteTransitionLoader({ label }: { label?: string }) {
+  return (
+    <div
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-ink/90"
+      role="status"
+      aria-live="polite"
+      aria-label={label ?? "Loading"}
+    >
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="h-40 w-40 rounded-full bg-brand/5 blur-3xl" />
+      </div>
+      <div className="relative flex items-center justify-center">
+        <BrandMark size="lg" />
+        <SpinRing size="lg" />
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <span className="font-mono text-[11px] font-bold tracking-[0.28em] text-text-primary">
+          {site.name.toUpperCase()}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/55 animate-pulse">
+          {label ?? "Loading"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    LoadingBlock — shimmer block (kept for back-compat, upgraded visually)
 ───────────────────────────────────────────────────────────────────────── */
 export function LoadingBlock({ className }: { className?: string }) {

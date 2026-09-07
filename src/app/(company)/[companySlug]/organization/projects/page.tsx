@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   PageHeader,
@@ -46,6 +46,7 @@ export default function ProjectsPage({
 }: {
   params: { companySlug: string };
 }) {
+  const queryClient = useQueryClient();
   const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
     params.companySlug,
   );
@@ -97,6 +98,35 @@ export default function ProjectsPage({
     queryFn: () => organizationApi.listEmployees(),
     enabled: Boolean(assigning),
   });
+  const projectMembers = useQuery({
+    queryKey: queryKeys.company.projectMembers(
+      params.companySlug,
+      assigning?.id ?? 0,
+    ),
+    queryFn: () => organizationApi.listProjectMembers(assigning!.id),
+    enabled: Boolean(assigning),
+  });
+
+  const availableEmployees = useMemo(() => {
+    const members = projectMembers.data ?? [];
+    const memberUuids = new Set(
+      members
+        .map((m) => m.user_uuid)
+        .filter((uuid): uuid is string => Boolean(uuid)),
+    );
+    const memberEmails = new Set(
+      members
+        .map((m) => m.email?.trim().toLowerCase())
+        .filter((email): email is string => Boolean(email)),
+    );
+    return (employees.data ?? []).filter((e) => {
+      if (e.status === "invited") return false;
+      if (memberUuids.has(e.uuid)) return false;
+      if (e.user_id && memberUuids.has(e.user_id)) return false;
+      if (e.email && memberEmails.has(e.email.trim().toLowerCase())) return false;
+      return true;
+    });
+  }, [employees.data, projectMembers.data]);
 
   const deptMap = useMemo(
     () =>
@@ -143,6 +173,12 @@ export default function ProjectsPage({
     try {
       await organizationApi.addProjectMember(assigning.id, memberUuid);
       toast.success(`Added member to ${assigning.project_name}`);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.company.projectMembers(
+          params.companySlug,
+          assigning.id,
+        ),
+      });
       setAssigning(null);
       setMemberUuid("");
     } catch (err) {
@@ -367,17 +403,17 @@ export default function ProjectsPage({
             onChange={(e) => setMemberUuid(e.target.value)}
           >
             <option value="">Select employee</option>
-            {(employees.data ?? []).map((e) => (
+            {availableEmployees.map((e) => (
               <option key={e.uuid} value={e.uuid}>
                 {e.display_name}
               </option>
             ))}
           </Select>
-          {employees.isLoading ? (
+          {employees.isLoading || projectMembers.isLoading ? (
             <p className="mt-2 text-xs text-text-secondary">Loading people…</p>
-          ) : (employees.data ?? []).length === 0 ? (
+          ) : availableEmployees.length === 0 ? (
             <p className="mt-2 text-xs text-text-secondary">
-              No employees available to assign.
+              Everyone in the company is already on this project.
             </p>
           ) : null}
         </div>

@@ -50,6 +50,8 @@ export const queryKeys = {
       ["company", companySlug, "settings"] as const,
     projects: (companySlug: string) =>
       ["company", companySlug, "projects"] as const,
+    projectMembers: (companySlug: string, projectId: number) =>
+      ["company", companySlug, "projects", projectId, "members"] as const,
     projectsPage: (
       companySlug: string,
       query: {
