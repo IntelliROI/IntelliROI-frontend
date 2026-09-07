@@ -76,10 +76,11 @@ type ConfiguredDto = {
 };
 
 type ChatDto = {
-  request_uuid: string;
-  conversation_uuid: string;
-  provider: string;
-  model: string;
+  request_uuid?: string;
+  conversation_uuid?: string;
+  uuid?: string;
+  provider?: string;
+  model?: string;
   prompt?: string;
   response?: string;
   content?: string;
@@ -140,9 +141,13 @@ function toConfigured(p: ConfiguredDto): ConfiguredProvider {
   };
 }
 
+function chatThreadUuid(r: ChatDto): string {
+  return (r.conversation_uuid || r.uuid || "").trim();
+}
+
 function toConversation(c: ConversationDto): Conversation {
   return {
-    uuid: c.conversation_uuid ?? c.uuid ?? "",
+    uuid: (c.conversation_uuid ?? c.uuid ?? "").trim(),
     title: c.title || "Untitled",
     provider: c.provider ?? "",
     model: c.model ?? "",
@@ -154,11 +159,11 @@ function toConversation(c: ConversationDto): Conversation {
 
 function toChat(r: ChatDto): ChatResponse {
   return {
-    request_uuid: r.request_uuid,
-    conversation_uuid: r.conversation_uuid,
+    request_uuid: r.request_uuid ?? "",
+    conversation_uuid: chatThreadUuid(r),
     content: r.response ?? r.content ?? "",
-    provider: r.provider,
-    model: r.model,
+    provider: r.provider ?? "",
+    model: r.model ?? "",
     tokens_in: r.usage?.prompt_tokens ?? r.tokens_in ?? 0,
     tokens_out: r.usage?.completion_tokens ?? r.tokens_out ?? 0,
   };
@@ -211,7 +216,10 @@ export const aiGatewayApi = {
     };
     if (input.project_id) body.project_id = input.project_id;
     if (input.task_category_id) body.task_category_id = input.task_category_id;
-    if (input.conversation_uuid) body.conversation_uuid = input.conversation_uuid;
+    if (input.conversation_uuid) {
+      body.conversation_uuid = input.conversation_uuid;
+      body.uuid = input.conversation_uuid;
+    }
 
     const raw = await apiRequest<ChatDto>("ai", "/chat", {
       method: "POST",
@@ -226,7 +234,7 @@ export const aiGatewayApi = {
       "ai",
       withQuery("/conversations", { page: 1, page_size: LIST_PAGE_SIZE_MAX }),
     );
-    return page.items.map(toConversation);
+    return page.items.map(toConversation).filter((c) => c.uuid);
   },
 
   async getConversation(uuid: string): Promise<ConversationDetail> {
