@@ -14,8 +14,13 @@ import { queryKeys } from "@/lib/api/query-keys";
 
 /**
  * Single display currency for the tenant: company settings currency + FX.
- * ROI totals are already in company currency; analytics/cost USD amounts
- * should go through `fromUsd`.
+ *
+ * App-wide spend rule:
+ * - ROI service totals (`total_spend`, `business_value`) are already in
+ *   company currency — never pass them through `fromUsd`.
+ * - Analytics / cost USD amounts may use `fromUsd` for charts until those
+ *   services return company currency. Do not use converted analytics spend
+ *   as the executive number next to Estimated ROI when an ROI total exists.
  */
 
 const FX_CACHE_KEY = "intelliroi:company-fx";

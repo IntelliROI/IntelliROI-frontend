@@ -388,9 +388,17 @@ function parsePaged<T>(payload: unknown): Paged<T> {
   if (!payload || typeof payload !== "object") {
     return { items: [], meta: { ...EMPTY_PAGE_META } };
   }
-  const envelope = payload as { data?: unknown; meta?: unknown };
-  const items = Array.isArray(envelope.data) ? (envelope.data as T[]) : [];
-  return { items, meta: parsePageMeta(envelope.meta) };
+  const envelope = payload as {
+    data?: unknown;
+    items?: unknown;
+    meta?: unknown;
+  };
+  const rawList = Array.isArray(envelope.data)
+    ? envelope.data
+    : Array.isArray(envelope.items)
+      ? envelope.items
+      : [];
+  return { items: rawList as T[], meta: parsePageMeta(envelope.meta) };
 }
 
 /** Build `path?page=1&q=eng`, omitting empty values. */

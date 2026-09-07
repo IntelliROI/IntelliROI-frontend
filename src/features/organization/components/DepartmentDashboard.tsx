@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 import { KpiTile } from "@/components/dashboard/KpiTile";
@@ -9,6 +9,7 @@ import { PageHeader, LoadingBlock, DataTable, EmptyState } from "@/components/fe
 import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
+import { aggregateRoiSummaries } from "@/features/roi/lib/aggregate";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { formatCurrency } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
@@ -87,7 +88,20 @@ export function DepartmentDashboard({
   }
 
   const d = department.data;
-  const r = roi.data;
+  const teamAgg = useMemo(
+    () => aggregateRoiSummaries(teamRoi.map((q) => q.data)),
+    [teamRoi],
+  );
+  // Prefer sum of team ROI rows when present so dept KPIs match the Teams table.
+  const r =
+    (teams.data?.length ?? 0) > 0 && teamRoi.some((q) => q.data)
+      ? {
+          total_spend: teamAgg.total_spend,
+          roi_pct: teamAgg.roi_pct,
+          requests: teamAgg.requests,
+          business_value: teamAgg.business_value,
+        }
+      : roi.data!;
   const pending = (benchmarks.data ?? []).filter((b) => b.status === "pending");
   const catName = (id: number) =>
     (categories.data ?? []).find((c) => c.id === id)?.name ?? `Category ${id}`;

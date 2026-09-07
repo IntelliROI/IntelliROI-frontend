@@ -1,5 +1,6 @@
-import { apiRequest, pagedRequest, withQuery } from "@/lib/api/client";
+import { apiRequest, pagedRequest, withQuery, ApiError } from "@/lib/api/client";
 import { LIST_DROPDOWN_PAGE_SIZE, LIST_PAGE_SIZE_MAX } from "@/lib/api/types";
+import { estimatedRoiPct } from "@/features/roi/lib/aggregate";
 
 export type RoiSummary = {
   period: string;
@@ -17,6 +18,31 @@ export type RoiSummary = {
   department_id?: number;
   team_id?: number;
   employee_id?: number;
+};
+
+/** Scoped rollup with children — single source for KPIs + member tables. */
+export type RoiScopeMember = {
+  employee_id: number;
+  display_name: string;
+  requests: number;
+  spend: number;
+  business_value: number;
+  roi_pct: number;
+};
+
+export type RoiScopeSummary = {
+  scope: string;
+  scope_id: number;
+  period: string;
+  period_start?: string;
+  period_end?: string;
+  currency?: string;
+  member_count: number;
+  requests: number;
+  spend: number;
+  business_value: number;
+  roi_pct: number;
+  members: RoiScopeMember[];
 };
 
 export type Recommendation = {
@@ -148,6 +174,109 @@ function numericId(id: number | string): number | null {
   return null;
 }
 
+type ScopeSummaryDto = {
+  scope?: string;
+  scope_id?: number;
+  team_id?: number;
+  period?: string;
+  period_type?: string;
+  period_start?: string;
+  period_end?: string;
+  currency?: string;
+  member_count?: number;
+  requests?: number;
+  total_requests?: number;
+  spend?: number;
+  total_spend?: number;
+  total_ai_cost?: number;
+  business_value?: number;
+  total_business_value?: number;
+  roi_pct?: number;
+  overall_roi_percentage?: number;
+  members?: Array<{
+    employee_id?: number;
+    id?: number;
+    display_name?: string;
+    name?: string;
+    requests?: number;
+    total_requests?: number;
+    spend?: number;
+    total_spend?: number;
+    total_ai_cost?: number;
+    business_value?: number;
+    total_business_value?: number;
+    roi_pct?: number;
+    overall_roi_percentage?: number;
+  }>;
+};
+
+function toScopeSummary(
+  raw: ScopeSummaryDto,
+  scope: string,
+  scopeId: number,
+  period: string,
+): RoiScopeSummary {
+  const members = (raw.members ?? []).map((m) => {
+    const spend = Number(m.total_ai_cost ?? m.total_spend ?? m.spend ?? 0);
+    const business_value = Number(
+      m.total_business_value ?? m.business_value ?? 0,
+    );
+    const requests = Number(m.total_requests ?? m.requests ?? 0);
+    const roi_pct = Number(
+      m.overall_roi_percentage ??
+        m.roi_pct ??
+        estimatedRoiPct(business_value, spend),
+    );
+    return {
+      employee_id: m.employee_id ?? m.id ?? 0,
+      display_name: m.display_name ?? m.name ?? `Employee ${m.employee_id ?? m.id ?? ""}`,
+      requests,
+      spend,
+      business_value,
+      roi_pct,
+    };
+  });
+
+  const spend = Number(
+    raw.total_ai_cost ?? raw.total_spend ?? raw.spend ?? 0,
+  );
+  const business_value = Number(
+    raw.total_business_value ?? raw.business_value ?? 0,
+  );
+  const requests = Number(raw.total_requests ?? raw.requests ?? 0);
+  const fromMembers =
+    members.length > 0
+      ? {
+          requests: members.reduce((s, m) => s + m.requests, 0),
+          spend: members.reduce((s, m) => s + m.spend, 0),
+          business_value: members.reduce((s, m) => s + m.business_value, 0),
+        }
+      : null;
+
+  const totalSpend = fromMembers?.spend ?? spend;
+  const totalBv = fromMembers?.business_value ?? business_value;
+  const totalReq = fromMembers?.requests ?? requests;
+
+  return {
+    scope: raw.scope ?? scope,
+    scope_id: raw.scope_id ?? raw.team_id ?? scopeId,
+    period: raw.period_type ?? raw.period ?? period,
+    period_start: raw.period_start,
+    period_end: raw.period_end,
+    currency: raw.currency,
+    member_count: raw.member_count ?? members.length,
+    requests: totalReq,
+    spend: totalSpend,
+    business_value: totalBv,
+    roi_pct: Number(
+      raw.overall_roi_percentage ??
+        raw.roi_pct ??
+        estimatedRoiPct(totalBv, totalSpend),
+    ),
+    members,
+  };
+}
+
 export const roiApi = {
   async company(period = "month"): Promise<RoiSummary> {
     const raw = await apiRequest("roi", `/roi/company?period=${period}`);
@@ -164,6 +293,28 @@ export const roiApi = {
     const raw = await apiRequest("roi", `/roi/team/${id}?period=${period}`);
     const summary = latestRoi(raw, period);
     return { ...summary, team_id: id };
+  },
+
+  /**
+   * Prefer this for Team Dashboard KPIs + Members.
+   * Returns null when the gateway has not shipped the summary route yet (404).
+   */
+  async teamSummary(
+    id: number,
+    period = "month",
+  ): Promise<RoiScopeSummary | null> {
+    try {
+      const raw = await apiRequest<ScopeSummaryDto>(
+        "roi",
+        `/roi/team/${id}/summary?period=${period}`,
+      );
+      return toScopeSummary(raw, "team", id, period);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 404 || err.status === 501)) {
+        return null;
+      }
+      throw err;
+    }
   },
 
   async employee(id: number | string, period = "month"): Promise<RoiSummary> {
@@ -213,5 +364,4 @@ export const roiApi = {
       effective_from: f.effective_from ?? "",
     }));
   },
-
 };

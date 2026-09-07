@@ -19,6 +19,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
+import { toAnalyticsPeriod } from "@/features/roi/lib/aggregate";
 
 /**
  * Employee personal intelligence — ChatGPT familiarity + observability.
@@ -29,7 +30,7 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
   const { currency: companyCurrency } = useCompanyCurrency(companySlug);
   const employeeId = user?.id ?? user?.scope?.user_id;
   const [period, setPeriod] = useState<RoiPeriod>("month");
-  const analyticsPeriod = period === "week" ? "day" : period;
+  const analyticsPeriod = toAnalyticsPeriod(period);
 
   const roi = useQuery({
     queryKey: ["company", companySlug, "roi", "employee", employeeId ?? "self", period],
@@ -139,7 +140,7 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
         <div className="grid gap-px bg-hairline sm:grid-cols-3 lg:col-span-7">
           <MetricTile
             label="Requests"
-            value={analytics.data?.requests ?? r.requests ?? 0}
+            value={r.requests ?? 0}
             format="number"
             hint="this period"
             spark={spark.length > 1 ? spark : undefined}

@@ -70,6 +70,8 @@ export const queryKeys = {
         ["company", companySlug, "roi", "department", id, period] as const,
       team: (companySlug: string, id: number, period = "month") =>
         ["company", companySlug, "roi", "team", id, period] as const,
+      teamSummary: (companySlug: string, id: number, period = "month") =>
+        ["company", companySlug, "roi", "team-summary", id, period] as const,
       employee: (companySlug: string, id: string | number, period = "month") =>
         ["company", companySlug, "roi", "employee", id, period] as const,
       recommendations: (companySlug: string, status = "open") =>
