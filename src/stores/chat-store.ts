@@ -58,6 +58,7 @@ export const useChatStore = create<ChatState>()(
         provider: s.provider,
         model: s.model,
         activeConversationId: s.activeConversationId,
+        draft: s.draft,
       }),
     },
   ),
