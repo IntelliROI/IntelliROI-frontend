@@ -30,11 +30,7 @@ import {
   markRecHandled,
   readHandledRecIds,
 } from "@/features/roi/lib/handled-recommendations";
-
-/** Analytics has no "week" period_type — fold week into day for that call. */
-function toAnalyticsPeriod(period: RoiPeriod): "day" | "month" {
-  return period === "week" ? "day" : period;
-}
+import { toAnalyticsPeriod } from "@/features/roi/lib/aggregate";
 
 function sparkFromSeries(
   series: { roi_pct?: number; requests?: number; cost?: number }[],
@@ -315,20 +311,16 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
               : "Chat from AI Workspace with a project and task to populate Estimated ROI."}
           </InsightRow>
           <InsightRow tone="info" code="COST">
-            {formatCurrency(
-              costs.data != null
-                ? costs.data.currency?.toUpperCase() === companyCurrency
-                  ? costs.data.total_cost
-                  : fromUsd(costs.data.total_cost)
-                : roiData.total_spend,
-              companyCurrency,
-            )}{" "}
-            AI spend this period · {formatNumber(costs.data?.event_count ?? 0)}{" "}
-            cost events.
+            {formatCurrency(roiData.total_spend, companyCurrency)} AI spend this
+            period (Estimated ROI · company currency)
+            {costs.data != null
+              ? ` · ${formatNumber(costs.data.event_count ?? 0)} cost events`
+              : ""}
+            .
           </InsightRow>
           <InsightRow tone="info" code="REQ">
-            {formatNumber(analytics.data?.requests ?? 0)} AI requests in
-            analytics window.
+            {formatNumber(roiData.requests || analytics.data?.requests || 0)} AI
+            requests this period.
           </InsightRow>
         </Panel>
 

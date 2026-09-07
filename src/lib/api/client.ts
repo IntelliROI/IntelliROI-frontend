@@ -393,25 +393,12 @@ function parsePaged<T>(payload: unknown): Paged<T> {
     items?: unknown;
     meta?: unknown;
   };
-  const nested =
-    envelope.data &&
-    typeof envelope.data === "object" &&
-    !Array.isArray(envelope.data)
-      ? (envelope.data as { data?: unknown; items?: unknown; meta?: unknown })
-      : null;
-  const rawItems = Array.isArray(envelope.data)
+  const rawList = Array.isArray(envelope.data)
     ? envelope.data
     : Array.isArray(envelope.items)
       ? envelope.items
-      : Array.isArray(nested?.data)
-        ? nested.data
-        : Array.isArray(nested?.items)
-          ? nested.items
-          : [];
-  return {
-    items: rawItems as T[],
-    meta: parsePageMeta(envelope.meta ?? nested?.meta),
-  };
+      : [];
+  return { items: rawList as T[], meta: parsePageMeta(envelope.meta) };
 }
 
 /** Build `path?page=1&q=eng`, omitting empty values. */

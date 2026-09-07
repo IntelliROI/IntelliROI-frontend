@@ -25,7 +25,8 @@ type Props = {
   companySlug: string;
   conversations: ConversationListItem[];
   loading?: boolean;
-  loadError?: boolean;
+  /** True when GET /conversations failed — do not show a false empty state. */
+  listError?: boolean;
   activeId?: string;
   pinnedIds: string[];
   onTogglePin: (uuid: string) => void;
@@ -44,7 +45,7 @@ export function ChatSidebar({
   companySlug,
   conversations,
   loading,
-  loadError,
+  listError,
   activeId,
   pinnedIds,
   onTogglePin,
@@ -209,8 +210,8 @@ export function ChatSidebar({
                   <span className="absolute inset-[-4px] animate-spin rounded-full border border-transparent border-t-brand/60" />
                 </div>
               </div>
-            ) : loadError ? (
-              <EmptyHint text="Could not load conversations" />
+            ) : listError ? (
+              <EmptyHint text="Could not load conversations. Try again shortly." />
             ) : view === "pinned" ? (
               pinned.length === 0 ? (
                 <EmptyHint text="No pinned chats yet. Pin from the list." />

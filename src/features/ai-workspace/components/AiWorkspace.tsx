@@ -26,6 +26,13 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { useConfiguredProviders } from "@/features/organization/hooks/useOrganizationQueries";
 import { Can } from "@/lib/rbac/Can";
+import type { Conversation } from "@/features/ai-gateway/api/ai-gateway.api";
+
+function conversationTitleFromPrompt(prompt: string): string {
+  const t = prompt.trim().replace(/\s+/g, " ");
+  if (!t) return "Untitled";
+  return t.length > 48 ? `${t.slice(0, 48)}…` : t;
+}
 
 const SUGGESTIONS = [
   "Draft an API design for Invoice Builder with auth middleware",
@@ -60,6 +67,7 @@ export function AiWorkspace({
     setProvider,
     setModel,
     setActiveConversationId,
+    activeConversationId,
   } = useChatStore();
 
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
@@ -74,6 +82,9 @@ export function AiWorkspace({
   const bottomRef = useRef<HTMLDivElement>(null);
   const providerAutoSelectedRef = useRef(false);
   const prevUrlIdRef = useRef<string | undefined>(conversationId);
+  /** Only true when user clicked New chat — blank URL must not wipe the thread. */
+  const explicitNewChatRef = useRef(false);
+  const restoredRouteRef = useRef(false);
   /** In-memory thread cache so sidebar switches paint immediately. */
   const threadCacheRef = useRef<Map<string, ChatMessageView[]>>(new Map());
   const messagesRef = useRef(messages);
@@ -233,9 +244,10 @@ export function AiWorkspace({
       cacheThread(prev, messagesRef.current);
     }
 
-    // New Chat
+    // Blank URL: clear only on explicit New chat; otherwise keep the active thread.
     if (!conversationId) {
-      if (!busy) {
+      if (explicitNewChatRef.current && !busy) {
+        explicitNewChatRef.current = false;
         setActiveId(undefined);
         setActiveConversationId(null);
         setMessages([]);
@@ -243,6 +255,8 @@ export function AiWorkspace({
       }
       return;
     }
+
+    explicitNewChatRef.current = false;
 
     // Sidebar / deep-link: paint from memory or React Query cache immediately.
     setActiveId(conversationId);
@@ -272,6 +286,23 @@ export function AiWorkspace({
     queryClient,
     setActiveConversationId,
   ]);
+
+  // Restore last conversation when entering Workspace without a URL id.
+  useEffect(() => {
+    if (restoredRouteRef.current) return;
+    if (conversationId) {
+      restoredRouteRef.current = true;
+      return;
+    }
+    if (explicitNewChatRef.current) return;
+    const stored = activeConversationId;
+    if (!stored) {
+      restoredRouteRef.current = true;
+      return;
+    }
+    restoredRouteRef.current = true;
+    router.replace(`/${companySlug}/ai-workspace/${stored}`, { scroll: false });
+  }, [conversationId, activeConversationId, companySlug, router]);
 
   useEffect(() => {
     if (providerAutoSelectedRef.current) return;
@@ -452,37 +483,34 @@ export function AiWorkspace({
         });
         clearStreaming();
 
-        const listKey = queryKeys.company.conversations(companySlug);
-        queryClient.setQueryData(
-          listKey,
-          (old: unknown) => {
-            const list = Array.isArray(old) ? [...old] : [];
-            const existing = list.find(
-              (c: { uuid?: string }) => c.uuid === threadUuid,
-            ) as
-              | {
-                  uuid: string;
-                  title: string;
-                  provider: string;
-                  model: string;
-                  updated_at: string;
-                  message_count: number;
-                  pinned: boolean;
-                }
-              | undefined;
-            const row = {
-              uuid: threadUuid,
-              title: existing?.title || prompt.slice(0, 80) || "Untitled",
-              provider: res.provider || existing?.provider || provider,
-              model: res.model || existing?.model || model,
+        const title = conversationTitleFromPrompt(prompt);
+        queryClient.setQueryData<Conversation[]>(
+          queryKeys.company.conversations(companySlug),
+          (old) => {
+            const list = old ?? [];
+            const idx = list.findIndex((c) => c.uuid === res.conversation_uuid);
+            const prev = idx >= 0 ? list[idx] : undefined;
+            const row: Conversation = {
+              uuid: res.conversation_uuid,
+              title: prev?.title && prev.title !== "Untitled" ? prev.title : title,
+              provider: res.provider || prev?.provider || provider,
+              model: res.model || prev?.model || model,
               updated_at: new Date().toISOString(),
-              message_count: (existing?.message_count ?? 0) + 2,
-              pinned: existing?.pinned ?? false,
+              message_count: (prev?.message_count ?? 0) + 2,
+              pinned: prev?.pinned ?? false,
             };
-            return [row, ...list.filter((c: { uuid?: string }) => c.uuid !== threadUuid)];
+            if (idx >= 0) {
+              const next = [...list];
+              next[idx] = row;
+              return [row, ...next.filter((c) => c.uuid !== res.conversation_uuid)];
+            }
+            return [row, ...list];
           },
         );
-        void queryClient.invalidateQueries({ queryKey: listKey });
+
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.company.conversations(companySlug),
+        });
         // Soft refresh detail in background without forcing a blank paint.
         void queryClient.invalidateQueries({
           queryKey: queryKeys.company.conversation(companySlug, threadUuid),
@@ -539,6 +567,8 @@ export function AiWorkspace({
 
   function newChat() {
     stop();
+    explicitNewChatRef.current = true;
+    restoredRouteRef.current = true;
     setMessages([]);
     setActiveId(undefined);
     setActiveConversationId(null);
@@ -574,7 +604,7 @@ export function AiWorkspace({
         companySlug={companySlug}
         conversations={conversations.data ?? []}
         loading={conversations.isLoading}
-        loadError={conversations.isError}
+        listError={conversations.isError}
         activeId={activeId}
         pinnedIds={pinnedIds}
         onTogglePin={togglePin}

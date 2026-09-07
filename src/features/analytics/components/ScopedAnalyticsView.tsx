@@ -7,6 +7,7 @@ import { KpiTile } from "@/components/dashboard/KpiTile";
 import { TrendAreaChart } from "@/components/charts/Charts";
 import { useScopedAnalytics } from "@/features/organization/hooks/useOrganizationQueries";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
+import { roiApi } from "@/features/roi/api/roi.api";
 import { queryKeys } from "@/lib/api/query-keys";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
@@ -24,6 +25,28 @@ export function ScopedAnalyticsView({
 }) {
   const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
   const analytics = useScopedAnalytics(companySlug, scope, scopeId);
+  const period = "month";
+
+  const roiSpend = useQuery({
+    queryKey: [
+      "company",
+      companySlug,
+      "analytics-roi-spend",
+      scope,
+      scopeId,
+      period,
+    ],
+    queryFn: async () => {
+      if (scope === "department" && scopeId != null)
+        return roiApi.department(Number(scopeId), period);
+      if (scope === "team" && scopeId != null)
+        return roiApi.team(Number(scopeId), period);
+      if (scope === "employee" && scopeId != null)
+        return roiApi.employee(scopeId, period);
+      return roiApi.company(period);
+    },
+  });
+
   const models = useQuery({
     queryKey: queryKeys.company.analytics.models(companySlug),
     queryFn: () => analyticsApi.models("day"),
@@ -40,17 +63,22 @@ export function ScopedAnalyticsView({
     );
   }
 
-  const spendLocal = fromUsd(a.total_cost);
+  const spendLocal =
+    roiSpend.data != null ? roiSpend.data.total_spend : fromUsd(a.total_cost);
 
   return (
     <div>
       <PageHeader
         eyebrow="Observability"
         title={title}
-        description="Precomputed aggregates — frontend never rolls up raw requests."
+        description="Request trends from analytics; AI spend KPI aligned with Estimated ROI (company currency)."
       />
       <Mosaic cols={3}>
-        <KpiTile label="Requests" value={a.requests} format="number" />
+        <KpiTile
+          label="Requests"
+          value={roiSpend.data?.requests ?? a.requests}
+          format="number"
+        />
         <KpiTile label="Tokens" value={formatNumber(a.tokens_in, true)} />
         <KpiTile
           label="AI spend"
@@ -63,7 +91,12 @@ export function ScopedAnalyticsView({
       <Panel className="mt-px border-0 bg-ink p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-medium text-text-primary">Request volume</h2>
-          <Provenance computedAt={new Date().toISOString()} />
+          <Provenance
+            computedAt={
+              roiSpend.data?.computed_at ??
+              a.series?.[a.series.length - 1]?.date
+            }
+          />
         </div>
         <TrendAreaChart
           data={(a.series ?? []).map((p) => ({
@@ -77,7 +110,8 @@ export function ScopedAnalyticsView({
           <h2 className="mb-4 font-medium text-text-primary">Models</h2>
           {(models.data ?? []).length === 0 ? (
             <p className="text-sm text-text-secondary">
-              No model snapshots yet. Run the analytics worker after chat + cost + ROI.
+              No model snapshots yet. Run the analytics worker after chat + cost +
+              ROI.
             </p>
           ) : (
             <ul className="space-y-2">

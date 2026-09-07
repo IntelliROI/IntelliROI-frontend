@@ -14,6 +14,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { queryKeys } from "@/lib/api/query-keys";
+import { estimatedRoiPct } from "@/features/roi/lib/aggregate";
 
 /**
  * Project-wise AI usage monitor — GET /analytics/project/:id.
@@ -77,6 +78,14 @@ export function ProjectMonitor({
 
   const a = analytics.data;
   const memberRows = members.data ?? [];
+  // Analytics cost is treated as USD until BE returns company currency on
+  // project snapshots; BV from analytics is shown as company currency when
+  // workers already emit local amounts. ROI % always from formula on these KPIs.
+  const spendLocal = a ? fromUsd(a.total_cost) : 0;
+  const businessValue = a?.total_business_value ?? 0;
+  const projectRoiPct = a
+    ? estimatedRoiPct(businessValue, spendLocal)
+    : 0;
 
   return (
     <div>
@@ -111,17 +120,22 @@ export function ProjectMonitor({
             <KpiTile label="Requests" value={a.requests} format="number" />
             <KpiTile
               label="AI spend"
-              value={fromUsd(a.total_cost)}
+              value={spendLocal}
               format="currency"
               currency={companyCurrency}
             />
             <KpiTile
               label="Business value"
-              value={a.total_business_value}
+              value={businessValue}
               format="currency"
               currency={companyCurrency}
             />
-            <KpiTile label="Estimated ROI" value={a.roi_pct} format="percent" accent />
+            <KpiTile
+              label="Estimated ROI"
+              value={projectRoiPct}
+              format="percent"
+              accent
+            />
           </Mosaic>
 
           <Panel className="mt-px border-0 bg-ink p-5 md:p-6">

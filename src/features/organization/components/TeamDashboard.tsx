@@ -15,6 +15,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { CreateProjectForm } from "@/features/organization/components/CreateProjectForm";
 import { roiApi } from "@/features/roi/api/roi.api";
+import { aggregateRoiSummaries } from "@/features/roi/lib/aggregate";
 import { formatCurrency } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { can } from "@/lib/rbac/role-matrix";
@@ -75,9 +76,10 @@ export function TeamDashboard({
     queryKey: ["company", companySlug, "projects"],
     queryFn: () => organizationApi.listProjects(),
   });
-  const roi = useQuery({
-    queryKey: ["company", companySlug, "roi", "team", teamId, period],
-    queryFn: () => roiApi.team(teamId, period),
+
+  const teamSummary = useQuery({
+    queryKey: queryKeys.company.roi.teamSummary(companySlug, teamId, period),
+    queryFn: () => roiApi.teamSummary(teamId, period),
   });
 
   const members = (employees.data ?? []).filter((e) => e.team_id === teamId);
@@ -95,14 +97,41 @@ export function TeamDashboard({
     [employees.data, teamId, departmentId],
   );
 
+  const useMemberFallback =
+    (teamSummary.isSuccess && teamSummary.data == null) || teamSummary.isError;
+
   const memberRoi = useQueries({
     queries: members.map((e) => ({
-      queryKey: ["company", companySlug, "roi", "employee", e.id, period],
+      queryKey: queryKeys.company.roi.employee(companySlug, e.id, period),
       queryFn: () => roiApi.employee(e.id, period),
-      enabled: Boolean(e.id),
+      enabled: useMemberFallback && Boolean(e.id),
       staleTime: 60_000,
     })),
   });
+
+  const memberAggregate = useMemo(() => {
+    if (!useMemberFallback) return null;
+    return aggregateRoiSummaries(memberRoi.map((q) => q.data));
+  }, [useMemberFallback, memberRoi]);
+
+  const kpi = teamSummary.data
+    ? {
+        total_spend: teamSummary.data.spend,
+        roi_pct: teamSummary.data.roi_pct,
+        requests: teamSummary.data.requests,
+        member_count: teamSummary.data.member_count || members.length,
+      }
+    : memberAggregate
+      ? {
+          total_spend: memberAggregate.total_spend,
+          roi_pct: memberAggregate.roi_pct,
+          requests: memberAggregate.requests,
+          member_count: members.length,
+        }
+      : null;
+
+  const membersLoading =
+    useMemberFallback && memberRoi.some((q) => q.isLoading);
 
   const inviteRoles =
     role === ROLES.COMPANY_OWNER
@@ -173,7 +202,7 @@ export function TeamDashboard({
     }
   }
 
-  if (teams.isLoading || roi.isLoading) {
+  if (teams.isLoading || teamSummary.isLoading || membersLoading) {
     return (
       <div>
         <PageHeader
@@ -194,6 +223,38 @@ export function TeamDashboard({
   }
 
   const team = teams.data?.find((t) => t.id === teamId);
+
+  const memberRows = teamSummary.data?.members?.length
+    ? teamSummary.data.members.map((m) => {
+        const org = members.find((e) => e.id === m.employee_id);
+        return {
+          name: m.display_name || org?.display_name || `Employee ${m.employee_id}`,
+          requests: m.requests,
+          spend: formatCurrency(m.spend, companyCurrency, true),
+          roi: <span className="text-accent">{m.roi_pct.toFixed(1)}%</span>,
+          uuid: org?.uuid,
+          displayName: m.display_name || org?.display_name || "",
+          profileId: org?.uuid ?? String(m.employee_id),
+        };
+      })
+    : members.map((e, i) => {
+        const m = memberRoi[i]?.data;
+        return {
+          name: e.display_name,
+          requests: m?.requests ?? "—",
+          spend: m
+            ? formatCurrency(m.total_spend, companyCurrency, true)
+            : "—",
+          roi: m ? (
+            <span className="text-accent">{m.roi_pct}%</span>
+          ) : (
+            "—"
+          ),
+          uuid: e.uuid,
+          displayName: e.display_name,
+          profileId: e.uuid,
+        };
+      });
 
   return (
     <div>
@@ -226,22 +287,22 @@ export function TeamDashboard({
         }
       />
 
-      {roi.data ? (
+      {kpi ? (
         <Mosaic cols={4}>
           <KpiTile
             label="Spend"
-            value={roi.data.total_spend}
+            value={kpi.total_spend}
             format="currency"
             currency={companyCurrency}
           />
           <KpiTile
             label="Estimated ROI"
-            value={roi.data.roi_pct}
+            value={kpi.roi_pct}
             format="percent"
             accent
           />
-          <KpiTile label="Requests" value={roi.data.requests} format="number" />
-          <KpiTile label="Members" value={members.length} format="number" />
+          <KpiTile label="Requests" value={kpi.requests} format="number" />
+          <KpiTile label="Members" value={kpi.member_count} format="number" />
         </Mosaic>
       ) : (
         <p className="border border-hairline px-4 py-6 text-sm text-text-secondary">
@@ -261,36 +322,27 @@ export function TeamDashboard({
             { key: "roi", label: "Est. ROI", align: "right" },
             { key: "action", label: "Actions", align: "right" },
           ]}
-          rows={members.map((e, i) => {
-            const m = memberRoi[i]?.data;
-            return {
-              name: e.display_name,
-              requests: m?.requests ?? "—",
-              spend: m
-                ? formatCurrency(m.total_spend, companyCurrency, true)
-                : "—",
-              roi: m ? (
-                <span className="text-accent">{m.roi_pct}%</span>
-              ) : (
-                "—"
-              ),
-              action: (
-                <RowActions>
-                  {canStaff ? (
-                    <RemoveMemberAction
-                      onClick={() => removeFromTeam(e.uuid, e.display_name)}
-                    />
-                  ) : null}
-                  <Link
-                    href={`/${companySlug}/organization/employees/${e.uuid}`}
-                    className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent"
-                  >
-                    Profile
-                  </Link>
-                </RowActions>
-              ),
-            };
-          })}
+          rows={memberRows.map((row) => ({
+            name: row.name,
+            requests: row.requests,
+            spend: row.spend,
+            roi: row.roi,
+            action: (
+              <RowActions>
+                {canStaff && row.uuid ? (
+                  <RemoveMemberAction
+                    onClick={() => removeFromTeam(row.uuid!, row.displayName)}
+                  />
+                ) : null}
+                <Link
+                  href={`/${companySlug}/organization/employees/${row.profileId}`}
+                  className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-accent"
+                >
+                  Profile
+                </Link>
+              </RowActions>
+            ),
+          }))}
         />
       </div>
 

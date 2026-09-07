@@ -17,6 +17,8 @@ import { EstimatedRoiSetupHint } from "@/features/roi/components/EstimatedRoiSet
 import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
 import type { RoiSummary } from "@/features/roi/api/roi.api";
 import type { AnalyticsSummary } from "@/features/analytics/api/analytics.api";
+import { toAnalyticsPeriod } from "@/features/roi/lib/aggregate";
+import { queryKeys } from "@/lib/api/query-keys";
 
 export default function RoiPage({
   params,
@@ -26,8 +28,23 @@ export default function RoiPage({
   const [period, setPeriod] = useState<RoiPeriod>("month");
   const user = useAuthStore((s) => s.user);
   const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
-  const analyticsPeriod = period === "week" ? "day" : period;
+  const analyticsPeriod = toAnalyticsPeriod(period);
   const scope = resolveIntelligenceScope(user);
+
+  const teamSummary = useQuery({
+    queryKey:
+      scope.kind === "team"
+        ? queryKeys.company.roi.teamSummary(params.companySlug, scope.id, period)
+        : ["company", params.companySlug, "roi", "team-summary", "off"],
+    queryFn: () =>
+      roiApi.teamSummary(scope.kind === "team" ? scope.id : 0, period),
+    enabled: scope.kind === "team",
+  });
+
+  const needTeamLegacy =
+    scope.kind === "team" &&
+    (teamSummary.isSuccess || teamSummary.isError) &&
+    teamSummary.data == null;
 
   const roi = useQuery({
     queryKey: [
@@ -45,7 +62,9 @@ export default function RoiPage({
       if (scope.kind === "employee") return roiApi.employee(scope.id, period);
       return roiApi.company(period);
     },
-    enabled: scope.kind !== "unassigned",
+    enabled:
+      scope.kind !== "unassigned" &&
+      (scope.kind !== "team" || needTeamLegacy),
   });
   const formulas = useQuery({
     queryKey: ["company", params.companySlug, "roi", "formula-versions"],
@@ -78,7 +97,12 @@ export default function RoiPage({
     enabled: scope.kind === "company",
   });
   const teams = useQuery({
-    queryKey: ["company", params.companySlug, "teams", scope.kind === "department" ? scope.id : null],
+    queryKey: [
+      "company",
+      params.companySlug,
+      "teams",
+      scope.kind === "department" ? scope.id : null,
+    ],
     queryFn: () =>
       scope.kind === "department"
         ? organizationApi.listTeams(scope.id)
@@ -87,7 +111,14 @@ export default function RoiPage({
   });
   const deptRoi = useQueries({
     queries: (departments.data ?? []).map((d) => ({
-      queryKey: ["company", params.companySlug, "roi", "department", d.id, period],
+      queryKey: [
+        "company",
+        params.companySlug,
+        "roi",
+        "department",
+        d.id,
+        period,
+      ],
       queryFn: () => roiApi.department(d.id, period),
       enabled: scope.kind === "company" && Boolean(departments.data?.length),
     })),
@@ -110,9 +141,28 @@ export default function RoiPage({
     );
   }
 
-  if (roi.isLoading) return <LoadingBlock className="h-80" />;
+  const loading =
+    (scope.kind === "team" &&
+      (teamSummary.isLoading || (needTeamLegacy && roi.isLoading))) ||
+    (scope.kind !== "team" && roi.isLoading);
 
-  if (!roi.data) {
+  if (loading) return <LoadingBlock className="h-80" />;
+
+  const display: RoiSummary | null =
+    scope.kind === "team" && teamSummary.data
+      ? {
+          period,
+          total_spend: teamSummary.data.spend,
+          business_value: teamSummary.data.business_value,
+          roi_pct: teamSummary.data.roi_pct,
+          time_saved_hours: 0,
+          requests: teamSummary.data.requests,
+          team_id: scope.id,
+          computed_at: teamSummary.data.period_start,
+        }
+      : (roi.data ?? null);
+
+  if (!display) {
     return (
       <p className="border border-hairline px-4 py-8 text-sm text-text-secondary">
         Could not load Estimated ROI from the live service.
@@ -120,9 +170,8 @@ export default function RoiPage({
     );
   }
 
-  const r = roi.data;
   const formulaVersion =
-    r.formula_version ||
+    display.formula_version ||
     formulas.data?.[formulas.data.length - 1]?.version ||
     undefined;
 
@@ -170,23 +219,27 @@ export default function RoiPage({
       <Mosaic cols={4}>
         <KpiTile
           label="Spend"
-          value={r.total_spend}
+          value={display.total_spend}
           format="currency"
           currency={companyCurrency}
         />
         <KpiTile
           label="Business value"
-          value={r.business_value}
+          value={display.business_value}
           format="currency"
           currency={companyCurrency}
         />
-        <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
-        <KpiTile label="Hours saved" value={r.time_saved_hours} format="number" />
+        <KpiTile label="ROI" value={display.roi_pct} format="percent" accent />
+        <KpiTile
+          label="Hours saved"
+          value={display.time_saved_hours}
+          format="number"
+        />
       </Mosaic>
 
       <EstimatedRoiSetupHint
         companySlug={params.companySlug}
-        visible={r.total_spend > 0 && r.business_value <= 0}
+        visible={display.total_spend > 0 && display.business_value <= 0}
       />
 
       <div className="mt-px grid gap-px bg-hairline lg:grid-cols-2">
@@ -194,7 +247,7 @@ export default function RoiPage({
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-medium text-text-primary">ROI over time</h2>
             <Provenance
-              computedAt={r.computed_at}
+              computedAt={display.computed_at}
               formulaVersion={formulaVersion}
             />
           </div>
@@ -207,7 +260,9 @@ export default function RoiPage({
         </Panel>
         {breakdownTitle ? (
           <Panel className="border-0 bg-ink p-6">
-            <h2 className="mb-4 font-medium text-text-primary">{breakdownTitle}</h2>
+            <h2 className="mb-4 font-medium text-text-primary">
+              {breakdownTitle}
+            </h2>
             <SimpleBarChart data={breakdownData} />
           </Panel>
         ) : (
