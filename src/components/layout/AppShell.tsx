@@ -643,10 +643,10 @@ export function AppShell({
         {/* ── Page content ── */}
         <main
           className={cn(
-            "relative flex min-h-0 w-full flex-1 flex-col",
+            "relative flex w-full flex-1 flex-col",
             pathname.includes("/ai-workspace")
-              ? "max-w-none overflow-hidden p-0"
-              : "mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8",
+              ? "min-h-0 max-w-none overflow-hidden p-0"
+              : "min-h-[calc(100dvh-3.5rem)] mx-auto max-w-[1400px] px-4 py-6 md:px-6 md:py-8",
           )}
         >
           {children}

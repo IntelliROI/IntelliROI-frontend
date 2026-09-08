@@ -62,45 +62,81 @@ function SpinRing({ size = "md" }: { size?: "sm" | "md" | "lg" | "xl" }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
+   LoaderMark — logo + rings + caption (fixed footprint so it never jumps)
+───────────────────────────────────────────────────────────────────────── */
+function LoaderMark({
+  size,
+  label,
+  showBrand = false,
+}: {
+  size: "sm" | "md" | "lg" | "xl";
+  label?: string;
+  showBrand?: boolean;
+}) {
+  const gap = { sm: "gap-3", md: "gap-4", lg: "gap-4", xl: "gap-6" }[size];
+  const brandSize =
+    size === "xl" ? "text-[13px]" : size === "lg" ? "text-[11px]" : "text-[10px]";
+
+  return (
+    <div
+      className={cn(
+        "relative z-10 flex flex-col items-center justify-center",
+        gap,
+      )}
+    >
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center">
+        <div className="relative flex items-center justify-center">
+          <BrandMark size={size} />
+          <SpinRing size={size} />
+          {size === "xl" && (
+            <span
+              className="absolute animate-[spin_3s_linear_infinite_reverse]"
+              style={{ inset: "-18px" }}
+            >
+              <span className="absolute inset-0 border border-transparent border-b-brand/25 border-l-brand/10" />
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex h-10 flex-col items-center justify-start gap-1">
+        {showBrand && (
+          <span
+            className={cn(
+              "font-mono font-bold tracking-[0.28em] text-text-primary",
+              brandSize,
+            )}
+          >
+            {site.name.toUpperCase()}
+          </span>
+        )}
+        <span
+          className={cn(
+            "font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/55",
+            label ? "animate-pulse" : "invisible",
+          )}
+        >
+          {label || "Loading"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    PageLoader — full-screen branded loader (auth hydration, route guard)
 ───────────────────────────────────────────────────────────────────────── */
 export function PageLoader({ label }: { label?: string }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-ink"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink"
       role="status"
       aria-live="polite"
       aria-label={label ?? "Loading"}
     >
-      {/* Outer ambient glow */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="h-64 w-64 rounded-full bg-brand/5 blur-3xl" />
       </div>
-
-      {/* Logo + spinner */}
-      <div className="relative flex items-center justify-center">
-        <BrandMark size="xl" />
-        <SpinRing size="xl" />
-        {/* outer slower ring */}
-        <span
-          className="absolute animate-[spin_3s_linear_infinite_reverse]"
-          style={{ inset: "-18px" }}
-        >
-          <span className="absolute inset-0 border border-transparent border-b-brand/25 border-l-brand/10" />
-        </span>
-      </div>
-
-      {/* Brand name */}
-      <div className="flex flex-col items-center gap-1">
-        <span className="font-mono text-[13px] font-bold tracking-[0.28em] text-text-primary">
-          {site.name.toUpperCase()}
-        </span>
-        {label && (
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/60 animate-pulse">
-            {label}
-          </span>
-        )}
-      </div>
+      <LoaderMark size="xl" label={label} showBrand />
     </div>
   );
 }
@@ -121,7 +157,7 @@ export function SectionLoader({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-4 border border-hairline bg-surface/10",
+        "flex w-full flex-col items-center justify-center border border-hairline bg-surface/10",
         height,
         className,
       )}
@@ -129,45 +165,28 @@ export function SectionLoader({
       aria-live="polite"
       aria-label={label ?? "Loading"}
     >
-      {/* Logo + spin */}
-      <div className="relative flex items-center justify-center">
-        <BrandMark size="md" />
-        <SpinRing size="md" />
-      </div>
-      {label && (
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/55">
-          {label}
-        </p>
-      )}
+      <LoaderMark size="md" label={label} />
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   RouteTransitionLoader — overlay the main pane while a sidebar tab loads
+   RouteTransitionLoader — overlay the visible main viewport (not full scroll)
 ───────────────────────────────────────────────────────────────────────── */
 export function RouteTransitionLoader({ label }: { label?: string }) {
   return (
     <div
-      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-ink/90"
+      className="absolute inset-0 z-20 overflow-hidden bg-ink/90"
       role="status"
       aria-live="polite"
       aria-label={label ?? "Loading"}
     >
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="h-40 w-40 rounded-full bg-brand/5 blur-3xl" />
-      </div>
-      <div className="relative flex items-center justify-center">
-        <BrandMark size="lg" />
-        <SpinRing size="lg" />
-      </div>
-      <div className="flex flex-col items-center gap-1">
-        <span className="font-mono text-[11px] font-bold tracking-[0.28em] text-text-primary">
-          {site.name.toUpperCase()}
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/55 animate-pulse">
-          {label ?? "Loading"}
-        </span>
+      {/* sticky + viewport height keeps the mark centered on any screen / scroll */}
+      <div className="sticky top-0 flex h-[calc(100dvh-3.5rem)] w-full items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-40 w-40 rounded-full bg-brand/5 blur-3xl" />
+        </div>
+        <LoaderMark size="lg" label={label ?? "Loading"} showBrand />
       </div>
     </div>
   );
