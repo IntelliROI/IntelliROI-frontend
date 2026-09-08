@@ -4,7 +4,7 @@ export default function PlatformSegmentLoading() {
   return (
     <SectionLoader
       label="Loading"
-      height="min-h-[60vh]"
+      height="flex-1"
       className="border-0 bg-transparent"
     />
   );
