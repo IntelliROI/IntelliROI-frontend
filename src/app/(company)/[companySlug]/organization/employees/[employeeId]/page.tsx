@@ -1,9 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel } from "@/components/ui/panel";
@@ -12,12 +10,15 @@ import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { EditEmployeeForm } from "@/features/organization/components/EditEmployeeForm";
+import { AssignRoleModal } from "@/features/organization/components/AssignRoleModal";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { ROLE_LABELS } from "@/constants/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
+import { useAuthStore } from "@/stores/auth-store";
+import { ROLES } from "@/constants/roles";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -43,7 +44,9 @@ export default function EmployeeDetailPage({
 }) {
   const listHref = `/${params.companySlug}/organization/employees`;
   const [editing, setEditing] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
+  const viewer = useAuthStore((s) => s.user);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -75,7 +78,6 @@ export default function EmployeeDetailPage({
   const jobRolesQ = useQuery({
     queryKey: ["company", params.companySlug, "job-roles"],
     queryFn: () => organizationApi.listJobRoles(),
-    enabled: editing,
   });
   const roi = useQuery({
     queryKey: [
@@ -168,6 +170,15 @@ export default function EmployeeDetailPage({
             <Can resource="employees" action="edit">
               <Button
                 size="sm"
+                variant="secondary"
+                onClick={() => setShowAssignModal(true)}
+              >
+                Assign Role & CTC
+              </Button>
+            </Can>
+            <Can resource="employees" action="edit">
+              <Button
+                size="sm"
                 variant={editing ? "secondary" : "primary"}
                 onClick={() => setEditing((v) => !v)}
               >
@@ -187,6 +198,9 @@ export default function EmployeeDetailPage({
             teams={teamsQ.data ?? []}
             jobRoles={jobRolesQ.data ?? []}
             managers={peopleQ.data ?? []}
+            currentCtcAnnual={(roleHistory.data ?? [])[0]?.ctc_annual ?? null}
+            currentCtcCurrency={(roleHistory.data ?? [])[0]?.ctc_currency}
+            defaultCurrency={companyCurrency}
             onCancel={() => setEditing(false)}
             onSubmit={async (values) => {
               const { warnings } = await organizationApi.updateEmployee(
@@ -201,12 +215,19 @@ export default function EmployeeDetailPage({
                   joining_date: values.joining_date,
                   job_role_id: values.job_role_id ?? null,
                   previous_team_id: employee.team_id,
+                  ctc_annual: values.ctc_annual ?? null,
+                  ctc_currency: values.ctc_currency,
                 },
               );
               toast.success("Employee updated");
               for (const warning of warnings) toast.warning(warning);
               setEditing(false);
-              await Promise.all([employeeQ.refetch(), peopleQ.refetch()]);
+              await Promise.all([
+                employeeQ.refetch(),
+                peopleQ.refetch(),
+                roleHistory.refetch(),
+                roi.refetch(),
+              ]);
             }}
           />
         </div>
@@ -247,17 +268,63 @@ export default function EmployeeDetailPage({
           />
           {(roleHistory.data ?? []).length > 0 ? (
             <div className="border-b border-hairline px-5 py-3 last:border-b-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/70">
-                Role assignment history
-              </p>
-              <ul className="mt-2 space-y-1 text-[13px] text-text-primary">
-                {(roleHistory.data ?? []).map((row) => (
-                  <li key={row.id}>
-                    Job role #{row.job_role_id}
-                    {row.effective_from ? ` · ${row.effective_from}` : ""}
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-between">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/70">
+                  Role assignment history
+                </p>
+                <Can resource="employees" action="edit">
+                  <button
+                    type="button"
+                    onClick={() => setShowAssignModal(true)}
+                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:underline"
+                  >
+                    + Assign new role
+                  </button>
+                </Can>
+              </div>
+              <table className="mt-2 w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-hairline">
+                    <th className="pb-1.5 pr-4 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">Role</th>
+                    <th className="pb-1.5 pr-4 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">Effective from</th>
+                    <th className="pb-1.5 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">Annual CTC</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {(roleHistory.data ?? []).map((row) => {
+                    const jobRole = (jobRolesQ.data ?? []).find((r) => r.id === row.job_role_id);
+                    const isAdmin = viewer && (
+                      viewer.role === ROLES.COMPANY_OWNER ||
+                      viewer.role === ROLES.DEPARTMENT_HEAD ||
+                      viewer.role === ROLES.TEAM_LEAD
+                    );
+                    return (
+                      <tr key={row.id}>
+                        <td className="py-2 pr-4 text-text-primary">
+                          {jobRole?.role_name ?? `Role #${row.job_role_id}`}
+                        </td>
+                        <td className="py-2 pr-4 text-text-secondary">
+                          {row.effective_from ?? "—"}
+                        </td>
+                        <td className="py-2">
+                          {!isAdmin ? (
+                            <span className="text-text-secondary">—</span>
+                          ) : row.ctc_annual != null ? (
+                            <span className="text-text-primary">
+                              {formatCurrency(row.ctc_annual, row.ctc_currency)}/yr
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-amber-400">
+                              <AlertTriangle className="h-3 w-3" strokeWidth={1.5} />
+                              Not set
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : null}
         </Panel>
@@ -320,6 +387,26 @@ export default function EmployeeDetailPage({
           />
         </Mosaic>
       </div>
+
+      <AssignRoleModal
+        open={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        userUuid={employee.uuid}
+        employeeName={employee.display_name}
+        jobRoles={jobRolesQ.data ?? []}
+        currentJobRoleId={employee.job_role_id}
+        currentCtcAnnual={(roleHistory.data ?? [])[0]?.ctc_annual ?? null}
+        currentCtcCurrency={(roleHistory.data ?? [])[0]?.ctc_currency ?? companyCurrency}
+        defaultCurrency={companyCurrency}
+        onSuccess={async () => {
+          await Promise.all([
+            employeeQ.refetch(),
+            peopleQ.refetch(),
+            roleHistory.refetch(),
+            roi.refetch(),
+          ]);
+        }}
+      />
     </div>
   );
 }

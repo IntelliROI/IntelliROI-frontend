@@ -40,6 +40,7 @@ export function CompanySettingsForm({
         ? initial.usd_fx_rate
         : defaultUsdFxRate(initialCurrency),
     ),
+    strict_benchmark_policy: initial?.strict_benchmark_policy ?? false,
   });
 
   async function handleSubmit(e: FormEvent) {
@@ -117,6 +118,25 @@ export function CompanySettingsForm({
           Company-currency units per 1 USD (e.g. 83 for INR). Used for AI cost
           and Estimated ROI conversion.
         </p>
+      </div>
+      <div className="sm:col-span-2 border border-hairline bg-surface/30 p-4 rounded-[8px] flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <Label htmlFor="strict_benchmark_policy" className="font-medium text-text-primary cursor-pointer">
+            Enforce Approved Benchmarks for AI Prompts
+          </Label>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            When enabled, employees cannot prompt the AI on tasks that do not have an approved benchmark and assigned CTC.
+          </p>
+        </div>
+        <input
+          id="strict_benchmark_policy"
+          type="checkbox"
+          checked={form.strict_benchmark_policy}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, strict_benchmark_policy: e.target.checked }))
+          }
+          className="mt-1 h-5 w-5 rounded border-hairline bg-surface text-accent focus:ring-accent accent-accent cursor-pointer"
+        />
       </div>
       {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
       <div className="sm:col-span-2">

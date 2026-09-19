@@ -11,6 +11,8 @@ export type CompanySettings = {
   fiscal_year_start: string;
   /** Company-currency units per 1 USD (e.g. INR ≈ 83). */
   usd_fx_rate: number;
+  /** When true, AI requests require an approved task benchmark and assigned CTC. */
+  strict_benchmark_policy?: boolean;
 };
 
 export type JobRole = {
@@ -133,6 +135,10 @@ export type CreateEmployeeInput = {
   joining_date?: string;
   employment_status?: "active" | "inactive" | "on_leave";
   app_role: Role;
+  /** Annual CTC for this role assignment. Null/undefined = not provided. */
+  ctc_annual?: number | null;
+  /** ISO-4217 currency for ctc_annual. */
+  ctc_currency?: string;
 };
 
 export type CreateJobRoleInput = {
@@ -174,6 +180,10 @@ export type UpdateEmployeeOrgInput = {
   joining_date?: string;
   job_role_id?: number | null;
   previous_team_id?: number | null;
+  /** Annual CTC for this role re-assignment. Null/undefined = not updating CTC. */
+  ctc_annual?: number | null;
+  /** ISO-4217 currency for ctc_annual. */
+  ctc_currency?: string;
 };
 
 export type CreateProjectInput = {

@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/types";
 import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { authApi } from "@/features/auth/api/auth.api";
+import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import type {
   CompanySettings,
   CreateDepartmentInput,
@@ -522,10 +523,25 @@ async function archiveJobRole(id: number, restore = false): Promise<JobRole> {
   return updateJobRole(id, { status: restore ? "active" : "inactive" });
 }
 
+/**
+ * Assign (or re-assign) a job role to an employee.
+ * When ctc_annual is provided, uses the new temporal POST /employees/:uuid/roles
+ * BC endpoint which persists CTC and closes the old row.
+ * Without CTC, falls back to the lightweight POST /employees/:uuid/role-assignment.
+ */
 async function assignEmployeeJobRole(
   userUuid: string,
   jobRoleId: number,
+  ctc?: { ctc_annual?: number | null; ctc_currency?: string },
 ): Promise<void> {
+  if (ctc?.ctc_annual) {
+    await businessContextApi.assignEmployeeRole(userUuid, {
+      job_role_id: jobRoleId,
+      ctc_annual: ctc.ctc_annual,
+      ctc_currency: ctc.ctc_currency,
+    });
+    return;
+  }
   await apiRequest("bc", `/employees/${userUuid}/role-assignment`, {
     method: "POST",
     body: { job_role_id: jobRoleId },
@@ -693,7 +709,10 @@ async function createEmployee(
 
   if (input.job_role_id) {
     try {
-      await assignEmployeeJobRole(user.uuid, input.job_role_id);
+      await assignEmployeeJobRole(user.uuid, input.job_role_id, {
+        ctc_annual: input.ctc_annual,
+        ctc_currency: input.ctc_currency,
+      });
     } catch (err) {
       warnings.push(
         err instanceof Error
@@ -818,7 +837,10 @@ async function updateEmployee(
 
   if (input.job_role_id) {
     try {
-      await assignEmployeeJobRole(uuid, input.job_role_id);
+      await assignEmployeeJobRole(uuid, input.job_role_id, {
+        ctc_annual: input.ctc_annual,
+        ctc_currency: input.ctc_currency,
+      });
     } catch (err) {
       warnings.push(
         err instanceof Error
@@ -842,6 +864,7 @@ async function getSettings(): Promise<CompanySettings> {
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
     usd_fx_rate: s.usd_fx_rate ?? 0,
+    strict_benchmark_policy: s.strict_benchmark_policy ?? false,
   };
 }
 
@@ -856,6 +879,7 @@ async function updateSettings(
     date_format: input.date_format,
     fiscal_year_start: input.fiscal_year_start,
     usd_fx_rate: input.usd_fx_rate,
+    strict_benchmark_policy: input.strict_benchmark_policy,
   });
   return {
     working_hours_per_day: s.working_hours_per_day,
@@ -865,6 +889,7 @@ async function updateSettings(
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
     usd_fx_rate: s.usd_fx_rate ?? input.usd_fx_rate ?? 0,
+    strict_benchmark_policy: s.strict_benchmark_policy ?? input.strict_benchmark_policy ?? false,
   };
 }
 

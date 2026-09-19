@@ -20,6 +20,28 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { Can } from "@/lib/rbac/Can";
 import { toast } from "sonner";
 
+function BenchmarkStatusBadge({ status }: { status: string }) {
+  if (status === "approved") {
+    return (
+      <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-400 font-medium">
+        approved
+      </span>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-rose-400 font-medium">
+        rejected
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-400 font-medium">
+      pending
+    </span>
+  );
+}
+
 export default function TaskBenchmarksPage({
   params,
 }: {
@@ -39,6 +61,9 @@ export default function TaskBenchmarksPage({
     estimated_minutes_saved: string;
     confidence_score: string;
   }>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectionFeedback, setRejectionFeedback] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const benchmarks = useQuery({
     queryKey: ["company", params.companySlug, "benchmarks"],
@@ -139,19 +164,7 @@ export default function TaskBenchmarksPage({
         {b.confidence_score}%
       </span>
     ),
-    status: (
-      <span
-        className={`font-mono text-[10px] uppercase tracking-[0.14em] ${
-          b.status === "approved"
-            ? "text-accent"
-            : b.status === "rejected"
-              ? "text-danger"
-              : "text-warning"
-        }`}
-      >
-        {b.status}
-      </span>
-    ),
+    status: <BenchmarkStatusBadge status={b.status} />,
     action: (
       <Can resource="benchmarks" action="approve">
         <div className="flex justify-end gap-2">
@@ -189,16 +202,9 @@ export default function TaskBenchmarksPage({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={async () => {
-                  try {
-                    await businessContextApi.rejectBenchmark(b.id);
-                    toast.message("Rejected");
-                    benchmarks.refetch();
-                  } catch (err) {
-                    toast.error(
-                      err instanceof Error ? err.message : "Request failed",
-                    );
-                  }
+                onClick={() => {
+                  setRejectingId(b.id);
+                  setRejectionFeedback("");
                 }}
               >
                 Reject
@@ -232,11 +238,7 @@ export default function TaskBenchmarksPage({
   const cards: GridCard[] = visible.map((b) => ({
     title: catMap[b.task_category_id] ?? `Category ${b.task_category_id}`,
     subtitle: roleMap[b.job_role_id] ?? `Role ${b.job_role_id}`,
-    badge: (
-      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
-        {b.status}
-      </span>
-    ),
+    badge: <BenchmarkStatusBadge status={b.status} />,
     metrics: [
       {
         label: "Minutes saved",
@@ -408,6 +410,68 @@ export default function TaskBenchmarksPage({
               </Button>
               <Button type="submit" size="sm">
                 Save changes
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={rejectingId != null}
+        onClose={() => {
+          setRejectingId(null);
+          setRejectionFeedback("");
+        }}
+        eyebrow="Review"
+        title="Reject benchmark"
+        description="Provide optional feedback for the rejection so the team can adjust the minutes saved or role."
+        size="sm"
+      >
+        {rejectingId != null ? (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setIsRejecting(true);
+              try {
+                await businessContextApi.rejectBenchmark(
+                  rejectingId,
+                  rejectionFeedback.trim() || undefined,
+                );
+                toast.message("Benchmark rejected");
+                setRejectingId(null);
+                setRejectionFeedback("");
+                benchmarks.refetch();
+              } catch (err) {
+                toast.error(
+                  err instanceof Error ? err.message : "Request failed",
+                );
+              } finally {
+                setIsRejecting(false);
+              }
+            }}
+            className="space-y-3"
+          >
+            <Label htmlFor="reject_feedback">Feedback / Reason (optional)</Label>
+            <Input
+              id="reject_feedback"
+              placeholder="e.g. Estimated minutes saved is too high for this job level"
+              value={rejectionFeedback}
+              onChange={(e) => setRejectionFeedback(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setRejectingId(null);
+                  setRejectionFeedback("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" variant="danger" disabled={isRejecting}>
+                {isRejecting ? "Rejecting…" : "Confirm rejection"}
               </Button>
             </div>
           </form>

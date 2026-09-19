@@ -28,7 +28,7 @@ import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-t
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { RemoveMemberAction } from "@/components/ui/row-actions";
-import { Pencil } from "lucide-react";
+import { Pencil, Briefcase } from "lucide-react";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -36,7 +36,8 @@ import { ROLES } from "@/constants/roles";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { useAuthStore } from "@/stores/auth-store";
 import { can } from "@/lib/rbac/role-matrix";
-
+import { AssignRoleModal } from "@/features/organization/components/AssignRoleModal";
+import type { Employee } from "@/features/organization/types";
 
 type EmployeeStatusFilter = "" | "active" | "invited";
 
@@ -84,6 +85,7 @@ export default function EmployeesPage({
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberUuid, setMemberUuid] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [assigningEmployee, setAssigningEmployee] = useState<Employee | null>(null);
 
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search, 300);
@@ -304,6 +306,17 @@ export default function EmployeesPage({
             />
           ) : null}
           <Can resource="employees" action="edit">
+            <button
+              type="button"
+              onClick={() => setAssigningEmployee(e)}
+              title="Assign Role & CTC"
+              aria-label="Assign Role & CTC"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Briefcase className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </Can>
+          <Can resource="employees" action="edit">
             <Link
               href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
               title="Edit"
@@ -379,6 +392,17 @@ export default function EmployeesPage({
               onClick={() => removeFromTeam(e.uuid, e.display_name)}
             />
           ) : null}
+          <Can resource="employees" action="edit">
+            <button
+              type="button"
+              onClick={() => setAssigningEmployee(e)}
+              title="Assign Role & CTC"
+              aria-label="Assign Role & CTC"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Briefcase className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </Can>
           <Can resource="employees" action="edit">
             <Link
               href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
@@ -714,6 +738,25 @@ export default function EmployeesPage({
           />
         </>
       )}
+
+      {assigningEmployee ? (
+        <AssignRoleModal
+          open={Boolean(assigningEmployee)}
+          onClose={() => setAssigningEmployee(null)}
+          userUuid={assigningEmployee.uuid}
+          employeeName={assigningEmployee.display_name}
+          jobRoles={jobRoles.data ?? []}
+          currentJobRoleId={assigningEmployee.job_role_id}
+          currentCtcAnnual={null}
+          defaultCurrency={companyCurrency}
+          onSuccess={async () => {
+            await Promise.all([
+              employees.refetch(),
+              allEmployees.refetch(),
+            ]);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -15,7 +15,11 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { CreateEmployeeForm } from "@/features/organization/components/CreateEmployeeForm";
 import { CreateProjectForm } from "@/features/organization/components/CreateProjectForm";
 import { roiApi } from "@/features/roi/api/roi.api";
-import { aggregateRoiSummaries } from "@/features/roi/lib/aggregate";
+import {
+  aggregateRoiSummaries,
+  isRoiSetupIncomplete,
+  roiDisplayValue,
+} from "@/features/roi/lib/aggregate";
 import { formatCurrency } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { can } from "@/lib/rbac/role-matrix";
@@ -117,6 +121,7 @@ export function TeamDashboard({
   const kpi = teamSummary.data
     ? {
         total_spend: teamSummary.data.spend,
+        business_value: teamSummary.data.business_value,
         roi_pct: teamSummary.data.roi_pct,
         requests: teamSummary.data.requests,
         member_count: teamSummary.data.member_count || members.length,
@@ -124,6 +129,7 @@ export function TeamDashboard({
     : memberAggregate
       ? {
           total_spend: memberAggregate.total_spend,
+          business_value: memberAggregate.business_value,
           roi_pct: memberAggregate.roi_pct,
           requests: memberAggregate.requests,
           member_count: members.length,
@@ -231,7 +237,13 @@ export function TeamDashboard({
           name: m.display_name || org?.display_name || `Employee ${m.employee_id}`,
           requests: m.requests,
           spend: formatCurrency(m.spend, companyCurrency, true),
-          roi: <span className="text-accent">{m.roi_pct.toFixed(1)}%</span>,
+          roi: (
+            <span className="text-accent">
+              {isRoiSetupIncomplete(m.spend, m.business_value)
+                ? "Setup needed"
+                : `${m.roi_pct.toFixed(1)}%`}
+            </span>
+          ),
           uuid: org?.uuid,
           displayName: m.display_name || org?.display_name || "",
           profileId: org?.uuid ?? String(m.employee_id),
@@ -246,7 +258,11 @@ export function TeamDashboard({
             ? formatCurrency(m.total_spend, companyCurrency, true)
             : "—",
           roi: m ? (
-            <span className="text-accent">{m.roi_pct}%</span>
+            <span className="text-accent">
+              {isRoiSetupIncomplete(m.total_spend, m.business_value)
+                ? "Setup needed"
+                : `${m.roi_pct}%`}
+            </span>
           ) : (
             "—"
           ),
@@ -297,7 +313,7 @@ export function TeamDashboard({
           />
           <KpiTile
             label="Estimated ROI"
-            value={kpi.roi_pct}
+            value={roiDisplayValue(kpi.total_spend, kpi.business_value, kpi.roi_pct)}
             format="percent"
             accent
           />

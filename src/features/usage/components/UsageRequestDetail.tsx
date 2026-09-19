@@ -13,7 +13,7 @@ export function UsageRequestDetail({
   companySlug: string;
   requestId: string;
 }) {
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
   const detail = useUsageRequest(companySlug, requestId);
 
   if (detail.isLoading) return <LoadingBlock className="h-64" />;
@@ -40,7 +40,7 @@ export function UsageRequestDetail({
         <KpiTile label="Requests" value={r.requests} format="number" />
         <KpiTile
           label="Cost"
-          value={fromUsd(r.cost)}
+          value={r.cost}
           format="currency"
           currency={companyCurrency}
         />

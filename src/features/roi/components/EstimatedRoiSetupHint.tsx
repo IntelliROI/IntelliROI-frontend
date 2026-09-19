@@ -1,20 +1,55 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 
 /**
  * Shown when AI spend exists but Estimated ROI value/time-saved are still 0.
- * Matches backend ComputeROIv1: needs job role hourly_cost + approved task benchmark.
+ * Matches backend ComputeROIv1: needs job role hourly_cost (or employee CTC) + approved task benchmark.
  */
 export function EstimatedRoiSetupHint({
   companySlug,
   visible,
+  reason = "general",
 }: {
   companySlug: string;
   visible: boolean;
+  reason?: "missing_ctc" | "missing_benchmark" | "general";
 }) {
   if (!visible) return null;
+
+  if (reason === "missing_ctc") {
+    return (
+      <Panel className="mt-px border-0 border-l-2 border-l-amber-500 bg-ink p-5 md:p-6">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-400" strokeWidth={1.75} />
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
+            Estimated ROI setup · Employee CTC Required
+          </p>
+        </div>
+        <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+          Estimated ROI cannot be calculated for employees without annual CTC or an assigned job role.
+          Please enter the employee&apos;s CTC or assign a job role with hourly cost to enable automated value and ROI tracking.
+        </p>
+        <div className="mt-3 flex items-center gap-3">
+          <Link
+            href={`/${companySlug}/organization/employees`}
+            className="inline-flex items-center text-xs font-medium text-amber-400 underline-offset-2 hover:underline"
+          >
+            Manage employee CTC &rarr;
+          </Link>
+          <span className="text-text-secondary/40">·</span>
+          <Link
+            href={`/${companySlug}/business-context/task-benchmarks`}
+            className="inline-flex items-center text-xs text-text-secondary underline-offset-2 hover:underline"
+          >
+            Task benchmarks
+          </Link>
+        </div>
+      </Panel>
+    );
+  }
 
   return (
     <Panel className="mt-px border-0 border-l-2 border-l-accent bg-ink p-5 md:p-6">
@@ -23,7 +58,7 @@ export function EstimatedRoiSetupHint({
       </p>
       <p className="mt-2 max-w-2xl text-sm text-text-secondary">
         Time saved and business value stay at zero until the chatting employee has a{" "}
-        <strong className="font-medium text-text-primary">job role</strong> (hourly cost)
+        <strong className="font-medium text-text-primary">job role</strong> (hourly cost or CTC)
         and an{" "}
         <strong className="font-medium text-text-primary">approved task benchmark</strong>{" "}
         for the task category used in AI Workspace. After you set those up, the ROI worker
@@ -41,7 +76,7 @@ export function EstimatedRoiSetupHint({
             Create / set job role hourly cost
           </Link>
           {" · "}
-          assign it on the employee
+          or assign employee CTC
         </li>
         <li>
           <Link

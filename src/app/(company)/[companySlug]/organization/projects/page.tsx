@@ -47,7 +47,7 @@ export default function ProjectsPage({
   params: { companySlug: string };
 }) {
   const queryClient = useQueryClient();
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+  const { currency: companyCurrency } = useCompanyCurrency(
     params.companySlug,
   );
   const [view, setView] = useState<ViewMode>("table");
@@ -248,7 +248,7 @@ export default function ProjectsPage({
     team: p.team_id ? teamMap[p.team_id] ?? p.team_id : "—",
     requests: analyticsById.get(p.id)?.requests ?? 0,
     spend: formatCurrency(
-      fromUsd(analyticsById.get(p.id)?.total_cost ?? 0),
+      analyticsById.get(p.id)?.total_cost ?? 0,
       companyCurrency,
     ),
     roi: (

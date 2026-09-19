@@ -7,6 +7,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { ROLES, ROLE_LABELS, type Role } from "@/constants/roles";
 import {
   COUNTRIES,
+  CURRENCIES,
   DEFAULT_COUNTRY_ISO,
   digitsOnly,
   findCountry,
@@ -45,6 +46,8 @@ type Props = {
   allowedRoles?: readonly InviteAppRole[];
   defaultDepartmentId?: number;
   defaultTeamId?: number;
+  /** Company's configured currency — pre-fills the CTC currency dropdown. */
+  defaultCurrency?: string;
 };
 
 export function CreateEmployeeForm({
@@ -58,6 +61,7 @@ export function CreateEmployeeForm({
   allowedRoles,
   defaultDepartmentId,
   defaultTeamId,
+  defaultCurrency = "USD",
 }: Props) {
   const roleOptions = allowedRoles?.length
     ? APP_ROLES.filter((r) => allowedRoles.includes(r))
@@ -89,6 +93,8 @@ export function CreateEmployeeForm({
     joining_date: new Date().toISOString().slice(0, 10),
     employment_status: "active",
     app_role: defaultRole as InviteAppRole,
+    ctc_annual: "",
+    ctc_currency: defaultCurrency,
   });
 
   const role = form.app_role;
@@ -158,6 +164,8 @@ export function CreateEmployeeForm({
           ? Number(form.manager_employee_id)
           : null,
       department_id: form.department_id ? Number(form.department_id) : undefined,
+      ctc_annual: form.ctc_annual !== "" ? Number(form.ctc_annual) : null,
+      ctc_currency: form.ctc_currency || undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Invalid employee");
@@ -444,6 +452,43 @@ export function CreateEmployeeForm({
               </p>
             )}
           </div>
+          {/* CTC fields — appear when a job role is selected */}
+          <div className="space-y-2">
+            <Label>Annual CTC <span className="text-text-secondary/60">(optional)</span></Label>
+            <Input
+              id="ctc_annual"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="e.g. 1200000"
+              value={form.ctc_annual}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, ctc_annual: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>CTC Currency</Label>
+            <Select
+              id="ctc_currency"
+              value={form.ctc_currency}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, ctc_currency: e.target.value }))
+              }
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {!form.ctc_annual && (
+            <div className="sm:col-span-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
+              💡 Without CTC, this employee&apos;s ROI will show as{" "}
+              <strong>Setup needed</strong> until it&apos;s entered.
+            </div>
+          )}
           {showReportsTo ? (
             <div className="space-y-2">
               <Label>

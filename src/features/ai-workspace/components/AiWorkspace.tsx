@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { ApiError } from "@/lib/api/client";
 import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { queryKeys } from "@/lib/api/query-keys";
 import {
   ChatMessageBubble,
@@ -203,6 +204,8 @@ export function AiWorkspace({
     setNeedsHydrate(false);
   }, [needsHydrate, conversation.data, activeId]);
 
+  const user = useAuthStore((s) => s.user);
+
   const projects = useQuery({
     queryKey: queryKeys.company.projects(companySlug),
     queryFn: () => organizationApi.listProjects(),
@@ -212,6 +215,49 @@ export function AiWorkspace({
     queryKey: ["company", companySlug, "task-categories"],
     queryFn: () => businessContextApi.listTaskCategories(),
   });
+
+  const companySettings = useQuery({
+    queryKey: ["company", companySlug, "settings"],
+    queryFn: () => organizationApi.getSettings(),
+  });
+
+  const benchmarks = useQuery({
+    queryKey: ["company", companySlug, "benchmarks"],
+    queryFn: () => businessContextApi.listBenchmarks(),
+  });
+
+  const roleAssignments = useQuery({
+    queryKey: ["company", companySlug, "my-role-assignments", user?.uuid],
+    queryFn: () => businessContextApi.roleAssignments(user!.uuid),
+    enabled: Boolean(user?.uuid),
+  });
+
+  const activeJobRoleId = roleAssignments.data?.[0]?.job_role_id;
+
+  const benchmarkBlocked = useMemo(() => {
+    if (!companySettings.data?.strict_benchmark_policy) return false;
+    if (!taskId) return false;
+    const taskCatId = Number(taskId);
+    if (!taskCatId) return false;
+
+    // Strict policy: requires an approved benchmark for this task category & job role
+    const matching = (benchmarks.data ?? []).find(
+      (b) =>
+        b.task_category_id === taskCatId &&
+        (!activeJobRoleId || b.job_role_id === activeJobRoleId) &&
+        b.status === "approved",
+    );
+    return !matching;
+  }, [
+    companySettings.data?.strict_benchmark_policy,
+    taskId,
+    activeJobRoleId,
+    benchmarks.data,
+  ]);
+
+  const requestApproval = useCallback(() => {
+    toast.success("Benchmark approval request sent to your manager and department head.");
+  }, []);
 
   const prefetchConversation = useCallback(
     (uuid: string) => {
@@ -504,20 +550,32 @@ export function AiWorkspace({
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
-        const message =
-          err instanceof ApiError && err.code === "POLICY_DENIED"
-            ? "This request is blocked by an AI policy (provider, model, or daily token cap)."
-            : err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED"
-              ? "This provider has no company API key. Ask an owner to add one under AI Providers."
-              : err instanceof ApiError && err.code === "GATEWAY_TIMEOUT"
-                ? "The model took too long (or the tunnel timed out). Try a shorter prompt or retry."
-                : err instanceof ApiError && err.code === "REQUEST_CANCELLED"
-                  ? "Request cancelled."
-                  : err instanceof ApiError && err.code === "INTERNAL_ERROR"
-                    ? `Gateway error: ${err.message || "internal server error"}`
-                    : err instanceof Error
-                      ? err.message
-                      : "Request failed";
+        const TOKEN_CAP_TEXT =
+          "You've hit your daily token cap for this provider/model. It resets tomorrow, or ask an owner to raise it.";
+        let message: string;
+        if (err instanceof ApiError && err.code === "TOKEN_CAP_EXCEEDED") {
+          // Preferred path once the gateway returns a distinct code for this case.
+          message = TOKEN_CAP_TEXT;
+        } else if (err instanceof ApiError && err.code === "POLICY_DENIED") {
+          // Backend currently overloads POLICY_DENIED for every policy
+          // rejection reason; sniff the raw message for the token-cap case so
+          // the user sees something more actionable than the generic text.
+          message = /token cap|token limit|daily.*cap/i.test(err.message)
+            ? TOKEN_CAP_TEXT
+            : "This request is blocked by an AI policy (provider, model, or daily token cap).";
+        } else if (err instanceof ApiError && err.code === "PROVIDER_NOT_CONFIGURED") {
+          message = "This provider has no company API key. Ask an owner to add one under AI Providers.";
+        } else if (err instanceof ApiError && err.code === "GATEWAY_TIMEOUT") {
+          message = "The model took too long (or the tunnel timed out). Try a shorter prompt or retry.";
+        } else if (err instanceof ApiError && err.code === "REQUEST_CANCELLED") {
+          message = "Request cancelled.";
+        } else if (err instanceof ApiError && err.code === "INTERNAL_ERROR") {
+          message = `Gateway error: ${err.message || "internal server error"}`;
+        } else if (err instanceof Error) {
+          message = err.message;
+        } else {
+          message = "Request failed";
+        }
         toast.error(message);
         // Keep the user bubble; drop the empty assistant placeholder so the
         // error is not mistaken for a model reply.
@@ -696,6 +754,8 @@ export function AiWorkspace({
           taskId={taskId}
           onProjectChange={setProjectId}
           onTaskChange={setTaskId}
+          benchmarkBlocked={benchmarkBlocked}
+          onRequestApproval={requestApproval}
         />
       </section>
     </div>

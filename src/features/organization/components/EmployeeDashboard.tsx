@@ -19,7 +19,11 @@ import { useAuthStore } from "@/stores/auth-store";
 import { revealTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
-import { toAnalyticsPeriod } from "@/features/roi/lib/aggregate";
+import {
+  toAnalyticsPeriod,
+  isRoiSetupIncomplete,
+  roiDisplayValue,
+} from "@/features/roi/lib/aggregate";
 
 /**
  * Employee personal intelligence — ChatGPT familiarity + observability.
@@ -53,6 +57,18 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
     queryKey: ["company", companySlug, "conversations"],
     queryFn: () => aiGatewayApi.listConversations(),
   });
+  const recommendations = useQuery({
+    queryKey: ["company", companySlug, "roi", "recommendations", "open"],
+    queryFn: () => roiApi.recommendations("open"),
+  });
+
+  const hasMissingCtc = useMemo(() => {
+    return (recommendations.data ?? []).some(
+      (rec) =>
+        rec.recommendation_type === "missing_ctc" &&
+        (!rec.employee_id || rec.employee_id === employeeId),
+    );
+  }, [recommendations.data, employeeId]);
 
   const series = useMemo(
     () =>
@@ -131,9 +147,15 @@ export function EmployeeDashboard({ companySlug }: { companySlug: string }) {
           className="lg:col-span-5"
           variant="hero"
           label="Your Estimated ROI"
-          value={r.roi_pct}
+          value={roiDisplayValue(r.total_spend, r.business_value, r.roi_pct)}
           format="percent"
-          hint={`${r.time_saved_hours}h saved · personal scope`}
+          hint={
+            isRoiSetupIncomplete(r.total_spend, r.business_value)
+              ? hasMissingCtc
+                ? "Enter CTC to see business value — ask an owner/admin"
+                : "Ask an owner to set your job role + an approved benchmark"
+              : `${r.time_saved_hours}h saved · personal scope`
+          }
           spark={spark.length > 1 ? spark : undefined}
           delay={0}
         />
