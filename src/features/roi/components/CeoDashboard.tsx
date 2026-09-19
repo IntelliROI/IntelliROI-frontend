@@ -50,7 +50,7 @@ function sparkFromSeries(
 export function CeoDashboard({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
   const [period, setPeriod] = useState<RoiPeriod>("month");
   const [hiddenRecIds, setHiddenRecIds] = useState(() =>
     readHandledRecIds(companySlug),
@@ -277,7 +277,7 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
                   {p.provider}
                 </span>
                 <span className="font-mono text-[12px] text-text-primary">
-                  {formatCurrency(fromUsd(p.cost), companyCurrency)}
+                  {formatCurrency(p.cost, companyCurrency)}
                 </span>
               </li>
             ))}

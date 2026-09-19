@@ -13,7 +13,7 @@ import { resolveIntelligenceScope } from "@/lib/rbac/intelligence-scope";
 
 export function UsageTable({ companySlug }: { companySlug: string }) {
   const user = useAuthStore((s) => s.user);
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
   const scope = resolveIntelligenceScope(user);
   const usage = useUsageRequests(companySlug);
 
@@ -49,7 +49,7 @@ export function UsageTable({ companySlug }: { companySlug: string }) {
           rows={(usage.data ?? []).map((r) => ({
             id: r.created_at || r.id,
             requests: r.requests.toLocaleString(),
-            cost: formatCurrency(fromUsd(r.cost), companyCurrency),
+            cost: formatCurrency(r.cost, companyCurrency),
             action: (
               <Link
                 href={`/${companySlug}/usage/${encodeUsagePeriodId(r.id)}`}
