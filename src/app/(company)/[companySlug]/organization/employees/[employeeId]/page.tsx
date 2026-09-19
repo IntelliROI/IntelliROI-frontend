@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { ResendInviteButton } from "@/features/organization/components/ResendInviteButton";
 import { EditEmployeeForm } from "@/features/organization/components/EditEmployeeForm";
+import { AssignRoleModal } from "@/features/organization/components/AssignRoleModal";
 import { roiApi } from "@/features/roi/api/roi.api";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { ROLE_LABELS } from "@/constants/roles";
@@ -43,6 +44,7 @@ export default function EmployeeDetailPage({
 }) {
   const listHref = `/${params.companySlug}/organization/employees`;
   const [editing, setEditing] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
   const viewer = useAuthStore((s) => s.user);
 
@@ -76,7 +78,6 @@ export default function EmployeeDetailPage({
   const jobRolesQ = useQuery({
     queryKey: ["company", params.companySlug, "job-roles"],
     queryFn: () => organizationApi.listJobRoles(),
-    enabled: editing,
   });
   const roi = useQuery({
     queryKey: [
@@ -169,6 +170,15 @@ export default function EmployeeDetailPage({
             <Can resource="employees" action="edit">
               <Button
                 size="sm"
+                variant="secondary"
+                onClick={() => setShowAssignModal(true)}
+              >
+                Assign Role & CTC
+              </Button>
+            </Can>
+            <Can resource="employees" action="edit">
+              <Button
+                size="sm"
                 variant={editing ? "secondary" : "primary"}
                 onClick={() => setEditing((v) => !v)}
               >
@@ -216,6 +226,7 @@ export default function EmployeeDetailPage({
                 employeeQ.refetch(),
                 peopleQ.refetch(),
                 roleHistory.refetch(),
+                roi.refetch(),
               ]);
             }}
           />
@@ -257,9 +268,20 @@ export default function EmployeeDetailPage({
           />
           {(roleHistory.data ?? []).length > 0 ? (
             <div className="border-b border-hairline px-5 py-3 last:border-b-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/70">
-                Role assignment history
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/70">
+                  Role assignment history
+                </p>
+                <Can resource="employees" action="edit">
+                  <button
+                    type="button"
+                    onClick={() => setShowAssignModal(true)}
+                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:underline"
+                  >
+                    + Assign new role
+                  </button>
+                </Can>
+              </div>
               <table className="mt-2 w-full text-[13px]">
                 <thead>
                   <tr className="border-b border-hairline">
@@ -365,6 +387,26 @@ export default function EmployeeDetailPage({
           />
         </Mosaic>
       </div>
+
+      <AssignRoleModal
+        open={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        userUuid={employee.uuid}
+        employeeName={employee.display_name}
+        jobRoles={jobRolesQ.data ?? []}
+        currentJobRoleId={employee.job_role_id}
+        currentCtcAnnual={(roleHistory.data ?? [])[0]?.ctc_annual ?? null}
+        currentCtcCurrency={(roleHistory.data ?? [])[0]?.ctc_currency ?? companyCurrency}
+        defaultCurrency={companyCurrency}
+        onSuccess={async () => {
+          await Promise.all([
+            employeeQ.refetch(),
+            peopleQ.refetch(),
+            roleHistory.refetch(),
+            roi.refetch(),
+          ]);
+        }}
+      />
     </div>
   );
 }

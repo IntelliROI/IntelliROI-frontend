@@ -132,11 +132,14 @@ export const businessContextApi = {
     );
   },
 
-  async rejectBenchmark(id: number): Promise<Benchmark> {
+  async rejectBenchmark(id: number, feedback?: string): Promise<Benchmark> {
     const raw = await apiRequest<Record<string, unknown>>(
       "bc",
       `/task-benchmarks/${id}/reject`,
-      { method: "PATCH" },
+      {
+        method: "PATCH",
+        body: feedback ? { feedback, rejection_reason: feedback } : undefined,
+      },
     );
     return (
       toBenchmark(raw) ?? {

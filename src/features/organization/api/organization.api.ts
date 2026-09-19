@@ -864,6 +864,7 @@ async function getSettings(): Promise<CompanySettings> {
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
     usd_fx_rate: s.usd_fx_rate ?? 0,
+    strict_benchmark_policy: s.strict_benchmark_policy ?? false,
   };
 }
 
@@ -878,6 +879,7 @@ async function updateSettings(
     date_format: input.date_format,
     fiscal_year_start: input.fiscal_year_start,
     usd_fx_rate: input.usd_fx_rate,
+    strict_benchmark_policy: input.strict_benchmark_policy,
   });
   return {
     working_hours_per_day: s.working_hours_per_day,
@@ -887,6 +889,7 @@ async function updateSettings(
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
     usd_fx_rate: s.usd_fx_rate ?? input.usd_fx_rate ?? 0,
+    strict_benchmark_policy: s.strict_benchmark_policy ?? input.strict_benchmark_policy ?? false,
   };
 }
 

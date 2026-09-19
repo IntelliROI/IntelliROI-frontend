@@ -162,6 +162,7 @@ export type CompanySettingsDto = {
   date_format: string;
   fiscal_year_start: string;
   usd_fx_rate?: number;
+  strict_benchmark_policy?: boolean;
 };
 
 /* ── Map API responses → app types ── */

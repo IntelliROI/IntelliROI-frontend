@@ -11,6 +11,8 @@ export type CompanySettings = {
   fiscal_year_start: string;
   /** Company-currency units per 1 USD (e.g. INR ≈ 83). */
   usd_fx_rate: number;
+  /** When true, AI requests require an approved task benchmark and assigned CTC. */
+  strict_benchmark_policy?: boolean;
 };
 
 export type JobRole = {

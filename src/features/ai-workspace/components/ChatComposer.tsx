@@ -55,6 +55,8 @@ type Props = {
   taskId: string;
   onProjectChange: (id: string) => void;
   onTaskChange: (id: string) => void;
+  benchmarkBlocked?: boolean;
+  onRequestApproval?: () => void;
 };
 
 type MenuPanel = "root" | "provider" | "model" | "project" | "task";
@@ -82,6 +84,8 @@ export function ChatComposer({
   taskId,
   onProjectChange,
   onTaskChange,
+  benchmarkBlocked,
+  onRequestApproval,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -125,7 +129,7 @@ export function ChatComposer({
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!busy && value.trim()) onSubmit();
+      if (!busy && value.trim() && !benchmarkBlocked) onSubmit();
     }
   }
 
@@ -135,7 +139,7 @@ export function ChatComposer({
       onStop();
       return;
     }
-    if (value.trim()) onSubmit();
+    if (value.trim() && !benchmarkBlocked) onSubmit();
   }
 
   function openMenu() {
@@ -146,6 +150,28 @@ export function ChatComposer({
   return (
     <div className="px-3 pb-3 pt-1 md:px-6 md:pb-4">
       <form onSubmit={handleSubmit} className="relative mx-auto w-full max-w-3xl">
+        {benchmarkBlocked && (
+          <div className="mb-2 flex items-center justify-between gap-3 rounded-[12px] border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-[12.5px] text-amber-400">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">🔒</span>
+              <div>
+                <p className="font-medium text-text-primary">Benchmark Pending Review</p>
+                <p className="text-[12px] text-text-secondary">
+                  This task category requires an approved benchmark before AI prompts can be sent.
+                </p>
+              </div>
+            </div>
+            {onRequestApproval && (
+              <button
+                type="button"
+                onClick={onRequestApproval}
+                className="shrink-0 rounded-[6px] border border-amber-500/40 bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/30"
+              >
+                Request Manager Approval
+              </button>
+            )}
+          </div>
+        )}
         <div ref={menuRef} className="relative">
           {menuOpen && (
             <div className="absolute bottom-[calc(100%+10px)] left-0 z-40 w-[min(100%,360px)] overflow-hidden rounded-[20px] border border-hairline bg-surface shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
@@ -338,15 +364,17 @@ export function ChatComposer({
 
             <button
               type="submit"
-              disabled={!busy && (!value.trim() || disabled)}
+              disabled={!busy && (!value.trim() || disabled || benchmarkBlocked)}
               className={cn(
                 "mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors",
                 busy
                   ? "border-text-primary/60 bg-transparent text-text-primary hover:bg-text-primary/10"
-                  : "border-accent bg-transparent text-accent hover:bg-accent/10 disabled:border-hairline disabled:text-text-secondary/40",
+                  : benchmarkBlocked
+                    ? "border-hairline bg-transparent text-text-secondary/30 opacity-50 cursor-not-allowed"
+                    : "border-accent bg-transparent text-accent hover:bg-accent/10 disabled:border-hairline disabled:text-text-secondary/40",
               )}
               aria-label={busy ? "Stop generating" : "Send message"}
-              title={busy ? "Stop" : "Send"}
+              title={busy ? "Stop" : benchmarkBlocked ? "Benchmark Pending Review" : "Send"}
             >
               {busy ? (
                 <Square className="h-3.5 w-3.5 fill-current" strokeWidth={1.5} />
