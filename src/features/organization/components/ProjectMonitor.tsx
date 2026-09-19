@@ -14,7 +14,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { queryKeys } from "@/lib/api/query-keys";
-import { estimatedRoiPct } from "@/features/roi/lib/aggregate";
+import { estimatedRoiPct, roiDisplayValue } from "@/features/roi/lib/aggregate";
 
 /**
  * Project-wise AI usage monitor — GET /analytics/project/:id.
@@ -132,7 +132,7 @@ export function ProjectMonitor({
             />
             <KpiTile
               label="Estimated ROI"
-              value={projectRoiPct}
+              value={roiDisplayValue(spendLocal, businessValue, projectRoiPct)}
               format="percent"
               accent
             />

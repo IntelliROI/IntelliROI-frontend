@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader, LoadingBlock, DataTable } from "@/components/feedback/States";
@@ -65,6 +65,8 @@ export default function BudgetsPage({
   const alerts = useQuery({
     queryKey: ["company", params.companySlug, "cost-alerts"],
     queryFn: () => costApi.costAlerts(),
+    // Poll so a backend-issued alert surfaces without a manual page reload.
+    refetchInterval: 60_000,
   });
   const departments = useQuery({
     queryKey: queryKeys.company.departments(params.companySlug),
@@ -144,6 +146,62 @@ export default function BudgetsPage({
     },
   });
 
+  const deptName = useCallback(
+    (id?: number) =>
+      (departments.data ?? []).find((d) => d.id === id)?.department_name,
+    [departments.data],
+  );
+  const teamName = useCallback(
+    (id?: number) => (teams.data ?? []).find((t) => t.id === id)?.team_name,
+    [teams.data],
+  );
+  const teamsInDept = (teams.data ?? []).filter(
+    (t) => !departmentId || String(t.department_id) === departmentId,
+  );
+
+  const budgetScopeLabel = useCallback(
+    (b: Budget) => {
+      if (b.scope === "team") {
+        return teamName(b.team_id ?? b.scope_id) ?? `Team #${b.scope_id}`;
+      }
+      if (b.scope === "department") {
+        return deptName(b.department_id ?? b.scope_id) ?? `Department #${b.scope_id}`;
+      }
+      return "Company-wide";
+    },
+    [deptName, teamName],
+  );
+
+  const budgetAmountsLocal = useCallback(
+    (b: Budget) => {
+      const rawCur = (b.currency || "").toUpperCase();
+      const amountIsUsd = rawCur === "USD" || rawCur === "";
+      const convert = amountIsUsd && companyCurrency !== "USD" ? fromUsd : (n: number) => n;
+      return { limit: convert(b.monthly_limit), consumed: convert(b.consumed) };
+    },
+    [companyCurrency, fromUsd],
+  );
+
+  // Proactively warn when a budget crosses its alert threshold, instead of
+  // relying solely on a backend-issued /cost-alerts row appearing on reload.
+  const notifiedBudgetIds = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    for (const b of budgets.data ?? []) {
+      const pct = b.alert_percentage ?? 100;
+      const crossed =
+        b.monthly_limit > 0 && b.consumed >= (b.monthly_limit * pct) / 100;
+      if (crossed && !notifiedBudgetIds.current.has(b.id)) {
+        notifiedBudgetIds.current.add(b.id);
+        const { limit: bLimit, consumed: bConsumed } = budgetAmountsLocal(b);
+        toast.warning(
+          `${budgetScopeLabel(b)} budget has reached ${pct}% of its monthly limit (${formatCurrency(bConsumed, companyCurrency)} / ${formatCurrency(bLimit, companyCurrency)})`,
+        );
+      } else if (!crossed) {
+        notifiedBudgetIds.current.delete(b.id);
+      }
+    }
+  }, [budgets.data, companyCurrency, budgetAmountsLocal, budgetScopeLabel]);
+
   if (intel.kind === "unassigned") {
     return (
       <ScopeUnassigned
@@ -176,24 +234,6 @@ export default function BudgetsPage({
       return;
     }
     create.mutate();
-  }
-
-  const deptName = (id?: number) =>
-    (departments.data ?? []).find((d) => d.id === id)?.department_name;
-  const teamName = (id?: number) =>
-    (teams.data ?? []).find((t) => t.id === id)?.team_name;
-  const teamsInDept = (teams.data ?? []).filter(
-    (t) => !departmentId || String(t.department_id) === departmentId,
-  );
-
-  function budgetScopeLabel(b: Budget) {
-    if (b.scope === "team") {
-      return teamName(b.team_id ?? b.scope_id) ?? `Team #${b.scope_id}`;
-    }
-    if (b.scope === "department") {
-      return deptName(b.department_id ?? b.scope_id) ?? `Department #${b.scope_id}`;
-    }
-    return "Company-wide";
   }
 
   return (
@@ -333,16 +373,7 @@ export default function BudgetsPage({
             { key: "action", label: "", align: "right", width: "w-40" },
           ]}
           rows={(budgets.data ?? []).map((b) => {
-            const rawCur = (b.currency || "").toUpperCase();
-            const amountIsUsd = rawCur === "USD" || rawCur === "";
-            const limit =
-              amountIsUsd && companyCurrency !== "USD"
-                ? fromUsd(b.monthly_limit)
-                : b.monthly_limit;
-            const consumed =
-              amountIsUsd && companyCurrency !== "USD"
-                ? fromUsd(b.consumed)
-                : b.consumed;
+            const { limit, consumed } = budgetAmountsLocal(b);
             return {
               scope: budgetScopeLabel(b),
               limit: formatCurrency(limit, companyCurrency),

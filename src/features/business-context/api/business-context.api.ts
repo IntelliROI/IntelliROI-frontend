@@ -191,7 +191,14 @@ export const businessContextApi = {
 
   async roleAssignments(
     userUuid: string,
-  ): Promise<{ id: number; job_role_id: number; effective_from?: string }[]> {
+  ): Promise<{
+    id: number;
+    job_role_id: number;
+    effective_from?: string;
+    /** null = CTC not entered for this assignment row */
+    ctc_annual: number | null;
+    ctc_currency: string;
+  }[]> {
     const raw = await apiRequest<unknown>(
       "bc",
       withQuery(`/employees/${userUuid}/role-assignments`, {
@@ -203,7 +210,45 @@ export const businessContextApi = {
         id: Number(r.id),
         job_role_id: Number(r.job_role_id),
         effective_from: r.effective_from ? String(r.effective_from) : undefined,
+        ctc_annual: r.ctc_annual != null ? Number(r.ctc_annual) : null,
+        ctc_currency: r.ctc_currency ? String(r.ctc_currency) : "USD",
       }))
       .filter((r) => Number.isFinite(r.id) && r.id > 0);
+  },
+
+  /**
+   * Assign (or re-assign) a job role to an employee, optionally with CTC.
+   * Calls POST /employees/:uuid/roles — the new BC endpoint that supports CTC
+   * and temporal history (closes the current row, opens a new one).
+   */
+  async assignEmployeeRole(
+    userUuid: string,
+    input: {
+      job_role_id: number;
+      ctc_annual?: number | null;
+      ctc_currency?: string;
+      effective_from?: string;
+    },
+  ): Promise<{
+    current: { id: number; job_role_id: number; ctc_annual: number | null; ctc_currency: string };
+    closed?: unknown;
+  }> {
+    const body: Record<string, unknown> = {
+      job_role_id: input.job_role_id,
+    };
+    if (input.ctc_annual != null && input.ctc_annual > 0) {
+      body.ctc_annual = input.ctc_annual;
+      body.ctc_currency = (input.ctc_currency ?? "USD").toUpperCase();
+    }
+    if (input.effective_from) {
+      body.effective_from = input.effective_from;
+    }
+    return apiRequest<{
+      current: { id: number; job_role_id: number; ctc_annual: number | null; ctc_currency: string };
+      closed?: unknown;
+    }>("bc", `/employees/${userUuid}/roles`, {
+      method: "POST",
+      body,
+    });
   },
 };

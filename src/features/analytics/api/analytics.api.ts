@@ -12,8 +12,9 @@ export type AnalyticsPoint = {
 export type AnalyticsSummary = {
   period: string;
   requests: number;
-  tokens_in: number;
-  tokens_out: number;
+  // Snapshots store one combined total_tokens column — there is no
+  // prompt/completion split at this level (see ai-gateway.api.ts for that).
+  tokens_total: number;
   active_users: number;
   total_cost: number;
   total_business_value: number;
@@ -87,9 +88,7 @@ function toSummary(raw: unknown, period: string): AnalyticsSummary {
   return {
     period,
     requests: totals.requests,
-    // Snapshots store one total_tokens column (not prompt/completion split).
-    tokens_in: totals.tokens,
-    tokens_out: 0,
+    tokens_total: totals.tokens,
     active_users: 0,
     total_cost: totals.cost,
     total_business_value: businessValue,

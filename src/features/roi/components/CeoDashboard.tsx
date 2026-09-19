@@ -30,7 +30,11 @@ import {
   markRecHandled,
   readHandledRecIds,
 } from "@/features/roi/lib/handled-recommendations";
-import { toAnalyticsPeriod } from "@/features/roi/lib/aggregate";
+import {
+  toAnalyticsPeriod,
+  isRoiSetupIncomplete,
+  roiDisplayValue,
+} from "@/features/roi/lib/aggregate";
 
 function sparkFromSeries(
   series: { roi_pct?: number; requests?: number; cost?: number }[],
@@ -163,10 +167,18 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
           className="lg:col-span-5"
           variant="hero"
           label="Estimated ROI"
-          value={roiData.roi_pct}
+          value={roiDisplayValue(roiData.total_spend, roiData.business_value, roiData.roi_pct)}
           format="percent"
-          delta={roiData.vs_last_month_pct}
-          hint={`${formatCurrency(roiData.business_value, companyCurrency)} value · ${formatCurrency(roiData.total_spend, companyCurrency)} spend`}
+          delta={
+            isRoiSetupIncomplete(roiData.total_spend, roiData.business_value)
+              ? undefined
+              : roiData.vs_last_month_pct
+          }
+          hint={
+            isRoiSetupIncomplete(roiData.total_spend, roiData.business_value)
+              ? "Assign a job role + approved benchmark to compute value — see setup below"
+              : `${formatCurrency(roiData.business_value, companyCurrency)} value · ${formatCurrency(roiData.total_spend, companyCurrency)} spend`
+          }
           spark={sparkFromSeries(rawSeries, "roi_pct")}
           delay={0}
         />
@@ -344,68 +356,93 @@ export function CeoDashboard({ companySlug }: { companySlug: string }) {
             {(recommendations.data ?? [])
               .filter((rec) => !hiddenRecIds.has(rec.id))
               .slice(0, 3)
-              .map((rec, i) => (
-              <motion.div
-                key={rec.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...revealTransition, delay: 0.1 + i * 0.05 }}
-                className="px-5 py-4"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
-                  {rec.impact_monthly_usd > 0
-                    ? `Save ${formatCurrency(fromUsd(rec.impact_monthly_usd), companyCurrency)}/mo`
-                    : "Setup"}
-                </p>
-                <p className="mt-2 text-[13px] font-medium text-text-primary">
-                  {rec.title}
-                </p>
-                <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
-                  {rec.rationale}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await roiApi.updateRecommendation(rec.id, "accepted");
-                        toast.success("Accepted");
-                        markRecHandled(companySlug, rec.id);
-                        setHiddenRecIds((prev) => new Set(prev).add(rec.id));
-                        recommendations.refetch();
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error ? err.message : "Request failed",
-                        );
-                      }
-                    }}
+              .map((rec, i) => {
+                const isMissingCtc = rec.recommendation_type === "missing_ctc";
+                return (
+                  <motion.div
+                    key={rec.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...revealTransition, delay: 0.1 + i * 0.05 }}
+                    className="px-5 py-4"
                   >
-                    <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Accept
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      try {
-                        await roiApi.updateRecommendation(rec.id, "dismissed");
-                        toast.message("Dismissed");
-                        markRecHandled(companySlug, rec.id);
-                        setHiddenRecIds((prev) => new Set(prev).add(rec.id));
-                        recommendations.refetch();
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error ? err.message : "Request failed",
-                        );
-                      }
-                    }}
-                  >
-                    <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Dismiss
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em]">
+                      {isMissingCtc ? (
+                        <span className="text-amber-400 font-semibold">
+                          💰 HIGH PRIORITY · CTC MISSING
+                        </span>
+                      ) : rec.impact_monthly_usd > 0 ? (
+                        <span className="text-accent">
+                          Save {formatCurrency(rec.impact_monthly_usd, companyCurrency)}/mo
+                        </span>
+                      ) : (
+                        <span className="text-accent">Setup</span>
+                      )}
+                    </p>
+                    <p className="mt-2 text-[13px] font-medium text-text-primary">
+                      {rec.title}
+                    </p>
+                    <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
+                      {rec.rationale}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      {isMissingCtc ? (
+                        <Button size="sm" asChild>
+                          <Link
+                            href={
+                              rec.employee_id
+                                ? `/${companySlug}/organization/employees/${rec.employee_id}?edit=1`
+                                : `/${companySlug}/organization/employees`
+                            }
+                          >
+                            Set CTC
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await roiApi.updateRecommendation(rec.id, "accepted");
+                              toast.success("Accepted");
+                              markRecHandled(companySlug, rec.id);
+                              setHiddenRecIds((prev) => new Set(prev).add(rec.id));
+                              recommendations.refetch();
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error ? err.message : "Request failed",
+                              );
+                            }
+                          }}
+                        >
+                          <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          Accept
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          try {
+                            await roiApi.updateRecommendation(rec.id, "dismissed");
+                            toast.message("Dismissed");
+                            markRecHandled(companySlug, rec.id);
+                            setHiddenRecIds((prev) => new Set(prev).add(rec.id));
+                            recommendations.refetch();
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error ? err.message : "Request failed",
+                            );
+                          }
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Dismiss
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
             {(recommendations.data ?? []).filter((rec) => !hiddenRecIds.has(rec.id))
               .length === 0 ? (
               <p className="px-5 py-8 text-[13px] text-text-secondary">

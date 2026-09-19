@@ -79,7 +79,7 @@ export function ScopedAnalyticsView({
           value={roiSpend.data?.requests ?? a.requests}
           format="number"
         />
-        <KpiTile label="Tokens" value={formatNumber(a.tokens_in, true)} />
+        <KpiTile label="Tokens" value={formatNumber(a.tokens_total, true)} />
         <KpiTile
           label="AI spend"
           value={spendLocal}

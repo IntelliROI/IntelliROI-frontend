@@ -51,9 +51,12 @@ export type Recommendation = {
   impact_monthly_usd: number;
   status: string;
   scope: string;
+  /** Backend recommendation_type — e.g. "missing_ctc", "missing_job_role", "missing_benchmark" */
+  recommendation_type?: string;
   rationale?: string;
   department_id?: number;
   team_id?: number;
+  employee_id?: number;
 };
 
 type RoiSummaryDto = {
@@ -161,9 +164,11 @@ function toRecommendation(r: RecommendationDto): Recommendation {
     impact_monthly_usd: Number(r.estimated_savings ?? r.impact_monthly_usd ?? 0),
     status: r.status,
     scope: recScope(r),
+    recommendation_type: r.recommendation_type ?? undefined,
     rationale: r.description ?? r.rationale ?? undefined,
     department_id: r.department_id ?? undefined,
     team_id: r.team_id ?? undefined,
+    employee_id: r.employee_id ?? undefined,
   };
 }
 

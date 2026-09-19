@@ -1,9 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, LoadingBlock } from "@/components/feedback/States";
 import { Mosaic, Panel } from "@/components/ui/panel";
@@ -18,6 +16,8 @@ import { ROLE_LABELS } from "@/constants/roles";
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
+import { useAuthStore } from "@/stores/auth-store";
+import { ROLES } from "@/constants/roles";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -44,6 +44,7 @@ export default function EmployeeDetailPage({
   const listHref = `/${params.companySlug}/organization/employees`;
   const [editing, setEditing] = useState(false);
   const { currency: companyCurrency } = useCompanyCurrency(params.companySlug);
+  const viewer = useAuthStore((s) => s.user);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -187,6 +188,9 @@ export default function EmployeeDetailPage({
             teams={teamsQ.data ?? []}
             jobRoles={jobRolesQ.data ?? []}
             managers={peopleQ.data ?? []}
+            currentCtcAnnual={(roleHistory.data ?? [])[0]?.ctc_annual ?? null}
+            currentCtcCurrency={(roleHistory.data ?? [])[0]?.ctc_currency}
+            defaultCurrency={companyCurrency}
             onCancel={() => setEditing(false)}
             onSubmit={async (values) => {
               const { warnings } = await organizationApi.updateEmployee(
@@ -201,12 +205,18 @@ export default function EmployeeDetailPage({
                   joining_date: values.joining_date,
                   job_role_id: values.job_role_id ?? null,
                   previous_team_id: employee.team_id,
+                  ctc_annual: values.ctc_annual ?? null,
+                  ctc_currency: values.ctc_currency,
                 },
               );
               toast.success("Employee updated");
               for (const warning of warnings) toast.warning(warning);
               setEditing(false);
-              await Promise.all([employeeQ.refetch(), peopleQ.refetch()]);
+              await Promise.all([
+                employeeQ.refetch(),
+                peopleQ.refetch(),
+                roleHistory.refetch(),
+              ]);
             }}
           />
         </div>
@@ -250,14 +260,49 @@ export default function EmployeeDetailPage({
               <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-secondary/70">
                 Role assignment history
               </p>
-              <ul className="mt-2 space-y-1 text-[13px] text-text-primary">
-                {(roleHistory.data ?? []).map((row) => (
-                  <li key={row.id}>
-                    Job role #{row.job_role_id}
-                    {row.effective_from ? ` · ${row.effective_from}` : ""}
-                  </li>
-                ))}
-              </ul>
+              <table className="mt-2 w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-hairline">
+                    <th className="pb-1.5 pr-4 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">Role</th>
+                    <th className="pb-1.5 pr-4 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">Effective from</th>
+                    <th className="pb-1.5 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">Annual CTC</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {(roleHistory.data ?? []).map((row) => {
+                    const jobRole = (jobRolesQ.data ?? []).find((r) => r.id === row.job_role_id);
+                    const isAdmin = viewer && (
+                      viewer.role === ROLES.COMPANY_OWNER ||
+                      viewer.role === ROLES.DEPARTMENT_HEAD ||
+                      viewer.role === ROLES.TEAM_LEAD
+                    );
+                    return (
+                      <tr key={row.id}>
+                        <td className="py-2 pr-4 text-text-primary">
+                          {jobRole?.role_name ?? `Role #${row.job_role_id}`}
+                        </td>
+                        <td className="py-2 pr-4 text-text-secondary">
+                          {row.effective_from ?? "—"}
+                        </td>
+                        <td className="py-2">
+                          {!isAdmin ? (
+                            <span className="text-text-secondary">—</span>
+                          ) : row.ctc_annual != null ? (
+                            <span className="text-text-primary">
+                              {formatCurrency(row.ctc_annual, row.ctc_currency)}/yr
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-amber-400">
+                              <AlertTriangle className="h-3 w-3" strokeWidth={1.5} />
+                              Not set
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : null}
         </Panel>

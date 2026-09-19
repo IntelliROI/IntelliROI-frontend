@@ -66,6 +66,13 @@ export const employeeOrgPatchSchema = z.object({
   ),
   manager_employee_id: z.coerce.number().optional().nullable(),
   joining_date: z.string().optional(),
+  /** Annual CTC in the chosen currency. Null/undefined = not provided. */
+  ctc_annual: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive("CTC must be greater than 0").nullable().optional(),
+  ),
+  /** ISO-4217 currency for ctc_annual. Defaults to USD on the backend when omitted. */
+  ctc_currency: z.enum(currencyCodes).optional(),
 }).superRefine((data, ctx) => {
   const national = (data.phone_national ?? "").trim();
   if (!national) return;
@@ -135,6 +142,13 @@ export const employeeSchema = z.object({
     .enum(["active", "inactive", "on_leave"])
     .default("active"),
   app_role: appRoleEnum.default(ROLES.EMPLOYEE),
+  /** Annual CTC in the chosen currency. Null/undefined = not provided. */
+  ctc_annual: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().positive("CTC must be greater than 0").nullable().optional(),
+  ),
+  /** ISO-4217 currency for ctc_annual. Defaults to USD on the backend when omitted. */
+  ctc_currency: z.enum(currencyCodes).optional(),
 }).superRefine((data, ctx) => {
   const national = (data.phone_national ?? "").trim();
   if (!national) return;

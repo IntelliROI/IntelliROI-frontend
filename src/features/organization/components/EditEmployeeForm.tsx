@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import {
   COUNTRIES,
+  CURRENCIES,
   DEFAULT_COUNTRY_ISO,
   digitsOnly,
   findCountry,
@@ -31,6 +32,11 @@ type Props = {
   managers?: Employee[];
   onSubmit: (values: EmployeeOrgPatchSchema) => Promise<void>;
   onCancel: () => void;
+  /** Current CTC values to pre-populate the fields. */
+  currentCtcAnnual?: number | null;
+  currentCtcCurrency?: string;
+  /** Company's configured currency — default for CTC currency dropdown. */
+  defaultCurrency?: string;
 };
 
 export function EditEmployeeForm({
@@ -41,6 +47,9 @@ export function EditEmployeeForm({
   managers = [],
   onSubmit,
   onCancel,
+  currentCtcAnnual,
+  currentCtcCurrency,
+  defaultCurrency = "USD",
 }: Props) {
   const parsedPhone = fromE164(employee.phone);
   const [loading, setLoading] = useState(false);
@@ -57,6 +66,8 @@ export function EditEmployeeForm({
       ? String(employee.manager_employee_id)
       : "",
     joining_date: employee.joining_date ?? "",
+    ctc_annual: currentCtcAnnual != null ? String(currentCtcAnnual) : "",
+    ctc_currency: currentCtcCurrency ?? defaultCurrency,
   });
 
   const teamsInDept = useMemo(
@@ -77,6 +88,8 @@ export function EditEmployeeForm({
       manager_employee_id: form.manager_employee_id
         ? Number(form.manager_employee_id)
         : null,
+      ctc_annual: form.ctc_annual !== "" ? Number(form.ctc_annual) : null,
+      ctc_currency: form.ctc_currency || undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Invalid employee");
@@ -216,6 +229,43 @@ export function EditEmployeeForm({
             </p>
           )}
         </div>
+        {/* CTC fields */}
+        <div className="space-y-2">
+          <Label>Annual CTC <span className="text-text-secondary/60">(optional)</span></Label>
+          <Input
+            id="edit_ctc_annual"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="e.g. 1200000"
+            value={form.ctc_annual}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, ctc_annual: e.target.value }))
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>CTC Currency</Label>
+          <Select
+            id="edit_ctc_currency"
+            value={form.ctc_currency}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, ctc_currency: e.target.value }))
+            }
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {form.job_role_id && !form.ctc_annual && (
+          <div className="col-span-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
+            💡 Without CTC, this employee&apos;s ROI will show as{" "}
+            <strong>Setup needed</strong>.
+          </div>
+        )}
         <div className="space-y-2">
           <Label>Manager</Label>
           <Select
