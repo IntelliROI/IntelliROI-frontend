@@ -28,12 +28,7 @@ export const companySettingsSchema = z.object({
   strict_benchmark_policy: z.boolean().optional(),
 });
 
-export const jobRoleSchema = z.object({
-  role_name: z.string().min(2, "Role name required"),
-  hourly_cost: z.coerce.number().positive("Hourly cost must be > 0"),
-  currency: z.enum(currencyCodes),
-  status: z.enum(["active", "inactive"]).optional(),
-});
+
 
 export const projectSchema = z.object({
   project_name: z.string().min(2, "Project name required"),
@@ -61,19 +56,14 @@ export const employeeOrgPatchSchema = z.object({
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number().positive().nullable().optional(),
   ),
-  job_role_id: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().positive().nullable().optional(),
-  ),
   manager_employee_id: z.coerce.number().optional().nullable(),
   joining_date: z.string().optional(),
-  /** Annual CTC in the chosen currency. Null/undefined = not provided. */
+  /** Annual CTC — when provided, creates a new CTC history row. */
   ctc_annual: z.preprocess(
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number().positive("CTC must be greater than 0").nullable().optional(),
   ),
-  /** ISO-4217 currency for ctc_annual. Defaults to USD on the backend when omitted. */
-  ctc_currency: z.enum(currencyCodes).optional(),
+  ctc_currency: z.string().optional(),
 }).superRefine((data, ctx) => {
   const national = (data.phone_national ?? "").trim();
   if (!national) return;
@@ -132,10 +122,6 @@ export const employeeSchema = z.object({
     z.number().positive().nullable().optional(),
   ),
   team_id: z.coerce.number().optional().nullable(),
-  job_role_id: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().positive().nullable().optional(),
-  ),
   manager_employee_id: z.coerce.number().optional().nullable(),
   designation: z.string().optional(),
   joining_date: z.string().optional(),
@@ -143,13 +129,13 @@ export const employeeSchema = z.object({
     .enum(["active", "inactive", "on_leave"])
     .default("active"),
   app_role: appRoleEnum.default(ROLES.EMPLOYEE),
-  /** Annual CTC in the chosen currency. Null/undefined = not provided. */
-  ctc_annual: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-    z.number().positive("CTC must be greater than 0").nullable().optional(),
-  ),
-  /** ISO-4217 currency for ctc_annual. Defaults to USD on the backend when omitted. */
-  ctc_currency: z.enum(currencyCodes).optional(),
+  /**
+   * Annual CTC — required so ROI engine can compute hourly cost.
+   * Currency is inherited from the company default (no dropdown needed).
+   */
+  ctc_annual: z.coerce
+    .number({ invalid_type_error: "Annual CTC is required" })
+    .positive("Annual CTC must be greater than 0"),
 }).superRefine((data, ctx) => {
   const national = (data.phone_national ?? "").trim();
   if (!national) return;
@@ -170,7 +156,6 @@ export const employeeSchema = z.object({
 });
 
 export type CompanySettingsSchema = z.infer<typeof companySettingsSchema>;
-export type JobRoleSchema = z.infer<typeof jobRoleSchema>;
 export type DepartmentSchema = z.infer<typeof departmentSchema>;
 export type TeamSchema = z.infer<typeof teamSchema>;
 export type EmployeeSchema = z.infer<typeof employeeSchema>;

@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { aiGatewayApi } from "@/features/ai-gateway/api/ai-gateway.api";
 import { ApiError } from "@/lib/api/client";
 import { useChatStore } from "@/stores/chat-store";
-import { useAuthStore } from "@/stores/auth-store";
 import { queryKeys } from "@/lib/api/query-keys";
 import {
   ChatMessageBubble,
@@ -204,8 +203,6 @@ export function AiWorkspace({
     setNeedsHydrate(false);
   }, [needsHydrate, conversation.data, activeId]);
 
-  const user = useAuthStore((s) => s.user);
-
   const projects = useQuery({
     queryKey: queryKeys.company.projects(companySlug),
     queryFn: () => organizationApi.listProjects(),
@@ -226,32 +223,22 @@ export function AiWorkspace({
     queryFn: () => businessContextApi.listBenchmarks(),
   });
 
-  const roleAssignments = useQuery({
-    queryKey: ["company", companySlug, "my-role-assignments", user?.uuid],
-    queryFn: () => businessContextApi.roleAssignments(user!.uuid),
-    enabled: Boolean(user?.uuid),
-  });
-
-  const activeJobRoleId = roleAssignments.data?.[0]?.job_role_id;
-
   const benchmarkBlocked = useMemo(() => {
     if (!companySettings.data?.strict_benchmark_policy) return false;
     if (!taskId) return false;
     const taskCatId = Number(taskId);
     if (!taskCatId) return false;
 
-    // Strict policy: requires an approved benchmark for this task category & job role
+    // Strict policy: requires an approved benchmark for this task category
     const matching = (benchmarks.data ?? []).find(
       (b) =>
         b.task_category_id === taskCatId &&
-        (!activeJobRoleId || b.job_role_id === activeJobRoleId) &&
         b.status === "approved",
     );
     return !matching;
   }, [
     companySettings.data?.strict_benchmark_policy,
     taskId,
-    activeJobRoleId,
     benchmarks.data,
   ]);
 

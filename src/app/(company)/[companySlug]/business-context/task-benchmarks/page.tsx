@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
-import { organizationApi } from "@/features/organization/api/organization.api";
 import { Can } from "@/lib/rbac/Can";
 import { toast } from "sonner";
 
@@ -52,7 +51,6 @@ export default function TaskBenchmarksPage({
   const [categoryName, setCategoryName] = useState("");
   const [form, setForm] = useState({
     task_category_id: "",
-    job_role_id: "",
     estimated_minutes_saved: "",
     confidence_score: "70",
   });
@@ -73,20 +71,11 @@ export default function TaskBenchmarksPage({
     queryKey: ["company", params.companySlug, "task-categories"],
     queryFn: () => businessContextApi.listTaskCategories(),
   });
-  const roles = useQuery({
-    queryKey: ["company", params.companySlug, "job-roles"],
-    queryFn: () => organizationApi.listJobRoles(),
-  });
 
   const catMap = useMemo(
     () =>
       Object.fromEntries((categories.data ?? []).map((c) => [c.id, c.name])),
     [categories.data],
-  );
-  const roleMap = useMemo(
-    () =>
-      Object.fromEntries((roles.data ?? []).map((r) => [r.id, r.role_name])),
-    [roles.data],
   );
 
   const visible = (benchmarks.data ?? []).filter((b) => b.status !== "archived");
@@ -125,7 +114,6 @@ export default function TaskBenchmarksPage({
     try {
       const created = await businessContextApi.createBenchmark({
         task_category_id: Number(form.task_category_id),
-        job_role_id: Number(form.job_role_id),
         estimated_minutes_saved: Number(form.estimated_minutes_saved),
         confidence_score: Number(form.confidence_score) || 50,
       });
@@ -136,7 +124,6 @@ export default function TaskBenchmarksPage({
       );
       setForm({
         task_category_id: "",
-        job_role_id: "",
         estimated_minutes_saved: "",
         confidence_score: "70",
       });
@@ -153,7 +140,6 @@ export default function TaskBenchmarksPage({
         {catMap[b.task_category_id] ?? `Category ${b.task_category_id}`}
       </span>
     ),
-    role: roleMap[b.job_role_id] ?? `Role ${b.job_role_id}`,
     saved: (
       <span className="font-mono text-[12px] font-medium text-accent">
         −{b.estimated_minutes_saved}m
@@ -237,7 +223,7 @@ export default function TaskBenchmarksPage({
 
   const cards: GridCard[] = visible.map((b) => ({
     title: catMap[b.task_category_id] ?? `Category ${b.task_category_id}`,
-    subtitle: roleMap[b.job_role_id] ?? `Role ${b.job_role_id}`,
+    subtitle: `Benchmark #${b.id}`,
     badge: <BenchmarkStatusBadge status={b.status} />,
     metrics: [
       {
@@ -255,7 +241,7 @@ export default function TaskBenchmarksPage({
       <PageHeader
         eyebrow="Governance · Business Context"
         title="Task Benchmarks"
-        description="Minutes saved by task category and job role — the backbone of Estimated ROI. Create a category, then submit a benchmark (owners auto-approve)."
+        description="Minutes saved by task category — the backbone of Estimated ROI. Create a category, then submit a benchmark (owners auto-approve)."
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
@@ -273,7 +259,7 @@ export default function TaskBenchmarksPage({
         onClose={() => setShowForm(false)}
         eyebrow="Business context"
         title="Add benchmark"
-        description="Create a task category if needed, then submit minutes saved by job role."
+        description="Create a task category if needed, then submit minutes saved."
         size="lg"
       >
         <div className="grid gap-8 lg:grid-cols-2">
@@ -313,21 +299,6 @@ export default function TaskBenchmarksPage({
               {(categories.data ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
-                </option>
-              ))}
-            </Select>
-            <Label>Job role</Label>
-            <Select
-              value={form.job_role_id}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, job_role_id: e.target.value }))
-              }
-              required
-            >
-              <option value="">Select job role</option>
-              {(roles.data ?? []).map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.role_name}
                 </option>
               ))}
             </Select>
@@ -483,7 +454,7 @@ export default function TaskBenchmarksPage({
       ) : visible.length === 0 ? (
         <EmptyState
           title="No task benchmarks yet"
-          description="Add a task category, then submit minutes-saved per job role so Estimated ROI can compute business value."
+          description="Add a task category, then submit minutes-saved so Estimated ROI can compute business value."
           action={
             <Can resource="benchmarks" action="create">
               <Button size="sm" onClick={() => setShowForm(true)}>
@@ -496,7 +467,6 @@ export default function TaskBenchmarksPage({
         <DataTable
           columns={[
             { key: "category", label: "Category", sortable: true },
-            { key: "role", label: "Job role" },
             { key: "saved", label: "Time saved", align: "right" },
             { key: "confidence", label: "Confidence", align: "right" },
             { key: "status", label: "Status" },

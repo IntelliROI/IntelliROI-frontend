@@ -1,6 +1,5 @@
 import { apiRequest, withQuery } from "@/lib/api/client";
 import { LIST_DROPDOWN_PAGE_SIZE } from "@/lib/api/types";
-import type { JobRole } from "@/features/organization/types";
 
 export type TaskCategory = {
   id: number;
@@ -9,17 +8,27 @@ export type TaskCategory = {
   status?: string;
 };
 
+/**
+ * Task benchmark — minutes saved per task category.
+ * job_role_id has been removed; benchmarks are now task-category-level only.
+ */
 export type Benchmark = {
   id: number;
   task_category_id: number;
-  job_role_id: number;
   estimated_minutes_saved: number;
   confidence_score: number;
   status: string;
   created_at?: string;
 };
 
-export type { JobRole };
+export type EmployeeCtcRecord = {
+  id: number;
+  ctc_annual: number;
+  ctc_currency: string;
+  hourly_cost: number;
+  effective_from: string;
+  effective_to: string | null;
+};
 
 function asList<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
@@ -47,7 +56,6 @@ function toBenchmark(raw: Record<string, unknown>): Benchmark | null {
   return {
     id,
     task_category_id: Number(raw.task_category_id ?? 0),
-    job_role_id: Number(raw.job_role_id ?? 0),
     estimated_minutes_saved: Number(raw.estimated_minutes_saved ?? 0),
     confidence_score: Number(raw.confidence_score ?? 0),
     status: String(raw.status ?? "pending"),
@@ -89,7 +97,6 @@ export const businessContextApi = {
 
   async createBenchmark(input: {
     task_category_id: number;
-    job_role_id: number;
     estimated_minutes_saved: number;
     confidence_score?: number;
   }): Promise<Benchmark> {
@@ -97,7 +104,6 @@ export const businessContextApi = {
       method: "POST",
       body: {
         task_category_id: input.task_category_id,
-        job_role_id: input.job_role_id,
         estimated_minutes_saved: input.estimated_minutes_saved,
         confidence_score: input.confidence_score ?? 50,
       },
@@ -106,7 +112,6 @@ export const businessContextApi = {
       toBenchmark(raw) ?? {
         id: 0,
         task_category_id: input.task_category_id,
-        job_role_id: input.job_role_id,
         estimated_minutes_saved: input.estimated_minutes_saved,
         confidence_score: input.confidence_score ?? 50,
         status: "pending",
@@ -124,7 +129,6 @@ export const businessContextApi = {
       toBenchmark(raw) ?? {
         id,
         task_category_id: 0,
-        job_role_id: 0,
         estimated_minutes_saved: 0,
         confidence_score: 0,
         status: "approved",
@@ -145,7 +149,6 @@ export const businessContextApi = {
       toBenchmark(raw) ?? {
         id,
         task_category_id: 0,
-        job_role_id: 0,
         estimated_minutes_saved: 0,
         confidence_score: 0,
         status: "rejected",
@@ -166,7 +169,6 @@ export const businessContextApi = {
       toBenchmark(raw) ?? {
         id,
         task_category_id: 0,
-        job_role_id: 0,
         estimated_minutes_saved: patch.estimated_minutes_saved ?? 0,
         confidence_score: patch.confidence_score ?? 0,
         status: "pending",
@@ -184,7 +186,6 @@ export const businessContextApi = {
       toBenchmark(raw) ?? {
         id,
         task_category_id: 0,
-        job_role_id: 0,
         estimated_minutes_saved: 0,
         confidence_score: 0,
         status: "archived",
@@ -192,66 +193,54 @@ export const businessContextApi = {
     );
   },
 
-  async roleAssignments(
-    userUuid: string,
-  ): Promise<{
-    id: number;
-    job_role_id: number;
-    effective_from?: string;
-    /** null = CTC not entered for this assignment row */
-    ctc_annual: number | null;
-    ctc_currency: string;
-  }[]> {
-    const raw = await apiRequest<unknown>(
-      "bc",
-      withQuery(`/employees/${userUuid}/role-assignments`, {
-        page_size: LIST_DROPDOWN_PAGE_SIZE,
-      }),
-    );
-    return asList<Record<string, unknown>>(raw)
-      .map((r) => ({
-        id: Number(r.id),
-        job_role_id: Number(r.job_role_id),
-        effective_from: r.effective_from ? String(r.effective_from) : undefined,
-        ctc_annual: r.ctc_annual != null ? Number(r.ctc_annual) : null,
-        ctc_currency: r.ctc_currency ? String(r.ctc_currency) : "USD",
-      }))
-      .filter((r) => Number.isFinite(r.id) && r.id > 0);
-  },
-
   /**
-   * Assign (or re-assign) a job role to an employee, optionally with CTC.
-   * Calls POST /employees/:uuid/roles — the new BC endpoint that supports CTC
-   * and temporal history (closes the current row, opens a new one).
+   * Assign or update CTC for an employee.
+   * The backend computes hourly_cost = ctc_annual ÷ (hours_per_day × days_per_month × 12)
+   * and stores a new employee_ctc_history row (closing the previous active row).
    */
-  async assignEmployeeRole(
+  async assignEmployeeCtc(
     userUuid: string,
     input: {
-      job_role_id: number;
-      ctc_annual?: number | null;
+      ctc_annual: number;
       ctc_currency?: string;
       effective_from?: string;
     },
-  ): Promise<{
-    current: { id: number; job_role_id: number; ctc_annual: number | null; ctc_currency: string };
-    closed?: unknown;
-  }> {
+  ): Promise<EmployeeCtcRecord> {
     const body: Record<string, unknown> = {
-      job_role_id: input.job_role_id,
+      ctc_annual: input.ctc_annual,
+      ctc_currency: (input.ctc_currency ?? "USD").toUpperCase(),
     };
-    if (input.ctc_annual != null && input.ctc_annual > 0) {
-      body.ctc_annual = input.ctc_annual;
-      body.ctc_currency = (input.ctc_currency ?? "USD").toUpperCase();
-    }
     if (input.effective_from) {
       body.effective_from = input.effective_from;
     }
-    return apiRequest<{
-      current: { id: number; job_role_id: number; ctc_annual: number | null; ctc_currency: string };
-      closed?: unknown;
-    }>("bc", `/employees/${userUuid}/roles`, {
-      method: "POST",
-      body,
-    });
+    const raw = await apiRequest<Record<string, unknown>>(
+      "bc",
+      `/employees/${userUuid}/ctc`,
+      { method: "POST", body },
+    );
+    return {
+      id: Number(raw.id ?? 0),
+      ctc_annual: Number(raw.ctc_annual ?? input.ctc_annual),
+      ctc_currency: String(raw.ctc_currency ?? input.ctc_currency ?? "USD"),
+      hourly_cost: Number(raw.hourly_cost ?? 0),
+      effective_from: String(raw.effective_from ?? new Date().toISOString().slice(0, 10)),
+      effective_to: raw.effective_to ? String(raw.effective_to) : null,
+    };
+  },
+
+  /** Get full CTC history for an employee (most recent first). */
+  async getEmployeeCtcHistory(userUuid: string): Promise<EmployeeCtcRecord[]> {
+    const raw = await apiRequest<unknown>(
+      "bc",
+      withQuery(`/employees/${userUuid}/ctc-history`, { page_size: LIST_DROPDOWN_PAGE_SIZE }),
+    );
+    return asList<Record<string, unknown>>(raw).map((r) => ({
+      id: Number(r.id),
+      ctc_annual: Number(r.ctc_annual),
+      ctc_currency: String(r.ctc_currency ?? "USD"),
+      hourly_cost: Number(r.hourly_cost),
+      effective_from: String(r.effective_from),
+      effective_to: r.effective_to ? String(r.effective_to) : null,
+    }));
   },
 };

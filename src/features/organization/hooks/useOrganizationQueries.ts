@@ -137,24 +137,6 @@ export function useEmployeesPage(
   });
 }
 
-export function useJobRolesPage(
-  companySlug: string,
-  query: { page: number; pageSize: number; q: string; status: string },
-) {
-  return useQuery({
-    queryKey: queryKeys.company.jobRolesPage(companySlug, query),
-    queryFn: () =>
-      organizationApi.listJobRolesPage({
-        page: query.page,
-        page_size: query.pageSize,
-        q: query.q,
-        status: query.status,
-      }),
-    placeholderData: keepPreviousData,
-    staleTime: 30_000,
-  });
-}
-
 export function useImportJob(companySlug: string, uuid: string | null) {
   return useQuery({
     queryKey: queryKeys.company.importJob(companySlug, uuid ?? ""),

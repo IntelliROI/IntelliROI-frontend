@@ -40,12 +40,8 @@ export const queryKeys = {
         teamId: number | "";
       },
     ) => ["company", companySlug, "employees", "list", query] as const,
-    jobRoles: (companySlug: string) =>
-      ["company", companySlug, "job-roles"] as const,
-    jobRolesPage: (
-      companySlug: string,
-      query: { page: number; pageSize: number; q: string; status: string },
-    ) => ["company", companySlug, "job-roles", "list", query] as const,
+    ctcHistory: (companySlug: string, userUuid: string) =>
+      ["company", companySlug, "ctc-history", userUuid] as const,
     settings: (companySlug: string) =>
       ["company", companySlug, "settings"] as const,
     projects: (companySlug: string) =>

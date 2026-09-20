@@ -51,14 +51,12 @@ const ROLE_ALLOWED_PREFIXES: Record<Role, string[]> = {
 const ROLE_DENIED_PREFIXES: Partial<Record<Role, string[]>> = {
   [ROLES.DEPARTMENT_HEAD]: [
     "ai-providers",
-    "organization/job-roles",
     "settings",
     "governance",
   ],
   [ROLES.TEAM_LEAD]: [
     "ai-providers",
     "organization/departments",
-    "organization/job-roles",
     "budgets",
     "business-context",
     "reports",
@@ -70,7 +68,6 @@ const ROLE_DENIED_PREFIXES: Partial<Record<Role, string[]>> = {
     "organization/departments",
     "organization/teams",
     "organization/employees",
-    "organization/job-roles",
     "ai-providers",
     "usage",
     "analytics",

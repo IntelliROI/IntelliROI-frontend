@@ -29,8 +29,8 @@ export function EstimatedRoiSetupHint({
           </p>
         </div>
         <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-          Estimated ROI cannot be calculated for employees without annual CTC or an assigned job role.
-          Please enter the employee&apos;s CTC or assign a job role with hourly cost to enable automated value and ROI tracking.
+          Estimated ROI cannot be calculated for employees without annual CTC recorded.
+          Please enter the employee&apos;s CTC to enable automated hourly rate, value, and ROI tracking.
         </p>
         <div className="mt-3 flex items-center gap-3">
           <Link
@@ -57,9 +57,9 @@ export function EstimatedRoiSetupHint({
         Estimated ROI setup
       </p>
       <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-        Time saved and business value stay at zero until the chatting employee has a{" "}
-        <strong className="font-medium text-text-primary">job role</strong> (hourly cost or CTC)
-        and an{" "}
+        Time saved and business value stay at zero until the chatting employee has{" "}
+        <strong className="font-medium text-text-primary">annual CTC</strong>{" "}
+        recorded and an{" "}
         <strong className="font-medium text-text-primary">approved task benchmark</strong>{" "}
         for the task category used in AI Workspace. After you set those up, the ROI worker
         recomputes placeholder (zero) rows automatically — hard-refresh the dashboard after
@@ -70,13 +70,11 @@ export function EstimatedRoiSetupHint({
       <ol className="mt-3 list-decimal space-y-1 pl-5 font-mono text-[11px] text-text-secondary">
         <li>
           <Link
-            href={`/${companySlug}/organization/job-roles`}
+            href={`/${companySlug}/organization/employees`}
             className="text-accent underline-offset-2 hover:underline"
           >
-            Create / set job role hourly cost
+            Set employee compensation (CTC)
           </Link>
-          {" · "}
-          or assign employee CTC
         </li>
         <li>
           <Link
@@ -86,7 +84,7 @@ export function EstimatedRoiSetupHint({
             Add task benchmark
           </Link>
           {" "}
-          (category + job role + minutes saved) → Approve
+          (category + minutes saved) → Approve
         </li>
         <li>
           In AI Workspace select that project + task category → send a prompt (or wait for

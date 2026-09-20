@@ -15,13 +15,13 @@ export type CompanySettings = {
   strict_benchmark_policy?: boolean;
 };
 
-export type JobRole = {
-  id: number;
-  company_id?: number;
-  role_name: string;
+/** Active CTC record returned alongside an employee profile. */
+export type EmployeeCtc = {
+  ctc_annual: number;
+  ctc_currency: string;
+  /** Computed at save time: ctc_annual ÷ (hours_per_day × days_per_month × 12) */
   hourly_cost: number;
-  currency: string;
-  status: "active" | "inactive";
+  effective_from: string;
 };
 
 export type Department = {
@@ -69,7 +69,7 @@ export type Project = {
   created_at?: string;
 };
 
-/** Employee record built from the auth user + org/job-role lookups. */
+/** Employee record built from the auth user + org/CTC data. */
 export type Employee = {
   id: number;
   uuid: string;
@@ -83,7 +83,6 @@ export type Employee = {
   phone?: string;
   department_id: number;
   team_id: number | null;
-  job_role_id: number;
   manager_employee_id?: number | null;
   designation?: string;
   joining_date?: string;
@@ -94,8 +93,12 @@ export type Employee = {
   /** Denormalized for lists / dashboards */
   department_name: string;
   team_name: string;
-  job_role_name: string;
+  /** Hourly cost derived from CTC — 0 if no CTC assigned yet. */
   hourly_cost: number;
+  /** CTC fields — null if no CTC assigned yet. */
+  ctc_annual: number | null;
+  ctc_currency: string;
+  /** Kept for currency display in lists — mirrors ctc_currency. */
   currency: string;
   /** Rollup metrics — default 0 until usage/cost/ROI APIs are wired. */
   spend: number;
@@ -129,22 +132,15 @@ export type CreateEmployeeInput = {
   employee_code?: string;
   department_id?: number | null;
   team_id?: number | null;
-  job_role_id?: number | null;
   manager_employee_id?: number | null;
   designation?: string;
   joining_date?: string;
   employment_status?: "active" | "inactive" | "on_leave";
   app_role: Role;
-  /** Annual CTC for this role assignment. Null/undefined = not provided. */
-  ctc_annual?: number | null;
-  /** ISO-4217 currency for ctc_annual. */
+  /** Annual CTC — required for invite so ROI can be computed. */
+  ctc_annual: number;
+  /** ISO-4217 currency for ctc_annual. Inherited from company default when omitted. */
   ctc_currency?: string;
-};
-
-export type CreateJobRoleInput = {
-  role_name: string;
-  hourly_cost: number;
-  currency?: string;
 };
 
 export type UpdateDepartmentInput = {
@@ -163,13 +159,6 @@ export type UpdateTeamInput = {
   status?: "active" | "inactive";
 };
 
-export type UpdateJobRoleInput = {
-  role_name?: string;
-  hourly_cost?: number;
-  currency?: string;
-  status?: "active" | "inactive";
-};
-
 export type UpdateEmployeeOrgInput = {
   employee_code?: string;
   phone?: string;
@@ -178,9 +167,8 @@ export type UpdateEmployeeOrgInput = {
   team_id?: number | null;
   manager_employee_id?: number | null;
   joining_date?: string;
-  job_role_id?: number | null;
   previous_team_id?: number | null;
-  /** Annual CTC for this role re-assignment. Null/undefined = not updating CTC. */
+  /** Annual CTC — when provided, creates a new CTC history row. */
   ctc_annual?: number | null;
   /** ISO-4217 currency for ctc_annual. */
   ctc_currency?: string;
