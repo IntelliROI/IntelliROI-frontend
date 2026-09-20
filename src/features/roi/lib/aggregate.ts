@@ -54,7 +54,7 @@ export function toAnalyticsPeriod(period: RoiPeriod): "day" | "month" {
 
 /**
  * Estimated ROI is only meaningful once the backend has matched a chat to an
- * approved task benchmark + job-role hourly cost (see EstimatedRoiSetupHint).
+ * approved task benchmark + employee hourly cost from CTC (see EstimatedRoiSetupHint).
  * Until then business_value stays 0 while spend is already > 0, which the
  * formula turns into a literal -100% — that reads as broken, not "not set up
  * yet". Callers should show a setup placeholder instead of the raw number.

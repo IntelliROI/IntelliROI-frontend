@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ROLES, ROLE_LABELS, type Role } from "@/constants/roles";
@@ -9,6 +8,7 @@ import {
   COUNTRIES,
   CURRENCIES,
   DEFAULT_COUNTRY_ISO,
+  DEFAULT_CURRENCY,
   digitsOnly,
   findCountry,
   isValidNationalNumber,
@@ -22,7 +22,6 @@ import {
 import type {
   Department,
   Employee,
-  JobRole,
   Team,
 } from "@/features/organization/types";
 
@@ -37,7 +36,6 @@ type InviteAppRole = (typeof APP_ROLES)[number];
 type Props = {
   departments: Department[];
   teams: Team[];
-  jobRoles: JobRole[];
   managers?: Employee[];
   onSubmit: (values: EmployeeSchema) => Promise<void>;
   submitLabel?: string;
@@ -48,20 +46,35 @@ type Props = {
   defaultTeamId?: number;
   /** Company's configured currency — pre-fills the CTC currency dropdown. */
   defaultCurrency?: string;
+  /** Company working hours/day — used for live hourly preview. */
+  workingHoursPerDay?: number;
+  /** Company working days/month — used for live hourly preview. */
+  workingDaysPerMonth?: number;
 };
+
+function computeHourlyPreview(
+  ctcAnnual: string,
+  hoursPerDay: number,
+  daysPerMonth: number,
+): string | null {
+  const val = Number(ctcAnnual);
+  if (!val || val <= 0 || !hoursPerDay || !daysPerMonth) return null;
+  const hourly = val / (hoursPerDay * daysPerMonth * 12);
+  return hourly.toFixed(2);
+}
 
 export function CreateEmployeeForm({
   departments,
   teams,
-  jobRoles,
   managers = [],
   onSubmit,
   submitLabel = "Send invite",
-  companySlug,
   allowedRoles,
   defaultDepartmentId,
   defaultTeamId,
-  defaultCurrency = "USD",
+  defaultCurrency = DEFAULT_CURRENCY,
+  workingHoursPerDay = 8,
+  workingDaysPerMonth = 22,
 }: Props) {
   const roleOptions = allowedRoles?.length
     ? APP_ROLES.filter((r) => allowedRoles.includes(r))
@@ -77,6 +90,7 @@ export function CreateEmployeeForm({
     role: Role;
     name: string;
   } | null>(null);
+
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -87,7 +101,6 @@ export function CreateEmployeeForm({
     employee_code: "",
     department_id: defaultDepartmentId ? String(defaultDepartmentId) : "",
     team_id: defaultTeamId ? String(defaultTeamId) : "",
-    job_role_id: "",
     manager_employee_id: "",
     designation: "",
     joining_date: new Date().toISOString().slice(0, 10),
@@ -104,8 +117,7 @@ export function CreateEmployeeForm({
   const teamRequired = role === ROLES.TEAM_LEAD;
 
   const teamsInDept = useMemo(
-    () =>
-      teams.filter((t) => String(t.department_id) === form.department_id),
+    () => teams.filter((t) => String(t.department_id) === form.department_id),
     [teams, form.department_id],
   );
 
@@ -118,6 +130,12 @@ export function CreateEmployeeForm({
   }, [managers, role]);
 
   const country = findCountry(form.phone_iso);
+
+  const hourlyPreview = computeHourlyPreview(
+    form.ctc_annual,
+    workingHoursPerDay,
+    workingDaysPerMonth,
+  );
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -149,332 +167,286 @@ export function CreateEmployeeForm({
       setError("Team is required to seat a Team Lead");
       return;
     }
-    if (jobRoles.length > 0 && !form.job_role_id) {
-      setError(
-        "Job role is required — it sets the hourly cost used to compute Estimated ROI.",
-      );
+    if (!form.ctc_annual || Number(form.ctc_annual) <= 0) {
+      setError("Annual CTC is required to calculate Estimated ROI");
       return;
     }
+
     const parsed = employeeSchema.safeParse({
       ...form,
-      team_id:
-        showTeam && form.team_id ? Number(form.team_id) : null,
-      manager_employee_id:
-        showReportsTo && form.manager_employee_id
-          ? Number(form.manager_employee_id)
-          : null,
-      department_id: form.department_id ? Number(form.department_id) : undefined,
-      ctc_annual: form.ctc_annual !== "" ? Number(form.ctc_annual) : null,
-      ctc_currency: form.ctc_currency || undefined,
+      department_id: form.department_id || undefined,
+      team_id: form.team_id || undefined,
+      manager_employee_id: form.manager_employee_id || undefined,
     });
+
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message ?? "Invalid employee");
+      const first = parsed.error.errors[0];
+      setError(first?.message ?? "Please fix the form errors");
       return;
     }
-    setError(null);
+
     setLoading(true);
+    setError(null);
     try {
       await onSubmit(parsed.data);
-      if (
-        parsed.data.app_role === ROLES.TEAM_LEAD ||
-        parsed.data.app_role === ROLES.DEPARTMENT_HEAD
-      ) {
-        setNextStep({
-          role: parsed.data.app_role,
-          name: `${parsed.data.first_name} ${parsed.data.last_name}`.trim(),
-        });
-      }
+      setNextStep({ role: parsed.data.app_role, name: `${form.first_name} ${form.last_name}`.trim() });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create person");
+      setError(err instanceof Error ? err.message : "Invite failed — please try again");
     } finally {
       setLoading(false);
     }
   }
 
   if (nextStep) {
-    const isLead = nextStep.role === ROLES.TEAM_LEAD;
+    const roleLabel = ROLE_LABELS[nextStep.role] ?? nextStep.role;
     return (
-      <div className="space-y-4 border border-hairline bg-ink p-6">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-          Seated
-        </p>
-        <h3 className="text-lg font-medium text-text-primary">
-          Invite sent for {nextStep.name}
-        </h3>
+      <div className="space-y-4 py-4 text-center">
+        <div className="inline-flex h-10 w-10 items-center justify-center border border-emerald-500/30 bg-emerald-500/10">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-emerald-400">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-400">Invite sent</p>
         <p className="text-sm text-text-secondary">
-          {isLead
-            ? "They are seated as Team Lead on the selected team. You can change the lead later from Edit team."
-            : "They are seated as Department Manager on the selected department. You can change the manager later from Edit department."}
+          <strong className="text-text-primary">{nextStep.name}</strong> has been invited as{" "}
+          <strong className="text-text-primary">{roleLabel}</strong> and will receive an
+          email to set up their account.
         </p>
-        <Button size="sm" variant="ghost" onClick={() => setNextStep(null)}>
+        <Button size="sm" variant="secondary" onClick={() => {
+          setNextStep(null);
+          setForm({
+            first_name: "", last_name: "", display_name: "", email: "",
+            phone_iso: DEFAULT_COUNTRY_ISO as CountryIso, phone_national: "",
+            employee_code: "",
+            department_id: defaultDepartmentId ? String(defaultDepartmentId) : "",
+            team_id: defaultTeamId ? String(defaultTeamId) : "",
+            manager_employee_id: "", designation: "",
+            joining_date: new Date().toISOString().slice(0, 10),
+            employment_status: "active", app_role: defaultRole as InviteAppRole,
+            ctc_annual: "", ctc_currency: defaultCurrency,
+          });
+        }}>
           Invite another
         </Button>
       </div>
     );
   }
 
+  function field(k: keyof typeof form, v: string) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      <section>
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-          Access
-        </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Application role</Label>
-            <Select
-              value={form.app_role}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  app_role: e.target.value as typeof form.app_role,
-                  team_id:
-                    e.target.value === ROLES.DEPARTMENT_HEAD ? "" : f.team_id,
-                  manager_employee_id:
-                    e.target.value === ROLES.DEPARTMENT_HEAD
-                      ? ""
-                      : f.manager_employee_id,
-                }))
-              }
-            >
-              {roleOptions.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <p className="self-end text-sm text-text-secondary">
-            {role === ROLES.DEPARTMENT_HEAD
-              ? "Invite seats them as Department Manager on the selected department."
-              : role === ROLES.TEAM_LEAD
-                ? "Invite seats them as Team Lead on the selected team."
-                : "Employees need department (and ideally team + reports-to) for AI attribution."}
-          </p>
-        </div>
-      </section>
 
-      <section>
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-          Personal information
+      {/* ── Section 1: Personal Information ── */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+          1 · Personal information
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>First name</Label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_first_name">First name *</Label>
             <Input
+              id="inv_first_name"
               value={form.first_name}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, first_name: e.target.value }))
-              }
+              onChange={(e) => field("first_name", e.target.value)}
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label>Last name</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_last_name">Last name *</Label>
             <Input
+              id="inv_last_name"
               value={form.last_name}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, last_name: e.target.value }))
-              }
+              onChange={(e) => field("last_name", e.target.value)}
               required
             />
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, email: e.target.value }))
-              }
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Phone country</Label>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="inv_email">Work email *</Label>
+          <Input
+            id="inv_email"
+            type="email"
+            value={form.email}
+            onChange={(e) => field("email", e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="inv_phone_national">Mobile number *</Label>
+          <div className="flex gap-2">
             <Select
+              id="inv_phone_iso"
               value={form.phone_iso}
-              onChange={(e) => {
-                setPhoneError(null);
-                setForm((f) => ({
-                  ...f,
-                  phone_iso: e.target.value as CountryIso,
-                  phone_national: "",
-                }));
-              }}
+              onChange={(e) => field("phone_iso", e.target.value)}
+              className="w-36 shrink-0"
             >
               {COUNTRIES.map((c) => (
                 <option key={c.iso} value={c.iso}>
-                  {c.name} ({c.dial})
+                  {c.iso} {c.dial} · {c.name}
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Mobile number</Label>
             <Input
+              id="inv_phone_national"
               type="tel"
               inputMode="numeric"
-              value={form.phone_national}
-              onChange={(e) => {
-                setPhoneError(null);
-                setForm((f) => ({
-                  ...f,
-                  phone_national: digitsOnly(e.target.value).slice(
-                    0,
-                    country?.max ?? 15,
-                  ),
-                }));
-              }}
               placeholder={country ? `${country.min}–${country.max} digits` : ""}
-              required
+              value={form.phone_national}
+              onChange={(e) => field("phone_national", digitsOnly(e.target.value))}
+              className="flex-1"
             />
-            {phoneError ? (
-              <p className="text-xs text-danger">{phoneError}</p>
-            ) : (
-              <p className="text-[11px] text-text-secondary/70">
-                Digits only, without the country code
-                {country ? ` (${country.dial})` : ""}.
-              </p>
-            )}
           </div>
+          {phoneError && <p className="text-xs text-danger">{phoneError}</p>}
         </div>
-      </section>
+      </div>
 
-      <section>
-        <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-          Organization
+      {/* ── Section 2: Organisation Placement ── */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+          2 · Organisation placement
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Employee ID (optional)</Label>
-            <Input
-              placeholder="EMP-0041"
-              value={form.employee_code}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, employee_code: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Designation</Label>
-            <Input
-              placeholder="Software Engineer"
-              value={form.designation}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, designation: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Department *</Label>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="inv_app_role">App role *</Label>
+          <Select
+            id="inv_app_role"
+            value={form.app_role}
+            onChange={(e) => {
+              const r = e.target.value as InviteAppRole;
+              setForm((f) => ({ ...f, app_role: r, team_id: "", manager_employee_id: "" }));
+            }}
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_department">Department {deptRequired && "*"}</Label>
             <Select
+              id="inv_department"
               value={form.department_id}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  department_id: e.target.value,
-                  team_id: "",
-                }))
-              }
-              required={deptRequired}
+              onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value, team_id: "" }))}
             >
               <option value="">Select department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.department_name}
-                </option>
+              {departments.filter((d) => d.status === "active").map((d) => (
+                <option key={d.id} value={d.id}>{d.department_name}</option>
               ))}
             </Select>
           </div>
-          {showTeam ? (
-            <div className="space-y-2">
-              <Label>{teamRequired ? "Team *" : "Team"}</Label>
+
+          {showTeam && (
+            <div className="space-y-1.5">
+              <Label htmlFor="inv_team">Team {teamRequired && "*"}</Label>
               <Select
+                id="inv_team"
                 value={form.team_id}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, team_id: e.target.value }))
-                }
-                required={teamRequired}
+                onChange={(e) => field("team_id", e.target.value)}
+                disabled={!form.department_id}
               >
-                <option value="">
-                  {teamRequired ? "Select team to lead" : "No team yet"}
-                </option>
-                {teamsInDept.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.team_name}
-                  </option>
+                <option value="">Select team</option>
+                {teamsInDept.filter((t) => t.status === "active").map((t) => (
+                  <option key={t.id} value={t.id}>{t.team_name}</option>
                 ))}
               </Select>
             </div>
-          ) : null}
-          <div className="space-y-2 sm:col-span-2">
-            <Label>{jobRoles.length > 0 ? "Job role *" : "Job role"}</Label>
+          )}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_designation">Job title / designation</Label>
+            <Input
+              id="inv_designation"
+              placeholder="e.g. Senior Engineer"
+              value={form.designation}
+              onChange={(e) => field("designation", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_employee_code">Employee ID</Label>
+            <Input
+              id="inv_employee_code"
+              placeholder="EMP-001"
+              value={form.employee_code}
+              onChange={(e) => field("employee_code", e.target.value)}
+            />
+          </div>
+        </div>
+
+        {showReportsTo && (
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_manager">Reports to</Label>
             <Select
-              value={form.job_role_id}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, job_role_id: e.target.value }))
-              }
-              required={jobRoles.length > 0}
-              disabled={jobRoles.length === 0}
+              id="inv_manager"
+              value={form.manager_employee_id}
+              onChange={(e) => field("manager_employee_id", e.target.value)}
             >
-              <option value="">
-                {jobRoles.length === 0
-                  ? "No job roles yet — create one first"
-                  : "Select job role"}
-              </option>
-              {jobRoles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.role_name} · {r.currency} {r.hourly_cost}/hr
+              <option value="">Select manager</option>
+              {managerOptions.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display_name} — {ROLE_LABELS[m.app_role]}
                 </option>
               ))}
             </Select>
-            {jobRoles.length === 0 ? (
-              <p className="text-xs text-danger">
-                No job roles exist yet. Estimated ROI cannot be calculated for
-                this person until one is assigned.{" "}
-                {companySlug ? (
-                  <Link
-                    href={`/${companySlug}/organization/job-roles`}
-                    className="text-accent underline-offset-2 hover:underline"
-                  >
-                    Create a job role
-                  </Link>
-                ) : (
-                  "Create one under Organization → Job Roles."
-                )}
-              </p>
-            ) : (
-              <p className="text-xs text-text-secondary/70">
-                Sets the hourly cost used to compute Estimated ROI. Required
-                for anyone who will use the AI Workspace — without it,
-                Estimated ROI stays at 0 for this person.
-              </p>
-            )}
           </div>
-          {/* CTC fields — appear when a job role is selected */}
-          <div className="space-y-2">
-            <Label>Annual CTC <span className="text-text-secondary/60">(optional)</span></Label>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="inv_joining_date">Joining date</Label>
+          <Input
+            id="inv_joining_date"
+            type="date"
+            value={form.joining_date}
+            onChange={(e) => field("joining_date", e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* ── Section 3: Compensation (CTC) ── */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+          3 · Compensation
+        </p>
+        <div className="rounded border border-accent/20 bg-accent/5 px-4 py-3">
+          <p className="text-[12px] text-text-secondary">
+            CTC is used to auto-calculate the employee&apos;s hourly cost and compute{" "}
+            <strong className="text-text-primary">Estimated ROI</strong> in real-time.
+            Hourly cost = Annual CTC ÷ (working hours/day × working days/month × 12).
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_ctc_annual">Annual CTC *</Label>
             <Input
-              id="ctc_annual"
+              id="inv_ctc_annual"
               type="number"
-              min="0"
+              min="1"
               step="0.01"
               placeholder="e.g. 1200000"
               value={form.ctc_annual}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, ctc_annual: e.target.value }))
-              }
+              onChange={(e) => field("ctc_annual", e.target.value)}
+              required
             />
+            {hourlyPreview && (
+              <p className="text-[11px] text-emerald-400">
+                ≈ {form.ctc_currency} {hourlyPreview}/hr (based on company working hours)
+              </p>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label>CTC Currency</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="inv_ctc_currency">Currency</Label>
             <Select
-              id="ctc_currency"
+              id="inv_ctc_currency"
               value={form.ctc_currency}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, ctc_currency: e.target.value }))
-              }
+              onChange={(e) => field("ctc_currency", e.target.value)}
             >
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -483,55 +455,31 @@ export function CreateEmployeeForm({
               ))}
             </Select>
           </div>
-          {!form.ctc_annual && (
-            <div className="sm:col-span-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
-              💡 Without CTC, this employee&apos;s ROI will show as{" "}
-              <strong>Setup needed</strong> until it&apos;s entered.
-            </div>
-          )}
-          {showReportsTo ? (
-            <div className="space-y-2">
-              <Label>
-                {role === ROLES.TEAM_LEAD
-                  ? "Reports to (dept head)"
-                  : "Reports to"}
-              </Label>
-              <Select
-                value={form.manager_employee_id}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, manager_employee_id: e.target.value }))
-                }
-              >
-                <option value="">None</option>
-                {managerOptions.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.display_name} · {ROLE_LABELS[m.app_role]}
-                  </option>
-                ))}
-              </Select>
-              <p className="text-xs text-text-secondary/70">
-                Line manager for the person — separate from their org seat
-                (dept manager / team lead), which is set automatically on invite.
-              </p>
-            </div>
-          ) : null}
-          <div className="space-y-2">
-            <Label>Joining date</Label>
-            <Input
-              type="date"
-              value={form.joining_date}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, joining_date: e.target.value }))
-              }
-            />
-          </div>
         </div>
-      </section>
+      </div>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
-      <Button type="submit" disabled={loading}>
-        {loading ? "Sending…" : submitLabel}
-      </Button>
+      {/* ── Section 4: System Access ── */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+          4 · System access
+        </p>
+        <p className="text-[12px] text-text-secondary">
+          An invite email will be sent to the address above. The employee sets their
+          own password when they accept the invite.
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button type="submit" disabled={loading}>
+          {loading ? "Sending invite…" : submitLabel}
+        </Button>
+      </div>
     </form>
   );
 }

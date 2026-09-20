@@ -376,15 +376,6 @@ export function getCompanyNav(
       section: "Organization",
     },
     {
-      id: "job-roles",
-      label: "Job Roles",
-      href: `${base}/organization/job-roles`,
-      icon: ClipboardList,
-      resource: "job_roles",
-      action: "view",
-      section: "Organization",
-    },
-    {
       id: "projects",
       label: "Projects",
       href: `${base}/organization/projects`,

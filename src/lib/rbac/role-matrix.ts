@@ -22,8 +22,7 @@ export type Resource =
   | "audit"
   | "billing"
   | "feature_flags"
-  | "system_health"
-  | "job_roles";
+  | "system_health";
 
 export type Action =
   | "view"
@@ -49,7 +48,6 @@ const matrix: Record<Role, PermissionMap> = {
     settings: { view: true, manage: true },
   },
 
-  /** CEO — full company control center */
   [ROLES.COMPANY_OWNER]: {
     departments: { view: true, create: true, edit: true, delete: true, manage: true },
     teams: { view: true, create: true, edit: true, delete: true, manage: true },
@@ -58,7 +56,6 @@ const matrix: Record<Role, PermissionMap> = {
     providers_company: { view: true, manage: true },
     budgets: { view: true, create: true, edit: true, manage: true },
     benchmarks: { view: true, approve: true, create: true, manage: true },
-    job_roles: { view: true, create: true, edit: true, manage: true },
     workspace: { use: true, view: true },
     usage: { view: true },
     analytics: { view: true },

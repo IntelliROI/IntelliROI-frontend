@@ -57,10 +57,6 @@ export function DepartmentDashboard({
     queryKey: ["company", companySlug, "task-categories"],
     queryFn: () => businessContextApi.listTaskCategories(),
   });
-  const roles = useQuery({
-    queryKey: ["company", companySlug, "job-roles"],
-    queryFn: () => organizationApi.listJobRoles(),
-  });
 
   const teamAgg = useMemo(
     () => aggregateRoiSummaries(teamRoi.map((q) => q.data)),
@@ -114,8 +110,6 @@ export function DepartmentDashboard({
   const pending = (benchmarks.data ?? []).filter((b) => b.status === "pending");
   const catName = (id: number) =>
     (categories.data ?? []).find((c) => c.id === id)?.name ?? `Category ${id}`;
-  const roleName = (id: number) =>
-    (roles.data ?? []).find((jr) => jr.id === id)?.role_name ?? `Role ${id}`;
 
   return (
     <div>
@@ -209,7 +203,7 @@ export function DepartmentDashboard({
               {pending.map((b) => (
                 <div key={b.id} className="bg-ink p-4">
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                    {catName(b.task_category_id)} · {roleName(b.job_role_id)}
+                    {catName(b.task_category_id)} · Benchmark #{b.id}
                   </p>
                   <p className="mt-2 text-sm text-text-primary">
                     {b.estimated_minutes_saved} min saved

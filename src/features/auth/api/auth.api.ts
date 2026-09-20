@@ -47,6 +47,10 @@ export type InviteEmployeeInput = {
   team_id?: number | null;
   manager_user_id?: number | null;
   joining_date?: string;
+  /** Annual CTC — required so the ROI engine can compute hourly cost immediately. */
+  ctc_annual: number;
+  /** ISO-4217 currency code. Defaults to company currency when omitted. */
+  ctc_currency?: string;
 };
 
 export type UpdateEmployeeProfileInput = {
@@ -126,16 +130,16 @@ type MeResponse = {
   scope: ScopeDto;
 };
 
-type JobRoleDto = {
-  job_role_id: number;
-  role_name: string;
+type CtcDto = {
+  ctc_annual: number;
+  ctc_currency: string;
   hourly_cost: number;
-  currency: string;
-};
+  effective_from: string;
+} | null;
 
 type EmployeeProfileDto = {
   user: UserDto;
-  job_role?: JobRoleDto;
+  ctc?: CtcDto;
 };
 
 type InviteResponseDto = {
@@ -322,6 +326,8 @@ export const authApi = {
         team_id: input.team_id ?? undefined,
         manager_user_id: input.manager_user_id ?? undefined,
         joining_date: input.joining_date,
+        ctc_annual: input.ctc_annual,
+        ctc_currency: input.ctc_currency,
       },
     });
     return {
@@ -347,17 +353,17 @@ export const authApi = {
     };
   },
 
-  async listEmployees(): Promise<{ user: User; job_role?: JobRoleDto }[]> {
+  async listEmployees(): Promise<{ user: User; ctc?: CtcDto }[]> {
     const res = await apiRequest<EmployeeProfileDto[]>(
       "auth",
       withQuery("/auth/users", { page_size: LIST_DROPDOWN_PAGE_SIZE }),
     );
-    return res.map((p) => ({ user: toUser(p.user), job_role: p.job_role }));
+    return res.map((p) => ({ user: toUser(p.user), ctc: p.ctc ?? null }));
   },
 
   async listEmployeesPage(
     query: ListQuery & { department_id?: number; team_id?: number } = {},
-  ): Promise<Paged<{ user: User; job_role?: JobRoleDto }>> {
+  ): Promise<Paged<{ user: User; ctc?: CtcDto }>> {
     const path = withQuery("/auth/users", {
       page: query.page ?? 1,
       page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
@@ -368,19 +374,19 @@ export const authApi = {
     });
     const page = await pagedRequest<EmployeeProfileDto>("auth", path);
     return {
-      items: page.items.map((p) => ({ user: toUser(p.user), job_role: p.job_role })),
+      items: page.items.map((p) => ({ user: toUser(p.user), ctc: p.ctc ?? null })),
       meta: page.meta,
     };
   },
 
   async getEmployee(
     userUuid: string,
-  ): Promise<{ user: User; job_role?: JobRoleDto }> {
+  ): Promise<{ user: User; ctc?: CtcDto }> {
     const res = await apiRequest<EmployeeProfileDto>(
       "auth",
       `/auth/users/${userUuid}`,
     );
-    return { user: toUser(res.user), job_role: res.job_role };
+    return { user: toUser(res.user), ctc: res.ctc ?? null };
   },
 
   async updateEmployee(

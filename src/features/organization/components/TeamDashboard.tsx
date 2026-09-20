@@ -67,9 +67,9 @@ export function TeamDashboard({
     queryFn: () => organizationApi.listTeams(),
     enabled: showInvite || showAddProject,
   });
-  const jobRoles = useQuery({
-    queryKey: queryKeys.company.jobRoles(companySlug),
-    queryFn: () => organizationApi.listJobRoles(),
+  const companySettings = useQuery({
+    queryKey: queryKeys.company.settings(companySlug),
+    queryFn: () => organizationApi.getSettings(),
     enabled: showInvite,
   });
   const employees = useQuery({
@@ -487,11 +487,13 @@ export function TeamDashboard({
           companySlug={companySlug}
           departments={departments.data ?? []}
           teams={allTeams.data ?? []}
-          jobRoles={jobRoles.data ?? []}
           managers={employees.data ?? []}
           allowedRoles={inviteRoles}
           defaultDepartmentId={departmentId || undefined}
           defaultTeamId={teamId}
+          defaultCurrency={companyCurrency}
+          workingHoursPerDay={companySettings.data?.working_hours_per_day}
+          workingDaysPerMonth={companySettings.data?.working_days_per_month}
           onSubmit={async (values) => {
             const { employee, emailSent, inviteUrl, warnings } =
               await organizationApi.createEmployee(values);
