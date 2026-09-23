@@ -56,10 +56,10 @@ const RESOURCE_ACTION_KEYS: Partial<
     edit: ["budget.manage"],
   },
   benchmarks: {
-    view: ["employees.manage", "org.manage"],
-    manage: ["employees.manage"],
-    create: ["employees.manage"],
-    approve: ["employees.manage"],
+    view:    ["benchmarks.manage", "employees.manage", "org.manage"],
+    manage:  ["benchmarks.manage", "employees.manage"],
+    create:  ["benchmarks.manage", "employees.manage"],
+    approve: ["benchmarks.manage", "employees.manage"],
   },
   workspace: {
     use: ["chat.use"],
