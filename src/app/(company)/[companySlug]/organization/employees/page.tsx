@@ -90,8 +90,13 @@ export default function EmployeesPage({
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search, 300);
   const [status, setStatus] = useState<EmployeeStatusFilter>("");
-  const [departmentId, setDepartmentId] = useState<number | "">("");
-  const [teamId, setTeamId] = useState<number | "">("");
+  // Team Leads are hard-scoped to their own team — seed filters from auth scope.
+  const [departmentId, setDepartmentId] = useState<number | "">(
+    isTeamLead && myDepartmentId ? myDepartmentId : "",
+  );
+  const [teamId, setTeamId] = useState<number | "">(
+    isTeamLead && myTeamId ? myTeamId : "",
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(LIST_PAGE_SIZE_DEFAULT);
 
@@ -138,10 +143,16 @@ export default function EmployeesPage({
 
   const missingCtcCount = useMemo(
     () =>
-      (allEmployees.data ?? []).filter(
-        (e) => e.status !== "invited" && (e.hourly_cost <= 0 || !e.ctc_annual),
-      ).length,
-    [allEmployees.data],
+      (allEmployees.data ?? [])
+        .filter(
+          (e) =>
+            e.status !== "invited" &&
+            (e.hourly_cost <= 0 || !e.ctc_annual) &&
+            // Team Leads only see CTC gaps within their own team.
+            (!isTeamLead || e.team_id === myTeamId),
+        )
+        .length,
+    [allEmployees.data, isTeamLead, myTeamId],
   );
   const teamsInDept = useMemo(
     () =>
@@ -636,38 +647,44 @@ export default function EmployeesPage({
               <option value="active">Active</option>
               <option value="invited">Pending</option>
             </Select>
-            <Select
-              value={departmentId}
-              onChange={(e) => {
-                const next = e.target.value === "" ? "" : Number(e.target.value);
-                setDepartmentId(next);
-                setTeamId("");
-              }}
-              className="h-8 w-auto min-w-[11rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
-              aria-label="Department"
-            >
-              <option value="">All departments</option>
-              {(departments.data ?? []).map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.department_name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={teamId}
-              onChange={(e) =>
-                setTeamId(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              className="h-8 w-auto min-w-[10rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
-              aria-label="Team"
-            >
-              <option value="">All teams</option>
-              {teamsInDept.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.team_name}
-                </option>
-              ))}
-            </Select>
+            {/* Team Leads are locked to their own team — hide department filter. */}
+            {!isTeamLead && (
+              <Select
+                value={departmentId}
+                onChange={(e) => {
+                  const next = e.target.value === "" ? "" : Number(e.target.value);
+                  setDepartmentId(next);
+                  setTeamId("");
+                }}
+                className="h-8 w-auto min-w-[11rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+                aria-label="Department"
+              >
+                <option value="">All departments</option>
+                {(departments.data ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.department_name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {/* Team Leads are locked to their own team — hide team filter. */}
+            {!isTeamLead && (
+              <Select
+                value={teamId}
+                onChange={(e) =>
+                  setTeamId(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                className="h-8 w-auto min-w-[10rem] shrink-0 font-mono text-[10px] uppercase tracking-[0.08em]"
+                aria-label="Team"
+              >
+                <option value="">All teams</option>
+                {teamsInDept.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.team_name}
+                  </option>
+                ))}
+              </Select>
+            )}
           </>
         }
       />
