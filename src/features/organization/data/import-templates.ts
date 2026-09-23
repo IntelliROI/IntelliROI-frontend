@@ -31,13 +31,13 @@ export const TEAMS_IMPORT_TEMPLATE = `team_name,team_code,department_name,descri
 # Growth,GRW,Sales,,
 `;
 
-export const EMPLOYEES_IMPORT_TEMPLATE = `email,first_name,last_name,role,job_role,employee_code,phone,designation,department_name,team_name,manager_email,joining_date
-# Required: email, first_name, last_name. Strongly recommended: job_role (must match an existing Job Role by name — it sets the hourly cost that drives Estimated ROI; without it ROI is 0).
-# "role" is the ACCESS role (employee | team_lead | department_manager; default employee). "job_role" is the COSTED job title (e.g. Software Engineer) configured under Job Roles.
-# Optional: employee_code, phone, designation, department_name, team_name (both must already exist), manager_email, joining_date.
+export const EMPLOYEES_IMPORT_TEMPLATE = `email,first_name,last_name,role,ctc_annual,ctc_currency,employee_code,phone,designation,department_name,team_name,manager_email,joining_date
+# Required: email, first_name, last_name, ctc_annual.
+# "role" is the ACCESS role (employee | team_lead | department_manager; default employee). "ctc_annual" sets annual compensation from which hourly cost is auto-calculated for Estimated ROI.
+# Optional: ctc_currency (defaults to company currency), employee_code, phone, designation, department_name, team_name (both must already exist), manager_email, joining_date.
 # joining_date must be YYYY-MM-DD (e.g. 2024-03-10). Keep it as TEXT in Excel so it is not auto-reformatted.
 # Delete this line and the "# " below to import the example row.
-# sara.jain@example.com,Sara,Jain,employee,Software Engineer,EMP-103,,Software Engineer,Engineering,Platform,arun.kumar@example.com,2024-03-10
+# sara.jain@example.com,Sara,Jain,employee,1200000,INR,EMP-103,,Software Engineer,Engineering,Platform,arun.kumar@example.com,2024-03-10
 `;
 
 export const PROJECTS_IMPORT_TEMPLATE = `project_name,description,department_name,team_name,project_members
@@ -77,13 +77,17 @@ export const IMPORT_FIELD_GUIDES: Record<ImportEntity, ImportFieldGuide[]> = {
     { name: "email", required: true },
     { name: "first_name", required: true },
     { name: "last_name", required: true },
-    { name: "role", required: false, note: "ACCESS role: employee | team_lead | department_manager" },
     {
-      name: "job_role",
-      required: false,
-      recommended: true,
-      note: "existing Job Role name — sets hourly cost for Estimated ROI (without it, ROI is 0)",
+      name: "ctc_annual",
+      required: true,
+      note: "annual compensation — drives hourly cost and Estimated ROI",
     },
+    {
+      name: "ctc_currency",
+      required: false,
+      note: "currency code (e.g. USD, INR) — defaults to company currency",
+    },
+    { name: "role", required: false, note: "ACCESS role: employee | team_lead | department_manager" },
     { name: "employee_code", required: false },
     { name: "phone", required: false },
     { name: "designation", required: false },

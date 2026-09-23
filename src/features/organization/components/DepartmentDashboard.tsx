@@ -9,7 +9,11 @@ import { PageHeader, LoadingBlock, DataTable, EmptyState } from "@/components/fe
 import { PeriodSwitcher, type RoiPeriod } from "@/components/ui/period-switcher";
 import { organizationApi } from "@/features/organization/api/organization.api";
 import { roiApi } from "@/features/roi/api/roi.api";
-import { aggregateRoiSummaries } from "@/features/roi/lib/aggregate";
+import {
+  aggregateRoiSummaries,
+  isRoiSetupIncomplete,
+  roiDisplayValue,
+} from "@/features/roi/lib/aggregate";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import { formatCurrency } from "@/lib/utils";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
@@ -53,10 +57,6 @@ export function DepartmentDashboard({
     queryKey: ["company", companySlug, "task-categories"],
     queryFn: () => businessContextApi.listTaskCategories(),
   });
-  const roles = useQuery({
-    queryKey: ["company", companySlug, "job-roles"],
-    queryFn: () => organizationApi.listJobRoles(),
-  });
 
   const teamAgg = useMemo(
     () => aggregateRoiSummaries(teamRoi.map((q) => q.data)),
@@ -94,20 +94,22 @@ export function DepartmentDashboard({
 
   const d = department.data;
   // Prefer sum of team ROI rows when present so dept KPIs match the Teams table.
-  const r =
-    (teams.data?.length ?? 0) > 0 && teamRoi.some((q) => q.data)
-      ? {
-          total_spend: teamAgg.total_spend,
-          roi_pct: teamAgg.roi_pct,
-          requests: teamAgg.requests,
-          business_value: teamAgg.business_value,
-        }
-      : roi.data!;
+  // Every team query must have settled first — otherwise a still-loading team
+  // silently contributes zero spend/value and skews the aggregated roi_pct.
+  const allTeamRoiSettled =
+    (teams.data?.length ?? 0) > 0 &&
+    teamRoi.every((q) => q.data !== undefined || q.isError);
+  const r = allTeamRoiSettled
+    ? {
+        total_spend: teamAgg.total_spend,
+        roi_pct: teamAgg.roi_pct,
+        requests: teamAgg.requests,
+        business_value: teamAgg.business_value,
+      }
+    : roi.data!;
   const pending = (benchmarks.data ?? []).filter((b) => b.status === "pending");
   const catName = (id: number) =>
     (categories.data ?? []).find((c) => c.id === id)?.name ?? `Category ${id}`;
-  const roleName = (id: number) =>
-    (roles.data ?? []).find((jr) => jr.id === id)?.role_name ?? `Role ${id}`;
 
   return (
     <div>
@@ -125,7 +127,12 @@ export function DepartmentDashboard({
           format="currency"
           currency={companyCurrency}
         />
-        <KpiTile label="ROI" value={r.roi_pct} format="percent" accent />
+        <KpiTile
+          label="ROI"
+          value={roiDisplayValue(r.total_spend, r.business_value, r.roi_pct)}
+          format="percent"
+          accent
+        />
         <KpiTile
           label="Budget remaining"
           value={Math.max(0, d.budget_limit - d.monthly_spend)}
@@ -154,7 +161,12 @@ export function DepartmentDashboard({
               ),
               roi: (
                 <span className="text-accent">
-                  {(teamRoi[i]?.data?.roi_pct ?? 0).toFixed(0)}%
+                  {isRoiSetupIncomplete(
+                    teamRoi[i]?.data?.total_spend ?? 0,
+                    teamRoi[i]?.data?.business_value ?? 0,
+                  )
+                    ? "Setup needed"
+                    : `${(teamRoi[i]?.data?.roi_pct ?? 0).toFixed(0)}%`}
                 </span>
               ),
               members: t.member_count,
@@ -191,7 +203,7 @@ export function DepartmentDashboard({
               {pending.map((b) => (
                 <div key={b.id} className="bg-ink p-4">
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                    {catName(b.task_category_id)} · {roleName(b.job_role_id)}
+                    {catName(b.task_category_id)} · Benchmark #{b.id}
                   </p>
                   <p className="mt-2 text-sm text-text-primary">
                     {b.estimated_minutes_saved} min saved

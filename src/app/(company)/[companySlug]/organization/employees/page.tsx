@@ -28,7 +28,7 @@ import { EMPLOYEES_IMPORT_TEMPLATE } from "@/features/organization/data/import-t
 import { formatCurrency } from "@/lib/utils";
 import { Can } from "@/lib/rbac/Can";
 import { RemoveMemberAction } from "@/components/ui/row-actions";
-import { Pencil } from "lucide-react";
+import { Pencil, Briefcase } from "lucide-react";
 import { queryKeys } from "@/lib/api/query-keys";
 import { LIST_PAGE_SIZE_DEFAULT, EMPTY_PAGE_META } from "@/lib/api/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -36,7 +36,8 @@ import { ROLES } from "@/constants/roles";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { useAuthStore } from "@/stores/auth-store";
 import { can } from "@/lib/rbac/role-matrix";
-
+import { AssignRoleModal } from "@/features/organization/components/AssignRoleModal";
+import type { Employee } from "@/features/organization/types";
 
 type EmployeeStatusFilter = "" | "active" | "invited";
 
@@ -48,11 +49,11 @@ function cell(value?: string | null) {
   return text;
 }
 
-/** Missing job role silently zeroes Estimated ROI — make it visible, not a blank dash. */
-function JobRoleNotSetBadge() {
+/** Missing CTC zeroes hourly cost and Estimated ROI — make it visible. */
+function CtcNotSetBadge() {
   return (
     <span className="inline-flex items-center gap-1 border border-warning/30 bg-warning/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-warning">
-      Not set
+      CTC not set
     </span>
   );
 }
@@ -84,6 +85,7 @@ export default function EmployeesPage({
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberUuid, setMemberUuid] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [assigningEmployee, setAssigningEmployee] = useState<Employee | null>(null);
 
   const [search, setSearch] = useState("");
   const q = useDebouncedValue(search, 300);
@@ -122,11 +124,11 @@ export default function EmployeesPage({
     queryKey: queryKeys.company.teams(params.companySlug),
     queryFn: () => organizationApi.listTeams(),
   });
-  const jobRoles = useQuery({
-    queryKey: queryKeys.company.jobRoles(params.companySlug),
-    queryFn: () => organizationApi.listJobRoles(),
+  const companySettings = useQuery({
+    queryKey: queryKeys.company.settings(params.companySlug),
+    queryFn: () => organizationApi.getSettings(),
   });
-  // Also powers the "missing job role" banner below — kept unconditional so
+  // Also powers the "missing CTC" banner below — kept unconditional so
   // the CEO sees setup gaps without opening Invite/Add member first. Shares
   // its cache with those modals (same query key), so no duplicate fetch.
   const allEmployees = useQuery({
@@ -134,10 +136,10 @@ export default function EmployeesPage({
     queryFn: () => organizationApi.listEmployees(),
   });
 
-  const missingJobRoleCount = useMemo(
+  const missingCtcCount = useMemo(
     () =>
       (allEmployees.data ?? []).filter(
-        (e) => !e.job_role_name || e.job_role_name === "—",
+        (e) => e.status !== "invited" && (e.hourly_cost <= 0 || !e.ctc_annual),
       ).length,
     [allEmployees.data],
   );
@@ -251,18 +253,20 @@ export default function EmployeesPage({
       team: <span className="text-text-primary">{cell(e.team_name)}</span>,
       job: (
         <span className="text-[12px] text-text-secondary">
-          {e.job_role_name && e.job_role_name !== "—" ? (
-            <>
-              {e.job_role_name}
-              {e.hourly_cost > 0 ? (
-                <span className="font-mono text-text-secondary/50">
-                  {" "}
-                  · {formatCurrency(e.hourly_cost, companyCurrency)}/hr
-                </span>
-              ) : null}
-            </>
+          {e.designation ? (
+            <span className="text-text-primary">{e.designation}</span>
           ) : (
-            <JobRoleNotSetBadge />
+            <span className="text-text-secondary/60">No title</span>
+          )}
+          {e.hourly_cost > 0 ? (
+            <span className="font-mono text-text-secondary/50">
+              {" "}
+              · {formatCurrency(e.hourly_cost, e.ctc_currency || companyCurrency)}/hr
+            </span>
+          ) : (
+            <span className="ml-1.5">
+              <CtcNotSetBadge />
+            </span>
           )}
         </span>
       ),
@@ -304,6 +308,17 @@ export default function EmployeesPage({
             />
           ) : null}
           <Can resource="employees" action="edit">
+            <button
+              type="button"
+              onClick={() => setAssigningEmployee(e)}
+              title="Update Compensation (CTC)"
+              aria-label="Update Compensation (CTC)"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Briefcase className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </Can>
+          <Can resource="employees" action="edit">
             <Link
               href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
               title="Edit"
@@ -341,13 +356,12 @@ export default function EmployeesPage({
       metrics: [
         { label: "ID", value: cell(e.employee_code) },
         {
-          label: "Role",
-          value:
-            e.job_role_name && e.job_role_name !== "—" ? (
-              <span className="text-[12px]">{e.job_role_name}</span>
-            ) : (
-              <JobRoleNotSetBadge />
-            ),
+          label: "Title",
+          value: e.designation ? (
+            <span className="text-[12px]">{e.designation}</span>
+          ) : (
+            <span className="text-[12px] text-text-secondary/60">—</span>
+          ),
         },
         {
           label: "Est. ROI",
@@ -360,9 +374,11 @@ export default function EmployeesPage({
         {
           label: "Rate",
           value:
-            e.hourly_cost > 0
-              ? `${formatCurrency(e.hourly_cost, companyCurrency)}/hr`
-              : "—",
+            e.hourly_cost > 0 ? (
+              `${formatCurrency(e.hourly_cost, e.ctc_currency || companyCurrency)}/hr`
+            ) : (
+              <CtcNotSetBadge />
+            ),
         },
       ],
       action: (
@@ -379,6 +395,17 @@ export default function EmployeesPage({
               onClick={() => removeFromTeam(e.uuid, e.display_name)}
             />
           ) : null}
+          <Can resource="employees" action="edit">
+            <button
+              type="button"
+              onClick={() => setAssigningEmployee(e)}
+              title="Update Compensation (CTC)"
+              aria-label="Update Compensation (CTC)"
+              className="inline-flex h-8 w-8 items-center justify-center text-text-secondary transition-colors hover:bg-accent/10 hover:text-accent"
+            >
+              <Briefcase className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </Can>
           <Can resource="employees" action="edit">
             <Link
               href={`/${params.companySlug}/organization/employees/${e.uuid}?edit=1`}
@@ -515,11 +542,13 @@ export default function EmployeesPage({
           companySlug={params.companySlug}
           departments={departments.data ?? []}
           teams={teams.data ?? []}
-          jobRoles={jobRoles.data ?? []}
           managers={allEmployees.data ?? []}
           allowedRoles={inviteRoles}
           defaultDepartmentId={myDepartmentId ?? undefined}
           defaultTeamId={isTeamLead ? myTeamId ?? undefined : undefined}
+          defaultCurrency={companyCurrency}
+          workingHoursPerDay={companySettings.data?.working_hours_per_day}
+          workingDaysPerMonth={companySettings.data?.working_days_per_month}
           onSubmit={async (values) => {
             const { employee, emailSent, inviteUrl, warnings } =
               await organizationApi.createEmployee(values);
@@ -565,7 +594,7 @@ export default function EmployeesPage({
           companySlug={params.companySlug}
           entity="people"
           title="Import employees"
-          description="Columns match the Add employee form. Include job_role (an existing Job Role name) so imported people get an hourly cost — without it Estimated ROI is 0. Department/team must already exist."
+          description="Columns match the Add employee form. Include ctc_annual so imported people get an hourly cost — without it Estimated ROI is 0. Department/team must already exist."
           templateCsv={EMPLOYEES_IMPORT_TEMPLATE}
           templateFilename="employees-import-template.csv"
           showInviteToggle
@@ -576,23 +605,17 @@ export default function EmployeesPage({
         />
       )}
 
-      {missingJobRoleCount > 0 ? (
+      {missingCtcCount > 0 ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-0 border-l-2 border-l-warning bg-warning/5 px-4 py-3">
           <p className="text-[13px] text-text-primary">
             <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.14em] text-warning">
               Setup gap
             </span>
-            {missingJobRoleCount}{" "}
-            {missingJobRoleCount === 1 ? "person" : "people"} have no job role
-            assigned — Estimated ROI will show 0% for their AI usage until
-            it&apos;s set.
+            {missingCtcCount}{" "}
+            {missingCtcCount === 1 ? "person has" : "people have"} no compensation (CTC)
+            recorded — Estimated ROI will show 0% for their AI usage until
+            their CTC is set.
           </p>
-          <Link
-            href={`/${params.companySlug}/organization/job-roles`}
-            className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-accent hover:underline"
-          >
-            Manage job roles
-          </Link>
         </div>
       ) : null}
 
@@ -691,7 +714,7 @@ export default function EmployeesPage({
                 { key: "name", label: "Name", sortable: true },
                 { key: "department", label: "Department", sortable: true },
                 { key: "team", label: "Team" },
-                { key: "job", label: "Job role" },
+                { key: "job", label: "Title / Rate" },
                 { key: "status", label: "Status", width: "w-24" },
                 { key: "spend", label: "Spend", align: "right", sortable: true },
                 { key: "roi", label: "Est. ROI", align: "right", sortable: true },
@@ -714,6 +737,24 @@ export default function EmployeesPage({
           />
         </>
       )}
+
+      {assigningEmployee ? (
+        <AssignRoleModal
+          open={Boolean(assigningEmployee)}
+          onClose={() => setAssigningEmployee(null)}
+          userUuid={assigningEmployee.uuid}
+          employeeName={assigningEmployee.display_name}
+          currentCtcAnnual={assigningEmployee.ctc_annual}
+          currentCtcCurrency={assigningEmployee.ctc_currency}
+          defaultCurrency={companyCurrency}
+          onSuccess={async () => {
+            await Promise.all([
+              employees.refetch(),
+              allEmployees.refetch(),
+            ]);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

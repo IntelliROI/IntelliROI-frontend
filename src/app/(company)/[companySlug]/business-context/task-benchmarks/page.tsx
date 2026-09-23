@@ -16,9 +16,30 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { businessContextApi } from "@/features/business-context/api/business-context.api";
-import { organizationApi } from "@/features/organization/api/organization.api";
 import { Can } from "@/lib/rbac/Can";
 import { toast } from "sonner";
+
+function BenchmarkStatusBadge({ status }: { status: string }) {
+  if (status === "approved") {
+    return (
+      <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-400 font-medium">
+        approved
+      </span>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-rose-400 font-medium">
+        rejected
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-400 font-medium">
+      pending
+    </span>
+  );
+}
 
 export default function TaskBenchmarksPage({
   params,
@@ -30,7 +51,6 @@ export default function TaskBenchmarksPage({
   const [categoryName, setCategoryName] = useState("");
   const [form, setForm] = useState({
     task_category_id: "",
-    job_role_id: "",
     estimated_minutes_saved: "",
     confidence_score: "70",
   });
@@ -39,6 +59,9 @@ export default function TaskBenchmarksPage({
     estimated_minutes_saved: string;
     confidence_score: string;
   }>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectionFeedback, setRejectionFeedback] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const benchmarks = useQuery({
     queryKey: ["company", params.companySlug, "benchmarks"],
@@ -48,20 +71,11 @@ export default function TaskBenchmarksPage({
     queryKey: ["company", params.companySlug, "task-categories"],
     queryFn: () => businessContextApi.listTaskCategories(),
   });
-  const roles = useQuery({
-    queryKey: ["company", params.companySlug, "job-roles"],
-    queryFn: () => organizationApi.listJobRoles(),
-  });
 
   const catMap = useMemo(
     () =>
       Object.fromEntries((categories.data ?? []).map((c) => [c.id, c.name])),
     [categories.data],
-  );
-  const roleMap = useMemo(
-    () =>
-      Object.fromEntries((roles.data ?? []).map((r) => [r.id, r.role_name])),
-    [roles.data],
   );
 
   const visible = (benchmarks.data ?? []).filter((b) => b.status !== "archived");
@@ -100,7 +114,6 @@ export default function TaskBenchmarksPage({
     try {
       const created = await businessContextApi.createBenchmark({
         task_category_id: Number(form.task_category_id),
-        job_role_id: Number(form.job_role_id),
         estimated_minutes_saved: Number(form.estimated_minutes_saved),
         confidence_score: Number(form.confidence_score) || 50,
       });
@@ -111,7 +124,6 @@ export default function TaskBenchmarksPage({
       );
       setForm({
         task_category_id: "",
-        job_role_id: "",
         estimated_minutes_saved: "",
         confidence_score: "70",
       });
@@ -128,7 +140,6 @@ export default function TaskBenchmarksPage({
         {catMap[b.task_category_id] ?? `Category ${b.task_category_id}`}
       </span>
     ),
-    role: roleMap[b.job_role_id] ?? `Role ${b.job_role_id}`,
     saved: (
       <span className="font-mono text-[12px] font-medium text-accent">
         −{b.estimated_minutes_saved}m
@@ -139,19 +150,7 @@ export default function TaskBenchmarksPage({
         {b.confidence_score}%
       </span>
     ),
-    status: (
-      <span
-        className={`font-mono text-[10px] uppercase tracking-[0.14em] ${
-          b.status === "approved"
-            ? "text-accent"
-            : b.status === "rejected"
-              ? "text-danger"
-              : "text-warning"
-        }`}
-      >
-        {b.status}
-      </span>
-    ),
+    status: <BenchmarkStatusBadge status={b.status} />,
     action: (
       <Can resource="benchmarks" action="approve">
         <div className="flex justify-end gap-2">
@@ -189,16 +188,9 @@ export default function TaskBenchmarksPage({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={async () => {
-                  try {
-                    await businessContextApi.rejectBenchmark(b.id);
-                    toast.message("Rejected");
-                    benchmarks.refetch();
-                  } catch (err) {
-                    toast.error(
-                      err instanceof Error ? err.message : "Request failed",
-                    );
-                  }
+                onClick={() => {
+                  setRejectingId(b.id);
+                  setRejectionFeedback("");
                 }}
               >
                 Reject
@@ -231,12 +223,8 @@ export default function TaskBenchmarksPage({
 
   const cards: GridCard[] = visible.map((b) => ({
     title: catMap[b.task_category_id] ?? `Category ${b.task_category_id}`,
-    subtitle: roleMap[b.job_role_id] ?? `Role ${b.job_role_id}`,
-    badge: (
-      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-secondary/60">
-        {b.status}
-      </span>
-    ),
+    subtitle: `Benchmark #${b.id}`,
+    badge: <BenchmarkStatusBadge status={b.status} />,
     metrics: [
       {
         label: "Minutes saved",
@@ -253,7 +241,7 @@ export default function TaskBenchmarksPage({
       <PageHeader
         eyebrow="Governance · Business Context"
         title="Task Benchmarks"
-        description="Minutes saved by task category and job role — the backbone of Estimated ROI. Create a category, then submit a benchmark (owners auto-approve)."
+        description="Minutes saved by task category — the backbone of Estimated ROI. Create a category, then submit a benchmark (owners auto-approve)."
         actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
@@ -271,7 +259,7 @@ export default function TaskBenchmarksPage({
         onClose={() => setShowForm(false)}
         eyebrow="Business context"
         title="Add benchmark"
-        description="Create a task category if needed, then submit minutes saved by job role."
+        description="Create a task category if needed, then submit minutes saved."
         size="lg"
       >
         <div className="grid gap-8 lg:grid-cols-2">
@@ -311,21 +299,6 @@ export default function TaskBenchmarksPage({
               {(categories.data ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
-                </option>
-              ))}
-            </Select>
-            <Label>Job role</Label>
-            <Select
-              value={form.job_role_id}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, job_role_id: e.target.value }))
-              }
-              required
-            >
-              <option value="">Select job role</option>
-              {(roles.data ?? []).map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.role_name}
                 </option>
               ))}
             </Select>
@@ -414,12 +387,74 @@ export default function TaskBenchmarksPage({
         ) : null}
       </Modal>
 
+      <Modal
+        open={rejectingId != null}
+        onClose={() => {
+          setRejectingId(null);
+          setRejectionFeedback("");
+        }}
+        eyebrow="Review"
+        title="Reject benchmark"
+        description="Provide optional feedback for the rejection so the team can adjust the minutes saved or role."
+        size="sm"
+      >
+        {rejectingId != null ? (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setIsRejecting(true);
+              try {
+                await businessContextApi.rejectBenchmark(
+                  rejectingId,
+                  rejectionFeedback.trim() || undefined,
+                );
+                toast.message("Benchmark rejected");
+                setRejectingId(null);
+                setRejectionFeedback("");
+                benchmarks.refetch();
+              } catch (err) {
+                toast.error(
+                  err instanceof Error ? err.message : "Request failed",
+                );
+              } finally {
+                setIsRejecting(false);
+              }
+            }}
+            className="space-y-3"
+          >
+            <Label htmlFor="reject_feedback">Feedback / Reason (optional)</Label>
+            <Input
+              id="reject_feedback"
+              placeholder="e.g. Estimated minutes saved is too high for this job level"
+              value={rejectionFeedback}
+              onChange={(e) => setRejectionFeedback(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setRejectingId(null);
+                  setRejectionFeedback("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" variant="danger" disabled={isRejecting}>
+                {isRejecting ? "Rejecting…" : "Confirm rejection"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
       {benchmarks.isLoading ? (
         <LoadingBlock className="h-48" />
       ) : visible.length === 0 ? (
         <EmptyState
           title="No task benchmarks yet"
-          description="Add a task category, then submit minutes-saved per job role so Estimated ROI can compute business value."
+          description="Add a task category, then submit minutes-saved so Estimated ROI can compute business value."
           action={
             <Can resource="benchmarks" action="create">
               <Button size="sm" onClick={() => setShowForm(true)}>
@@ -432,7 +467,6 @@ export default function TaskBenchmarksPage({
         <DataTable
           columns={[
             { key: "category", label: "Category", sortable: true },
-            { key: "role", label: "Job role" },
             { key: "saved", label: "Time saved", align: "right" },
             { key: "confidence", label: "Confidence", align: "right" },
             { key: "status", label: "Status" },

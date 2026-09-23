@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import {
   COUNTRIES,
+  CURRENCIES,
   DEFAULT_COUNTRY_ISO,
+  DEFAULT_CURRENCY,
   digitsOnly,
   findCountry,
   fromE164,
@@ -19,7 +21,6 @@ import {
 import type {
   Department,
   Employee,
-  JobRole,
   Team,
 } from "@/features/organization/types";
 
@@ -27,20 +28,43 @@ type Props = {
   employee: Employee;
   departments: Department[];
   teams: Team[];
-  jobRoles: JobRole[];
   managers?: Employee[];
   onSubmit: (values: EmployeeOrgPatchSchema) => Promise<void>;
   onCancel: () => void;
+  /** Current CTC values to pre-populate the fields. */
+  currentCtcAnnual?: number | null;
+  currentCtcCurrency?: string;
+  /** Company's configured currency — default for CTC currency dropdown. */
+  defaultCurrency?: string;
+  /** Company working hours/day — used for live hourly preview. */
+  workingHoursPerDay?: number;
+  /** Company working days/month — used for live hourly preview. */
+  workingDaysPerMonth?: number;
 };
+
+function computeHourlyPreview(
+  ctcAnnual: string,
+  hoursPerDay: number,
+  daysPerMonth: number,
+): string | null {
+  const val = Number(ctcAnnual);
+  if (!val || val <= 0 || !hoursPerDay || !daysPerMonth) return null;
+  const hourly = val / (hoursPerDay * daysPerMonth * 12);
+  return hourly.toFixed(2);
+}
 
 export function EditEmployeeForm({
   employee,
   departments,
   teams,
-  jobRoles,
   managers = [],
   onSubmit,
   onCancel,
+  currentCtcAnnual,
+  currentCtcCurrency,
+  defaultCurrency = DEFAULT_CURRENCY,
+  workingHoursPerDay = 8,
+  workingDaysPerMonth = 22,
 }: Props) {
   const parsedPhone = fromE164(employee.phone);
   const [loading, setLoading] = useState(false);
@@ -52,11 +76,12 @@ export function EditEmployeeForm({
     designation: employee.designation ?? "",
     department_id: employee.department_id ? String(employee.department_id) : "",
     team_id: employee.team_id ? String(employee.team_id) : "",
-    job_role_id: employee.job_role_id ? String(employee.job_role_id) : "",
     manager_employee_id: employee.manager_employee_id
       ? String(employee.manager_employee_id)
       : "",
     joining_date: employee.joining_date ?? "",
+    ctc_annual: currentCtcAnnual != null ? String(currentCtcAnnual) : "",
+    ctc_currency: currentCtcCurrency ?? defaultCurrency,
   });
 
   const teamsInDept = useMemo(
@@ -68,6 +93,11 @@ export function EditEmployeeForm({
     [managers, employee.uuid],
   );
   const country = findCountry(form.phone_iso);
+  const hourlyPreview = computeHourlyPreview(
+    form.ctc_annual,
+    workingHoursPerDay,
+    workingDaysPerMonth,
+  );
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -77,6 +107,7 @@ export function EditEmployeeForm({
       manager_employee_id: form.manager_employee_id
         ? Number(form.manager_employee_id)
         : null,
+      ctc_annual: form.ctc_annual !== "" ? Number(form.ctc_annual) : null,
     });
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Invalid employee");
@@ -96,8 +127,10 @@ export function EditEmployeeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent">
-        Edit assignment · {employee.email}
+        Edit profile · {employee.email}
       </p>
+
+      {/* ── Identity ── */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Employee ID</Label>
@@ -109,7 +142,7 @@ export function EditEmployeeForm({
           />
         </div>
         <div className="space-y-2">
-          <Label>Designation</Label>
+          <Label>Designation (job title)</Label>
           <Input
             value={form.designation}
             onChange={(e) =>
@@ -152,6 +185,10 @@ export function EditEmployeeForm({
             />
           </div>
         </div>
+      </div>
+
+      {/* ── Organisation ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Department</Label>
           <Select
@@ -189,34 +226,6 @@ export function EditEmployeeForm({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>{jobRoles.length > 0 ? "Job role *" : "Job role"}</Label>
-          <Select
-            value={form.job_role_id}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, job_role_id: e.target.value }))
-            }
-          >
-            <option value="">
-              {jobRoles.length === 0 ? "No job roles created yet" : "No job role"}
-            </option>
-            {jobRoles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.role_name} · {r.currency} {r.hourly_cost}/hr
-              </option>
-            ))}
-          </Select>
-          {!form.job_role_id ? (
-            <p className="text-xs text-danger">
-              Estimated ROI stays at 0 for this person until a job role
-              (hourly cost) is assigned.
-            </p>
-          ) : (
-            <p className="text-xs text-text-secondary/70">
-              Hourly cost used to compute Estimated ROI.
-            </p>
-          )}
-        </div>
-        <div className="space-y-2">
           <Label>Manager</Label>
           <Select
             value={form.manager_employee_id}
@@ -243,6 +252,60 @@ export function EditEmployeeForm({
           />
         </div>
       </div>
+
+      {/* ── Compensation (CTC) ── */}
+      <div className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/70">
+          Compensation
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="edit_ctc_annual">
+              Annual CTC{" "}
+              <span className="text-text-secondary/60">(leave blank to keep current)</span>
+            </Label>
+            <Input
+              id="edit_ctc_annual"
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="e.g. 1200000"
+              value={form.ctc_annual}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, ctc_annual: e.target.value }))
+              }
+            />
+            {hourlyPreview && (
+              <p className="text-[11px] text-emerald-400">
+                ≈ {form.ctc_currency} {hourlyPreview}/hr (based on company working hours)
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit_ctc_currency">Currency</Label>
+            <Select
+              id="edit_ctc_currency"
+              value={form.ctc_currency}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, ctc_currency: e.target.value }))
+              }
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        {!form.ctc_annual && !currentCtcAnnual && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
+            ⚠ No CTC set — Estimated ROI will show as{" "}
+            <strong>Setup needed</strong> for this employee.
+          </div>
+        )}
+      </div>
+
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex gap-2">
         <Button type="submit" disabled={loading}>

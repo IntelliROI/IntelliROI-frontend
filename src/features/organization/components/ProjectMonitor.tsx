@@ -14,7 +14,7 @@ import { organizationApi } from "@/features/organization/api/organization.api";
 import { analyticsApi } from "@/features/analytics/api/analytics.api";
 import { useCompanyCurrency } from "@/hooks/use-company-currency";
 import { queryKeys } from "@/lib/api/query-keys";
-import { estimatedRoiPct } from "@/features/roi/lib/aggregate";
+import { estimatedRoiPct, roiDisplayValue } from "@/features/roi/lib/aggregate";
 
 /**
  * Project-wise AI usage monitor — GET /analytics/project/:id.
@@ -28,7 +28,7 @@ export function ProjectMonitor({
   projectId: number;
 }) {
   const [period, setPeriod] = useState<"day" | "month">("month");
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
 
   const projectQuery = useQuery({
     queryKey: ["company", companySlug, "projects", projectId],
@@ -81,7 +81,7 @@ export function ProjectMonitor({
   // Analytics cost is treated as USD until BE returns company currency on
   // project snapshots; BV from analytics is shown as company currency when
   // workers already emit local amounts. ROI % always from formula on these KPIs.
-  const spendLocal = a ? fromUsd(a.total_cost) : 0;
+  const spendLocal = a ? a.total_cost : 0;
   const businessValue = a?.total_business_value ?? 0;
   const projectRoiPct = a
     ? estimatedRoiPct(businessValue, spendLocal)
@@ -132,7 +132,7 @@ export function ProjectMonitor({
             />
             <KpiTile
               label="Estimated ROI"
-              value={projectRoiPct}
+              value={roiDisplayValue(spendLocal, businessValue, projectRoiPct)}
               format="percent"
               accent
             />

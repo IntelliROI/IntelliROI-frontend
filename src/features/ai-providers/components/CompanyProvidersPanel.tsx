@@ -65,6 +65,10 @@ export function CompanyProvidersPanel({
   }
 
   async function onRevoke(id: number, label: string) {
+    if (!Number.isFinite(id)) {
+      toast.error(`Cannot revoke ${label}: missing key id`);
+      return;
+    }
     setRevokingId(id);
     try {
       await aiGatewayApi.deleteKey(id);

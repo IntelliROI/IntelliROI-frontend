@@ -23,7 +23,7 @@ export function ScopedAnalyticsView({
   scopeId?: number | string;
   title: string;
 }) {
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(companySlug);
+  const { currency: companyCurrency } = useCompanyCurrency(companySlug);
   const analytics = useScopedAnalytics(companySlug, scope, scopeId);
   const period = "month";
 
@@ -64,7 +64,7 @@ export function ScopedAnalyticsView({
   }
 
   const spendLocal =
-    roiSpend.data != null ? roiSpend.data.total_spend : fromUsd(a.total_cost);
+    roiSpend.data != null ? roiSpend.data.total_spend : a.total_cost;
 
   return (
     <div>
@@ -79,7 +79,7 @@ export function ScopedAnalyticsView({
           value={roiSpend.data?.requests ?? a.requests}
           format="number"
         />
-        <KpiTile label="Tokens" value={formatNumber(a.tokens_in, true)} />
+        <KpiTile label="Tokens" value={formatNumber(a.tokens_total, true)} />
         <KpiTile
           label="AI spend"
           value={spendLocal}
@@ -123,7 +123,7 @@ export function ScopedAnalyticsView({
                   <span>{m.model}</span>
                   <span className="font-mono text-text-secondary">
                     {m.requests} req ·{" "}
-                    {formatCurrency(fromUsd(m.cost), companyCurrency)}
+                    {formatCurrency(m.cost, companyCurrency)}
                   </span>
                 </li>
               ))}

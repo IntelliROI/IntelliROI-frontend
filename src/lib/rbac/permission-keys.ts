@@ -56,16 +56,10 @@ const RESOURCE_ACTION_KEYS: Partial<
     edit: ["budget.manage"],
   },
   benchmarks: {
-    view: ["job_roles.manage"],
-    manage: ["job_roles.manage"],
-    create: ["job_roles.manage"],
-    approve: ["job_roles.manage"],
-  },
-  job_roles: {
-    view: ["job_roles.manage"],
-    manage: ["job_roles.manage"],
-    create: ["job_roles.manage"],
-    edit: ["job_roles.manage"],
+    view: ["employees.manage", "org.manage"],
+    manage: ["employees.manage"],
+    create: ["employees.manage"],
+    approve: ["employees.manage"],
   },
   workspace: {
     use: ["chat.use"],

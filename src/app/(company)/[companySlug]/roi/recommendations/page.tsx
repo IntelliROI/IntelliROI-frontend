@@ -24,27 +24,49 @@ import { useState } from "react";
 
 function RecActions({
   id,
+  companySlug,
+  recommendationType,
+  employeeId,
   onDone,
 }: {
   id: number;
+  companySlug: string;
+  recommendationType?: string;
+  employeeId?: number;
   onDone: () => void;
 }) {
+  const isMissingCtc = recommendationType === "missing_ctc";
+
   return (
     <div className="flex gap-2">
-      <Button
-        size="sm"
-        onClick={async () => {
-          try {
-            await roiApi.updateRecommendation(id, "accepted");
-            toast.success("Accepted");
-            onDone();
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Request failed");
-          }
-        }}
-      >
-        Accept
-      </Button>
+      {isMissingCtc ? (
+        <Button size="sm" asChild>
+          <Link
+            href={
+              employeeId
+                ? `/${companySlug}/organization/employees/${employeeId}?edit=1`
+                : `/${companySlug}/organization/employees`
+            }
+          >
+            Set CTC
+          </Link>
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          onClick={async () => {
+            try {
+              await roiApi.updateRecommendation(id, "accepted");
+              toast.success("Accepted");
+              onDone();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Request failed");
+            }
+          }}
+        >
+          Accept
+        </Button>
+      )}
       <Button
         size="sm"
         variant="ghost"
@@ -73,7 +95,7 @@ export default function RecommendationsPage({
   const [hiddenIds, setHiddenIds] = useState(() =>
     readHandledRecIds(params.companySlug),
   );
-  const { currency: companyCurrency, fromUsd } = useCompanyCurrency(
+  const { currency: companyCurrency } = useCompanyCurrency(
     params.companySlug,
   );
 
@@ -90,55 +112,84 @@ export default function RecommendationsPage({
 
   const list = (recommendations.data ?? []).filter((r) => !hiddenIds.has(r.id));
 
-  const rows = list.map((r) => ({
-    title: (
-      <div>
-        <p className="font-medium text-text-primary">{r.title}</p>
-        {r.rationale ? (
-          <p className="mt-1 text-[12px] text-text-secondary">{r.rationale}</p>
-        ) : null}
-      </div>
-    ),
-    impact: (
-      <span className="font-mono font-medium text-accent">
-        {r.impact_monthly_usd > 0
-          ? formatCurrency(fromUsd(r.impact_monthly_usd), companyCurrency)
-          : "—"}
-        {r.impact_monthly_usd > 0 ? (
-          <span className="text-text-secondary/60">/mo</span>
-        ) : null}
-      </span>
-    ),
-    scope: (
-      <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-secondary/70">
-        {r.scope}
-      </span>
-    ),
-    action: <RecActions id={r.id} onDone={() => hideRec(r.id)} />,
-  }));
+  const rows = list.map((r) => {
+    const isMissingCtc = r.recommendation_type === "missing_ctc";
+    return {
+      title: (
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-text-primary">{r.title}</p>
+            {isMissingCtc ? (
+              <span className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-amber-400">
+                CTC Required
+              </span>
+            ) : null}
+          </div>
+          {r.rationale ? (
+            <p className="mt-1 text-[12px] text-text-secondary">{r.rationale}</p>
+          ) : null}
+        </div>
+      ),
+      impact: (
+        <span className="font-mono font-medium text-accent">
+          {r.impact_monthly_usd > 0
+            ? formatCurrency(r.impact_monthly_usd, companyCurrency)
+            : "—"}
+          {r.impact_monthly_usd > 0 ? (
+            <span className="text-text-secondary/60">/mo</span>
+          ) : null}
+        </span>
+      ),
+      scope: (
+        <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-secondary/70">
+          {r.scope}
+        </span>
+      ),
+      action: (
+        <RecActions
+          id={r.id}
+          companySlug={params.companySlug}
+          recommendationType={r.recommendation_type}
+          employeeId={r.employee_id}
+          onDone={() => hideRec(r.id)}
+        />
+      ),
+    };
+  });
 
-  const cards: GridCard[] = list.map((r) => ({
-    title: r.title,
-    badge: (
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">
-        {r.scope}
-      </span>
-    ),
-    metrics: [
-      {
-        label: "Monthly Impact",
-        value: (
-          <span className="font-mono text-accent">
-            {r.impact_monthly_usd > 0
-              ? formatCurrency(fromUsd(r.impact_monthly_usd), companyCurrency)
-              : "Setup"}
-          </span>
-        ),
-      },
-    ],
-    action: <RecActions id={r.id} onDone={() => hideRec(r.id)} />,
-    accent: true,
-  }));
+  const cards: GridCard[] = list.map((r) => {
+    const isMissingCtc = r.recommendation_type === "missing_ctc";
+    return {
+      title: r.title,
+      badge: (
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-secondary/60">
+          {isMissingCtc ? "CTC Required" : r.scope}
+        </span>
+      ),
+      metrics: [
+        {
+          label: "Monthly Impact",
+          value: (
+            <span className="font-mono text-accent">
+              {r.impact_monthly_usd > 0
+                ? formatCurrency(r.impact_monthly_usd, companyCurrency)
+                : "Setup"}
+            </span>
+          ),
+        },
+      ],
+      action: (
+        <RecActions
+          id={r.id}
+          companySlug={params.companySlug}
+          recommendationType={r.recommendation_type}
+          employeeId={r.employee_id}
+          onDone={() => hideRec(r.id)}
+        />
+      ),
+      accent: true,
+    };
+  });
 
   return (
     <div>

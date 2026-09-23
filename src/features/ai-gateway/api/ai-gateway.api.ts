@@ -357,7 +357,11 @@ export const aiGatewayApi = {
         page_size: LIST_PAGE_SIZE_MAX,
       }),
     );
-    return page.items.map(toConfigured);
+    // Rows with no usable id can't be revoked later — drop them instead of
+    // letting a delete request resolve to `/providers/keys/undefined`.
+    return page.items
+      .map(toConfigured)
+      .filter((p) => Number.isFinite(p.id));
   },
 
   async addKey(

@@ -13,22 +13,20 @@ import {
 } from "@/lib/api/types";
 import { DEFAULT_CURRENCY } from "@/constants/locale";
 import { authApi } from "@/features/auth/api/auth.api";
+import { businessContextApi } from "@/features/business-context/api/business-context.api";
 import type {
   CompanySettings,
   CreateDepartmentInput,
   CreateEmployeeInput,
-  CreateJobRoleInput,
   CreateProjectInput,
   CreateTeamInput,
   Department,
   Employee,
-  JobRole,
   Project,
   Team,
   UpdateCompanySettingsInput,
   UpdateDepartmentInput,
   UpdateEmployeeOrgInput,
-  UpdateJobRoleInput,
   UpdateTeamInput,
 } from "@/features/organization/types";
 
@@ -36,7 +34,6 @@ export type {
   CompanySettings,
   Department,
   Employee,
-  JobRole,
   Project,
   Team,
 } from "@/features/organization/types";
@@ -70,19 +67,6 @@ type ProjectDto = {
   team_id?: number | null;
   status: string;
   created_at: string;
-};
-
-type JobRoleDto = {
-  id: number;
-  role_name: string;
-  description?: string;
-  hourly_cost: number;
-  currency: string;
-  working_hours_per_day: number;
-  working_days_per_month: number;
-  status: string;
-  created_at: string;
-  updated_at: string;
 };
 
 
@@ -143,15 +127,7 @@ function toProject(p: ProjectDto): Project {
   };
 }
 
-function toJobRole(r: JobRoleDto): JobRole {
-  return {
-    id: r.id,
-    role_name: r.role_name,
-    hourly_cost: r.hourly_cost,
-    currency: r.currency,
-    status: r.status === "archived" ? "inactive" : "active",
-  };
-}
+
 
 function toApiStatus(status?: string): "active" | "archived" | undefined {
   if (!status) return undefined;
@@ -465,74 +441,7 @@ async function assignUser(
   });
 }
 
-/* ── Job roles (business-context-service — config entity) ──────── */
-
-async function listJobRolesPage(query: ListQuery = {}): Promise<Paged<JobRole>> {
-  const path = withQuery("/job-roles", {
-    page: query.page ?? 1,
-    page_size: query.page_size ?? LIST_PAGE_SIZE_DEFAULT,
-    q: query.q,
-    status: toApiStatus(query.status),
-  });
-  const page = await pagedRequest<JobRoleDto>("bc", path);
-  return {
-    items: page.items.map(toJobRole),
-    meta: page.meta,
-  };
-}
-
-/** Dropdowns / dashboards: one page at backend max (100). List UI uses `listJobRolesPage`. */
-async function listJobRoles(): Promise<JobRole[]> {
-  const page = await listJobRolesPage({
-    page: 1,
-    page_size: LIST_DROPDOWN_PAGE_SIZE,
-  });
-  return page.items;
-}
-
-async function createJobRole(input: CreateJobRoleInput): Promise<JobRole> {
-  const res = await apiRequest<JobRoleDto>("bc", "/job-roles", {
-    method: "POST",
-    body: {
-      role_name: input.role_name,
-      hourly_cost: input.hourly_cost,
-      currency: input.currency ?? DEFAULT_CURRENCY,
-    },
-  });
-  return toJobRole(res);
-}
-
-async function updateJobRole(
-  id: number,
-  input: UpdateJobRoleInput,
-): Promise<JobRole> {
-  const res = await apiRequest<JobRoleDto>("bc", `/job-roles/${id}`, {
-    method: "PATCH",
-    body: {
-      ...(input.role_name != null ? { role_name: input.role_name } : {}),
-      ...(input.hourly_cost != null ? { hourly_cost: input.hourly_cost } : {}),
-      ...(input.currency != null ? { currency: input.currency } : {}),
-      ...(input.status ? { status: toApiStatus(input.status) } : {}),
-    },
-  });
-  return toJobRole(res);
-}
-
-async function archiveJobRole(id: number, restore = false): Promise<JobRole> {
-  return updateJobRole(id, { status: restore ? "active" : "inactive" });
-}
-
-async function assignEmployeeJobRole(
-  userUuid: string,
-  jobRoleId: number,
-): Promise<void> {
-  await apiRequest("bc", `/employees/${userUuid}/role-assignment`, {
-    method: "POST",
-    body: { job_role_id: jobRoleId },
-  });
-}
-
-/* ── Employees — ── */
+/* ── Employees ─────────────────────────────────────────────────── */
 
 async function getUserUuid(id: number): Promise<string | undefined> {
   const employees = await authApi.listEmployees();
@@ -540,15 +449,13 @@ async function getUserUuid(id: number): Promise<string | undefined> {
 }
 
 async function loadOrgMaps() {
-  const [departments, teams, jobRoles] = await Promise.all([
+  const [departments, teams] = await Promise.all([
     listDepartments().catch(() => [] as Department[]),
     listTeams().catch(() => [] as Team[]),
-    listJobRoles().catch(() => [] as JobRole[]),
   ]);
   return {
     deptName: new Map(departments.map((d) => [d.id, d.department_name])),
     teamName: new Map(teams.map((t) => [t.id, t.team_name])),
-    jobRoleById: new Map(jobRoles.map((r) => [r.id, r])),
   };
 }
 
@@ -557,19 +464,9 @@ function toEmployee(
   maps: {
     deptName: Map<number, string>;
     teamName: Map<number, string>;
-    jobRoleById: Map<number, JobRole>;
   },
 ): Employee {
-  const { user, job_role } = profile;
-  const jobRole = job_role
-    ? maps.jobRoleById.get(job_role.job_role_id) ?? {
-        id: job_role.job_role_id,
-        role_name: job_role.role_name,
-        hourly_cost: job_role.hourly_cost,
-        currency: job_role.currency,
-        status: "active" as const,
-      }
-    : undefined;
+  const { user, ctc } = profile;
   const departmentId = user.department_id ?? 0;
   const teamId = user.team_id ?? null;
   return {
@@ -584,7 +481,6 @@ function toEmployee(
     phone: user.phone,
     department_id: departmentId,
     team_id: teamId,
-    job_role_id: jobRole?.id ?? 0,
     manager_employee_id: user.manager_user_id ?? null,
     designation: user.designation,
     joining_date: user.joining_date,
@@ -596,9 +492,10 @@ function toEmployee(
     status: user.status === "invited" ? "invited" : "active",
     department_name: maps.deptName.get(departmentId) ?? "—",
     team_name: teamId != null ? (maps.teamName.get(teamId) ?? "—") : "—",
-    job_role_name: jobRole?.role_name ?? "—",
-    hourly_cost: jobRole?.hourly_cost ?? 0,
-    currency: jobRole?.currency ?? DEFAULT_CURRENCY,
+    hourly_cost: ctc?.hourly_cost ?? 0,
+    ctc_annual: ctc?.ctc_annual ?? null,
+    ctc_currency: ctc?.ctc_currency ?? DEFAULT_CURRENCY,
+    currency: ctc?.ctc_currency ?? DEFAULT_CURRENCY,
     spend: 0,
     roi_pct: 0,
     requests: 0,
@@ -654,6 +551,8 @@ async function createEmployee(
     team_id: input.team_id || undefined,
     manager_user_id: input.manager_employee_id || undefined,
     joining_date: input.joining_date,
+    ctc_annual: input.ctc_annual,
+    ctc_currency: input.ctc_currency,
   });
 
   const warnings: string[] = [];
@@ -691,15 +590,16 @@ async function createEmployee(
     }
   }
 
-  if (input.job_role_id) {
+  // CTC is sent with the invite — BC service creates the history row automatically.
+  // If the auth service does not forward CTC on invite, we assign it explicitly here.
+  if (user.uuid && input.ctc_annual) {
     try {
-      await assignEmployeeJobRole(user.uuid, input.job_role_id);
-    } catch (err) {
-      warnings.push(
-        err instanceof Error
-          ? `Job role: ${err.message}`
-          : "Job role could not be assigned",
-      );
+      await businessContextApi.assignEmployeeCtc(user.uuid, {
+        ctc_annual: input.ctc_annual,
+        ctc_currency: input.ctc_currency,
+      });
+    } catch {
+      // Ignore if the auth service already handled it; don't surface to user.
     }
   }
 
@@ -711,14 +611,14 @@ async function createEmployee(
         department_id: input.department_id || user.department_id || null,
         team_id: input.team_id ?? user.team_id ?? null,
       },
-      job_role: input.job_role_id
-        ? maps.jobRoleById.get(input.job_role_id) && {
-            job_role_id: input.job_role_id,
-            role_name: maps.jobRoleById.get(input.job_role_id)!.role_name,
-            hourly_cost: maps.jobRoleById.get(input.job_role_id)!.hourly_cost,
-            currency: maps.jobRoleById.get(input.job_role_id)!.currency,
+      ctc: input.ctc_annual
+        ? {
+            ctc_annual: input.ctc_annual,
+            ctc_currency: input.ctc_currency ?? DEFAULT_CURRENCY,
+            hourly_cost: 0, // will be computed on next fetch once BC responds
+            effective_from: new Date().toISOString().slice(0, 10),
           }
-        : undefined,
+        : null,
     },
     maps,
   );
@@ -816,14 +716,17 @@ async function updateEmployee(
     }
   }
 
-  if (input.job_role_id) {
+  if (input.ctc_annual) {
     try {
-      await assignEmployeeJobRole(uuid, input.job_role_id);
+      await businessContextApi.assignEmployeeCtc(uuid, {
+        ctc_annual: input.ctc_annual,
+        ctc_currency: input.ctc_currency,
+      });
     } catch (err) {
       warnings.push(
         err instanceof Error
-          ? `Job role: ${err.message}`
-          : "Job role could not be assigned",
+          ? `CTC update: ${err.message}`
+          : "CTC could not be updated",
       );
     }
   }
@@ -842,6 +745,7 @@ async function getSettings(): Promise<CompanySettings> {
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
     usd_fx_rate: s.usd_fx_rate ?? 0,
+    strict_benchmark_policy: s.strict_benchmark_policy ?? false,
   };
 }
 
@@ -856,6 +760,7 @@ async function updateSettings(
     date_format: input.date_format,
     fiscal_year_start: input.fiscal_year_start,
     usd_fx_rate: input.usd_fx_rate,
+    strict_benchmark_policy: input.strict_benchmark_policy,
   });
   return {
     working_hours_per_day: s.working_hours_per_day,
@@ -865,6 +770,7 @@ async function updateSettings(
     date_format: s.date_format,
     fiscal_year_start: s.fiscal_year_start,
     usd_fx_rate: s.usd_fx_rate ?? input.usd_fx_rate ?? 0,
+    strict_benchmark_policy: s.strict_benchmark_policy ?? input.strict_benchmark_policy ?? false,
   };
 }
 
@@ -1012,12 +918,6 @@ async function cancelImport(uuid: string): Promise<ImportJob> {
 export const organizationApi = {
   getSettings,
   updateSettings,
-  listJobRoles,
-  listJobRolesPage,
-  createJobRole,
-  updateJobRole,
-  archiveJobRole,
-  assignEmployeeJobRole,
   listDepartments,
   listDepartmentsPage,
   getDepartment,
