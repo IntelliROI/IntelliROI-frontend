@@ -336,7 +336,11 @@ async function removeTeamMember(teamId: number, userUuid: string): Promise<void>
 /* ── Projects (organization-service) ─────────────────────────── */
 
 async function listProjectsPage(
-  query: ListQuery & { department_id?: number; team_id?: number } = {},
+  query: ListQuery & {
+    department_id?: number;
+    team_id?: number;
+    assigned_only?: boolean;
+  } = {},
 ): Promise<Paged<Project>> {
   const path = withQuery("/projects", {
     page: query.page ?? 1,
@@ -345,6 +349,7 @@ async function listProjectsPage(
     status: query.status,
     department_id: query.department_id,
     team_id: query.team_id,
+    assigned_only: query.assigned_only ? true : undefined,
   });
   const page = await pagedRequest<ProjectDto>("org", path);
   return {
@@ -354,10 +359,11 @@ async function listProjectsPage(
 }
 
 /** Dropdowns / dashboards: one page at backend max (100). List UI uses `listProjectsPage`. */
-async function listProjects(): Promise<Project[]> {
+async function listProjects(options?: { assigned_only?: boolean }): Promise<Project[]> {
   const page = await listProjectsPage({
     page: 1,
     page_size: LIST_DROPDOWN_PAGE_SIZE,
+    assigned_only: options?.assigned_only,
   });
   return page.items;
 }

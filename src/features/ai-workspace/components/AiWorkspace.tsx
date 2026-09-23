@@ -204,9 +204,18 @@ export function AiWorkspace({
   }, [needsHydrate, conversation.data, activeId]);
 
   const projects = useQuery({
-    queryKey: queryKeys.company.projects(companySlug),
-    queryFn: () => organizationApi.listProjects(),
+    queryKey: ["company", companySlug, "projects", "assigned"],
+    queryFn: () => organizationApi.listProjects({ assigned_only: true }),
   });
+
+  // Ensure selected projectId is actually an assigned project
+  useEffect(() => {
+    if (!projectId || !projects.data) return;
+    const isAssigned = projects.data.some((p) => String(p.id) === projectId);
+    if (!isAssigned) {
+      setProjectId("");
+    }
+  }, [projectId, projects.data, setProjectId]);
 
   const tasks = useQuery({
     queryKey: ["company", companySlug, "task-categories"],

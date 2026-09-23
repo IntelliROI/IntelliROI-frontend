@@ -265,27 +265,43 @@ export function ChatComposer({
 
               {panel === "project" && (
                 <SubPanel title="Project" onBack={() => setPanel("root")}>
-                  <SelectRow
-                    label="No project"
-                    selected={!projectId}
-                    onClick={() => {
-                      onProjectChange("");
-                      setMenuOpen(false);
-                      setPanel("root");
-                    }}
-                  />
-                  {projects.map((p) => (
-                    <SelectRow
-                      key={p.id}
-                      label={p.name}
-                      selected={String(p.id) === projectId}
-                      onClick={() => {
-                        onProjectChange(String(p.id));
-                        setMenuOpen(false);
-                        setPanel("root");
-                      }}
-                    />
-                  ))}
+                  {projects.length === 0 ? (
+                    <div className="px-3 py-3 text-xs text-muted-foreground flex flex-col gap-1.5 max-w-[260px]">
+                      <div className="font-medium text-foreground flex items-center gap-1.5 text-amber-500">
+                        <span>⚠️</span> No assigned projects
+                      </div>
+                      <p className="leading-relaxed">
+                        You are not assigned to any project yet. AI requests must be linked to an assigned project for Estimated ROI attribution.
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/80">
+                        Please assign yourself in Projects or ask your lead to add you.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <SelectRow
+                        label="No project"
+                        selected={!projectId}
+                        onClick={() => {
+                          onProjectChange("");
+                          setMenuOpen(false);
+                          setPanel("root");
+                        }}
+                      />
+                      {projects.map((p) => (
+                        <SelectRow
+                          key={p.id}
+                          label={p.name}
+                          selected={String(p.id) === projectId}
+                          onClick={() => {
+                            onProjectChange(String(p.id));
+                            setMenuOpen(false);
+                            setPanel("root");
+                          }}
+                        />
+                      ))}
+                    </>
+                  )}
                 </SubPanel>
               )}
 
