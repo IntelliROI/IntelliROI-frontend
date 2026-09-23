@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { AppProviders } from "./providers";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  display: "swap",
-});
-
+/**
+ * Fonts are CSS stacks (no next/font/google) so `next dev` works offline /
+ * when fonts.googleapis.com DNS fails. Inter-like sans + JetBrains-like mono.
+ */
 export const metadata: Metadata = {
   title: "IntelliROI — Enterprise AI Intelligence",
   description:
@@ -28,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${jetbrains.variable}`}>
+      <body className="font-sans antialiased">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>
