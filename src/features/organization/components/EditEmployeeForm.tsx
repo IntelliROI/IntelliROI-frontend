@@ -13,6 +13,7 @@ import {
   fromE164,
   type CountryIso,
 } from "@/constants/locale";
+import { ROLES } from "@/constants/roles";
 import { lineManagers } from "@/lib/org/line-managers";
 import {
   employeeOrgPatchSchema,
@@ -89,7 +90,11 @@ export function EditEmployeeForm({
     [teams, form.department_id],
   );
   const managerOptions = useMemo(
-    () => lineManagers(managers).filter((m) => m.uuid !== employee.uuid),
+    () =>
+      lineManagers(managers).filter(
+        (m) =>
+          m.app_role === ROLES.DEPARTMENT_HEAD && m.uuid !== employee.uuid,
+      ),
     [managers, employee.uuid],
   );
   const country = findCountry(form.phone_iso);
