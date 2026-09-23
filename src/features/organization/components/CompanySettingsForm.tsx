@@ -14,6 +14,15 @@ import {
   defaultUsdFxRate,
 } from "@/constants/locale";
 
+/** Mirrors the backend allowlist in company_settings.go exactly. */
+const DATE_FORMAT_OPTIONS = [
+  { value: "YYYY-MM-DD", label: "YYYY-MM-DD  (e.g. 2024-09-23)" },
+  { value: "DD-MM-YYYY", label: "DD-MM-YYYY  (e.g. 23-09-2024)" },
+  { value: "MM-DD-YYYY", label: "MM-DD-YYYY  (e.g. 09-23-2024)" },
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY  (e.g. 23/09/2024)" },
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY  (e.g. 09/23/2024)" },
+] as const;
+
 type Props = {
   initial?: Partial<CompanySettings>;
   onSubmit: (values: CompanySettingsSchema) => Promise<void>;
@@ -68,7 +77,6 @@ export function CompanySettingsForm({
           ["working_hours_per_day", "Working hours / day"],
           ["working_days_per_month", "Working days / month"],
           ["timezone", "Timezone"],
-          ["date_format", "Date format"],
           ["fiscal_year_start", "Fiscal year start (MM-DD)"],
         ] as const
       ).map(([key, label]) => (
@@ -81,6 +89,23 @@ export function CompanySettingsForm({
           />
         </div>
       ))}
+      {/* Date format — constrained to backend allowlist; must be a Select, not free text. */}
+      <div className="space-y-2">
+        <Label htmlFor="date_format">Date format</Label>
+        <Select
+          id="date_format"
+          value={form.date_format}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, date_format: e.target.value as typeof form.date_format }))
+          }
+        >
+          {DATE_FORMAT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="default_currency">Currency</Label>
         <Select
