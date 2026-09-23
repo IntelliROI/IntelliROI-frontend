@@ -122,12 +122,12 @@ export function CreateEmployeeForm({
   );
 
   const managerOptions = useMemo(() => {
-    const base = lineManagers(managers);
-    if (role === ROLES.TEAM_LEAD) {
-      return base.filter((m) => m.app_role === ROLES.DEPARTMENT_HEAD);
-    }
-    return base;
-  }, [managers, role]);
+    // "Reports to" must only surface Department Heads regardless of the
+    // invitee's role. Team Leads are not valid reporting targets on invite.
+    return lineManagers(managers).filter(
+      (m) => m.app_role === ROLES.DEPARTMENT_HEAD,
+    );
+  }, [managers]);
 
   const country = findCountry(form.phone_iso);
 
