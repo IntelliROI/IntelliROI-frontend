@@ -32,7 +32,7 @@ const Integrations = () => (
       </Reveal>
       <Reveal delay={0.2}>
         <p className="max-w-xl text-base leading-relaxed text-text-secondary md:text-lg lg:ml-auto">
-          No rip-and-replace. IntelliROI brokers your existing providers and
+          No rip-and-replace. intelROI brokers your existing providers and
           pushes intelligence into the tools your teams already live in.
         </p>
       </Reveal>

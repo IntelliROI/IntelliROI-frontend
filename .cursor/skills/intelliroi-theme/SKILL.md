@@ -1,9 +1,9 @@
 ---
-name: intelliroi-theme
-description: IntelliROI visual chassis — dark ops-console, Inter + JetBrains Mono, hairline grids, brand mint logo, plus role-scoped --role-accent colors. Use when styling UI, landing pages, tokens, components, or any visual work. For dashboards also read intelliroi-dashboard.
+name: intelROI-theme
+description: intelROI visual chassis — dark ops-console, Inter + JetBrains Mono, hairline grids, brand mint logo, plus role-scoped --role-accent colors. Use when styling UI, landing pages, tokens, components, or any visual work. For dashboards also read intelROI-dashboard.
 ---
 
-# IntelliROI Theme
+# intelROI Theme
 
 ## Identity model
 
@@ -68,6 +68,6 @@ Light mode · purple/cream AI defaults · large radius · emoji · five unrelate
 
 ## Related
 
-- Dashboards: [../intelliroi-dashboard/SKILL.md](../intelliroi-dashboard/SKILL.md)
+- Dashboards: [../intelROI-dashboard/SKILL.md](../intelROI-dashboard/SKILL.md)
 - Token inventory: [reference.md](reference.md)
 - `.cursor/docs/DESIGN_SYSTEM.md`

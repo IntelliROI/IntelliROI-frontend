@@ -1,20 +1,20 @@
 ---
-name: intelliroi-dashboard
-description: World-class IntelliROI SaaS analytics dashboard patterns — MNC density, role-accent KPI mosaics, charts, shells. Use when building dashboards, analytics, ROI views, KPI tiles, sidebars, or any scoped executive/manager/employee intelligence UI. Prefer 21st.dev inspiration before inventing layouts.
+name: intelROI-dashboard
+description: World-class intelROI SaaS analytics dashboard patterns — MNC density, role-accent KPI mosaics, charts, shells. Use when building dashboards, analytics, ROI views, KPI tiles, sidebars, or any scoped executive/manager/employee intelligence UI. Prefer 21st.dev inspiration before inventing layouts.
 ---
 
-# IntelliROI Dashboard (World-Class SaaS)
+# intelROI Dashboard (World-Class SaaS)
 
 Build dashboards like top MNC analytics platforms (Stripe/Datadog/Vercel/Linear density + Bloomberg ops clarity) — **not** generic AI purple card grids.
 
 ## Before coding
 
-1. Read `.cursor/skills/intelliroi-theme/SKILL.md` (chassis)
+1. Read `.cursor/skills/intelROI-theme/SKILL.md` (chassis)
 2. Read `.cursor/docs/ROLE_COLOR_IDENTITY.md` (role accent)
 3. Query **21st.dev MCP** for layout inspiration (metadata first):
    - `get_inspiration` — enterprise analytics / KPI / charts
    - `search` — `type: "component"` for KPI cards, sidebars, line charts
-4. Adapt patterns into IntelliROI tokens + `data-role-theme` — do not paste foreign fonts/radii/colors wholesale.
+4. Adapt patterns into intelROI tokens + `data-role-theme` — do not paste foreign fonts/radii/colors wholesale.
 
 ### Canonical 21st references (patterns, not copy-paste themes)
 
@@ -28,7 +28,7 @@ Build dashboards like top MNC analytics platforms (Stripe/Datadog/Vercel/Linear 
 
 ## Chassis + role accent
 
-- Surfaces/type/motion = shared IntelliROI chassis
+- Surfaces/type/motion = shared intelROI chassis
 - Interactive accent = `--role-accent` from viewer role
 - Logo always brand mint
 
@@ -97,5 +97,5 @@ Charts: primary series = role accent; secondary = `accent-blue` / `warning` / `t
 ## Deep links
 
 - Role colors: `.cursor/docs/ROLE_COLOR_IDENTITY.md`
-- Experiences: `.cursor/skills/intelliroi-rbac/SKILL.md`
-- Theme tokens: `.cursor/skills/intelliroi-theme/reference.md`
+- Experiences: `.cursor/skills/intelROI-rbac/SKILL.md`
+- Theme tokens: `.cursor/skills/intelROI-theme/reference.md`

@@ -23,7 +23,7 @@ import { queryKeys } from "@/lib/api/query-keys";
  *   as the executive number next to Estimated ROI when an ROI total exists.
  */
 
-const FX_CACHE_KEY = "intelliroi:company-fx";
+const FX_CACHE_KEY = "intelROI:company-fx";
 
 type CachedFx = { currency: string; usdFxRate: number };
 

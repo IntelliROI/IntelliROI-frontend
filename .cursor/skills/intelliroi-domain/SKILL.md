@@ -1,9 +1,9 @@
 ---
-name: intelliroi-domain
-description: IntelliROI company domain model — org vs config entities, employee attribution, AI providers, policies, and ROI calculation chain. Use when modeling forms, APIs, types, organization features, projects, job roles, task benchmarks, usage events, or cost/ROI logic.
+name: intelROI-domain
+description: intelROI company domain model — org vs config entities, employee attribution, AI providers, policies, and ROI calculation chain. Use when modeling forms, APIs, types, organization features, projects, job roles, task benchmarks, usage events, or cost/ROI logic.
 ---
 
-# IntelliROI Domain Model
+# intelROI Domain Model
 
 ## Core idea
 
@@ -70,4 +70,4 @@ CEO registers company → creates dept → team → job role → employee → pr
 
 ## Deep reference
 
-`.cursor/docs/restructure design for IntelliRoi.md`
+`.cursor/docs/restructure design for intelROI.md`

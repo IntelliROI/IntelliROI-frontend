@@ -1,4 +1,4 @@
-# IntelliROI Frontend
+# intelROI Frontend
 
 Enterprise **AI intelligence / governance** SaaS — meter usage, cost, and **Estimated ROI** across Company → Department → Team → Employee.
 
@@ -18,7 +18,7 @@ Browsers block Mixed Content (`https://` page → `http://` API). This repo uses
 
 1. `netlify.toml` already sets `NEXT_PUBLIC_USE_API_PROXY=true` and proxies `/api-proxy/*` to `http://103.46.235.22:8081`–`:8089`.
 2. In Netlify UI, **delete** any `NEXT_PUBLIC_AUTH_BASE` / `NEXT_PUBLIC_*_BASE` values that start with `http://` (they get baked into the browser bundle and cause Mixed Content).
-3. Redeploy. After deploy, Network should show `https://intelliroi-web.netlify.app/api-proxy/auth/...` — never `http://103.46.235.22:8081`.
+3. Redeploy. After deploy, Network should show `https://intelROI-web.netlify.app/api-proxy/auth/...` — never `http://103.46.235.22:8081`.
 
 The browser calls `/api-proxy/auth/...` on your Netlify host; Next/Netlify forward to the HTTP upstream. **Private LAN IPs are not reachable from Netlify’s cloud** — use a public host or tunnel for `*_UPSTREAM`.
 

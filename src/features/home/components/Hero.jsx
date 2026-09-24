@@ -160,7 +160,7 @@ const Hero = () => {
                 <span className="h-2.5 w-2.5 rounded-full bg-accent/60" />
               </div>
               <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary">
-                intelliROI / executive-overview
+                intelROI / executive-overview
               </span>
               <span className="font-mono text-[10px] text-accent">LIVE</span>
             </div>

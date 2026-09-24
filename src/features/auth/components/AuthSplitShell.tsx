@@ -49,7 +49,7 @@ function AuthRightHeader() {
           <span className="h-1.5 w-1.5 bg-accent" />
         </span>
         <span className="font-mono text-xs font-semibold tracking-[0.2em] text-text-primary">
-          INTELLIROI
+          intelROI
         </span>
       </Link>
       {corner}

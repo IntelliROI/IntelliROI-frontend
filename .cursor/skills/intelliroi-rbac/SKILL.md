@@ -1,9 +1,9 @@
 ---
-name: intelliroi-rbac
-description: IntelliROI RBAC — role experiences, sidebars, permissions matrix, scope isolation, and privacy rules. Use when building navigation, dashboards, auth guards, middleware, Can/permission checks, or role-specific UI for Super Admin, CEO, Department Manager, Team Lead, or Employee.
+name: intelROI-rbac
+description: intelROI RBAC — role experiences, sidebars, permissions matrix, scope isolation, and privacy rules. Use when building navigation, dashboards, auth guards, middleware, Can/permission checks, or role-specific UI for Super Admin, CEO, Department Manager, Team Lead, or Employee.
 ---
 
-# IntelliROI RBAC
+# intelROI RBAC
 
 ## Roles & scope
 
@@ -58,7 +58,7 @@ Filter nav from current user: role → permissions → scope → sidebar.
 
 Same KPIs (requests, tokens, cost, time saved, estimated value, estimated ROI) — change aggregation window only.
 
-Each role also gets a **unique accent** on the shared chassis (`data-role-theme`). See `.cursor/docs/ROLE_COLOR_IDENTITY.md` and skill `intelliroi-dashboard`.
+Each role also gets a **unique accent** on the shared chassis (`data-role-theme`). See `.cursor/docs/ROLE_COLOR_IDENTITY.md` and skill `intelROI-dashboard`.
 
 ## Full matrix
 

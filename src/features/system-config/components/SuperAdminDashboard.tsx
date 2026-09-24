@@ -37,7 +37,7 @@ export function SuperAdminDashboard() {
         <PageHeader
           eyebrow="Platform"
           title="Super Admin Control Plane"
-          description="Customer tenants on this IntelliROI instance. Revenue and platform-wide AI spend wait on billing."
+          description="Customer tenants on this intelROI instance. Revenue and platform-wide AI spend wait on billing."
         />
         <LoadingBlock className="h-96" />
       </div>
@@ -58,7 +58,7 @@ export function SuperAdminDashboard() {
       <PageHeader
         eyebrow="Platform"
         title="Super Admin Control Plane"
-        description="Customer tenants on this IntelliROI instance. Revenue and platform-wide AI spend wait on billing."
+        description="Customer tenants on this intelROI instance. Revenue and platform-wide AI spend wait on billing."
         actions={
           <Button asChild size="sm">
             <Link href="/super-admin/companies">

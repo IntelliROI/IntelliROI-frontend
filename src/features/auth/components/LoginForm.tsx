@@ -76,7 +76,7 @@ export function LoginForm({ embedded, onNavigate }: LoginFormProps) {
         Login
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-        Login to access your IntelliROI account.
+        Login to access your intelROI account.
       </p>
 
       <form onSubmit={onSubmit} className="mt-10 space-y-5">

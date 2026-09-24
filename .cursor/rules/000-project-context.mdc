@@ -1,11 +1,11 @@
 ---
-description: IntelliROI product context — what we build and the core hierarchy. Always apply.
+description: intelROI product context — what we build and the core hierarchy. Always apply.
 alwaysApply: true
 ---
 
-# IntelliROI — Product Context
+# intelROI — Product Context
 
-IntelliROI is an **AI intelligence / governance SaaS**: companies route employee AI usage through a gateway, then roll up **usage → cost → estimated business value → ROI** through the org hierarchy.
+intelROI is an **AI intelligence / governance SaaS**: companies route employee AI usage through a gateway, then roll up **usage → cost → estimated business value → ROI** through the org hierarchy.
 
 ## Core chain (never break this)
 
@@ -49,4 +49,4 @@ Shared chassis (Inter + JetBrains Mono, ink/hairline ops-console). **Unique acce
 
 ## Source docs
 
-`.cursor/docs/Platform_Hirarchy.md`, `Restructure frontend architecture.md`, `restructure design for IntelliRoi.md`, `DESIGN_SYSTEM.md`, `ROLE_COLOR_IDENTITY.md`
+`.cursor/docs/Platform_Hirarchy.md`, `Restructure frontend architecture.md`, `restructure design for intelROI.md`, `DESIGN_SYSTEM.md`, `ROLE_COLOR_IDENTITY.md`

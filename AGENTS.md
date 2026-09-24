@@ -1,6 +1,6 @@
-# IntelliROI Frontend — Agent Guide
+# intelROI Frontend — Agent Guide
 
-This repo is the **IntelliROI** Next.js frontend: multi-tenant AI intelligence / governance SaaS.
+This repo is the **intelROI** Next.js frontend: multi-tenant AI intelligence / governance SaaS.
 
 ## Product in one line
 
@@ -25,19 +25,19 @@ Located in `.cursor/rules/` (applied automatically):
 
 | Skill | Use for |
 |-------|---------|
-| `intelliroi-architecture` | Shell, routes, feature placement |
-| `intelliroi-dashboard` | World-class analytics dashboards (21st.dev patterns) |
-| `intelliroi-rbac` | Role UX, nav, permissions |
-| `intelliroi-domain` | Entities, forms, ROI chain |
-| `intelliroi-theme` | Chassis typography/surfaces + role color wiring |
+| `intelROI-architecture` | Shell, routes, feature placement |
+| `intelROI-dashboard` | World-class analytics dashboards (21st.dev patterns) |
+| `intelROI-rbac` | Role UX, nav, permissions |
+| `intelROI-domain` | Entities, forms, ROI chain |
+| `intelROI-theme` | Chassis typography/surfaces + role color wiring |
 
-Also available: `ui-styling`, `ui-ux-pro-max`, `design-system`, `brand`, `design` — constrained by IntelliROI chassis + role accents.
+Also available: `ui-styling`, `ui-ux-pro-max`, `design-system`, `brand`, `design` — constrained by intelROI chassis + role accents.
 
 ## Source docs
 
 - `.cursor/docs/Platform_Hirarchy.md` — platform vs company hierarchy
 - `.cursor/docs/Restructure frontend architecture.md` — RBAC frontend experiences
-- `.cursor/docs/restructure design for IntelliRoi.md` — domain / data model
+- `.cursor/docs/restructure design for intelROI.md` — domain / data model
 - `.cursor/docs/DESIGN_SYSTEM.md` — full visual inventory
 - `.cursor/docs/ROLE_COLOR_IDENTITY.md` — shared fonts + unique role colors
 

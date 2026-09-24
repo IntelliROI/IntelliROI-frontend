@@ -1,4 +1,4 @@
-# IntelliROI — Role Color Identity
+# intelROI — Role Color Identity
 
 > Shared chassis (fonts, surfaces, layout language) + **role-scoped accent identity**.
 > Landing / marketing stays brand mint. Product dashboards tint by hierarchy role.
@@ -9,7 +9,7 @@
 
 **Do not** ship five different themes (different fonts, radii, backgrounds).
 
-**Do** keep one IntelliROI chassis and swap only the **role accent** (and its glow/muted variants). This is how top MNC SaaS products signal context without breaking brand: one product DNA, clear altitude cues.
+**Do** keep one intelROI chassis and swap only the **role accent** (and its glow/muted variants). This is how top MNC SaaS products signal context without breaking brand: one product DNA, clear altitude cues.
 
 ```
 Chassis (constant)          Role accent (variable)
@@ -68,7 +68,7 @@ Status: warning / danger
 - Soft radial atmosphere tint (low opacity, same as current mint glow pattern)
 
 **No — keep brand / chassis:**
-- `INTELLIROI` logo mark + wordmark → always mint brand
+- `intelROI` logo mark + wordmark → always mint brand
 - Page background → always `ink`
 - Body / secondary text → chassis tokens
 - Borders → `hairline` (active border may use role accent at 40–60%)

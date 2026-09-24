@@ -38,7 +38,7 @@ const SLIDES: Array<CopySlide | RoiSlide> = [
     kind: "copy",
     eyebrow: "03 — Operations",
     title: "Gateway → cost → Estimated ROI",
-    body: "Route usage through IntelliROI, meter tokens, and convert spend into executive-grade signal.",
+    body: "Route usage through intelROI, meter tokens, and convert spend into executive-grade signal.",
     icon: Gauge,
   },
   {
@@ -181,7 +181,7 @@ export function AuthMarketingPanel() {
             <span className="h-2 w-2 bg-accent" />
           </span>
           <span className="font-mono text-sm font-semibold tracking-[0.2em] text-text-primary">
-            INTELLIROI
+            intelROI
           </span>
         </Link>
 

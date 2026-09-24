@@ -51,7 +51,7 @@ export const useChatStore = create<ChatState>()(
       setModel: (id) => set({ model: id }),
     }),
     {
-      name: "intelliroi-chat",
+      name: "intelROI-chat",
       partialize: (s) => ({
         projectId: s.projectId,
         taskId: s.taskId,

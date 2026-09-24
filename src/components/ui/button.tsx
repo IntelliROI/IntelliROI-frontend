@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  * Enterprise button language — outline-first, accent-bordered, no background.
  * Default state: transparent bg, accent border + text.
  * Hover state: subtle accent fill (accent/10 bg).
- * Matches the IntelliROI enterprise design system.
+ * Matches the intelROI enterprise design system.
  */
 const buttonVariants = cva(
   [
@@ -50,7 +50,7 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 

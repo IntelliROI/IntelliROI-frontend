@@ -45,8 +45,8 @@ export const useAuthStore = create<AuthState>()(
           onboardingComplete ??
           (user.role === "SUPER_ADMIN" ? true : get().onboardingComplete);
         if (typeof window !== "undefined") {
-          localStorage.setItem("intelliroi_access_token", accessToken);
-          localStorage.setItem("intelliroi_refresh_token", refreshToken);
+          localStorage.setItem("intelROI_access_token", accessToken);
+          localStorage.setItem("intelROI_refresh_token", refreshToken);
         }
         syncAuthCookies({
           accessToken,
@@ -70,8 +70,8 @@ export const useAuthStore = create<AuthState>()(
       setTokens: ({ accessToken, refreshToken }) => {
         const { user, company, onboardingComplete } = get();
         if (typeof window !== "undefined") {
-          localStorage.setItem("intelliroi_access_token", accessToken);
-          localStorage.setItem("intelliroi_refresh_token", refreshToken);
+          localStorage.setItem("intelROI_access_token", accessToken);
+          localStorage.setItem("intelROI_refresh_token", refreshToken);
         }
         if (user) {
           syncAuthCookies({
@@ -97,8 +97,8 @@ export const useAuthStore = create<AuthState>()(
       },
       clearSession: () => {
         if (typeof window !== "undefined") {
-          localStorage.removeItem("intelliroi_access_token");
-          localStorage.removeItem("intelliroi_refresh_token");
+          localStorage.removeItem("intelROI_access_token");
+          localStorage.removeItem("intelROI_refresh_token");
         }
         clearAuthCookies();
         set({
@@ -112,7 +112,7 @@ export const useAuthStore = create<AuthState>()(
       setHydrated: (value) => set({ isHydrated: value }),
     }),
     {
-      name: "intelliroi-auth",
+      name: "intelROI-auth",
       partialize: (state) => ({
         user: state.user,
         company: state.company,
@@ -125,12 +125,12 @@ export const useAuthStore = create<AuthState>()(
         if (state?.accessToken && state.user) {
           if (typeof window !== "undefined") {
             localStorage.setItem(
-              "intelliroi_access_token",
+              "intelROI_access_token",
               state.accessToken,
             );
             if (state.refreshToken) {
               localStorage.setItem(
-                "intelliroi_refresh_token",
+                "intelROI_refresh_token",
                 state.refreshToken,
               );
             }

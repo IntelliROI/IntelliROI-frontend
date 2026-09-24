@@ -1,4 +1,4 @@
-# IntelliROI — Netlify
+# intelROI — Netlify
 # Browser stays on HTTPS (same origin). Edge rewrites proxy to HTTP backends.
 # Mixed Content cannot be "allowed"; this proxy is the supported workaround.
 #
@@ -14,7 +14,7 @@
 [build.environment]
   NODE_VERSION = "20"
   NEXT_PUBLIC_USE_API_PROXY = "true"
-  NEXT_PUBLIC_APP_URL = "https://intelliroi-web.netlify.app"
+  NEXT_PUBLIC_APP_URL = "https://intelROI-web.netlify.app"
   UPSTREAM_HOST = "http://103.46.235.22"
   GATEWAY_UPSTREAM = "http://103.46.235.22:8080"
   AUTH_UPSTREAM = "http://103.46.235.22:8081"
