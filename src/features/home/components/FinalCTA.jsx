@@ -58,7 +58,7 @@ const FinalCTA = () => (
             <span className="flex h-7 w-7 items-center justify-center border border-accent/60 bg-accent/10">
               <span className="h-2 w-2 bg-accent" />
             </span>
-            <span className="font-mono text-sm font-semibold tracking-[0.2em] text-text-primary">INTELLIROI</span>
+            <span className="font-mono text-sm font-semibold tracking-[0.2em] text-text-primary">intelROI</span>
           </div>
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-text-secondary">
             The operating system for enterprise AI intelligence and ROI. Every
@@ -123,7 +123,7 @@ const FinalCTA = () => (
       </div>
       <div className="border-t border-hairline">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col items-start justify-between gap-3 px-6 py-6 font-mono text-[10px] uppercase tracking-[0.2em] text-text-secondary/50 md:flex-row md:items-center md:px-12">
-          <span>© 2026 INTELLIROI INC. — ALL TOKENS ACCOUNTED FOR</span>
+          <span>© 2026 intelROI INC. — ALL TOKENS ACCOUNTED FOR</span>
           <span>BUILT FOR THE ENTERPRISE // V1.0</span>
         </div>
       </div>

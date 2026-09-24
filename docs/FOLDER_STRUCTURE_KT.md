@@ -1,16 +1,16 @@
-# IntelliROI Frontend — Folder Structure KT Guide
+# intelROI Frontend — Folder Structure KT Guide
 
 > Knowledge-transfer for engineers joining the codebase.  
-> Start here → then `src/README.md` → `AGENTS.md` → `.cursor/skills/intelliroi-*`.
+> Start here → then `src/README.md` → `AGENTS.md` → `.cursor/skills/intelROI-*`.
 
 ---
 
 ## 1. Product mental model (teach this first)
 
-IntelliROI is **not** a consumer chat app. It is a multi-tenant B2B OS between companies and AI providers:
+intelROI is **not** a consumer chat app. It is a multi-tenant B2B OS between companies and AI providers:
 
 ```
-Employee → IntelliROI Gateway → OpenAI / Claude / Gemini / …
+Employee → intelROI Gateway → OpenAI / Claude / Gemini / …
                 │
                 ├─ Pipeline 1 (real-time): chat stream — never waits on cost/ROI
                 └─ Pipeline 2 (async): usage → cost → business context → analytics → ROI
@@ -27,7 +27,7 @@ Employee → IntelliROI Gateway → OpenAI / Claude / Gemini / …
 ## 2. Top-level repo map
 
 ```
-IntelliROI-frontend/
+intelROI-frontend/
 ├── AGENTS.md                # Agent / product non-negotiables
 ├── .cursor/                 # Rules, skills, architecture docs
 ├── docs/                    # DESIGN_SYSTEM.md, this KT guide
@@ -244,7 +244,7 @@ Service bases → `config/site.ts` (env → ports **8081–8089**).
 
 | Email | Role |
 |-------|------|
-| `super@intelliroi.com` | Super Admin |
+| `super@intelROI.com` | Super Admin |
 | `ceo@acme.test` | Company Owner |
 | `dept@acme.test` | Department Head |
 | `lead@acme.test` | Team Lead |
@@ -276,7 +276,7 @@ Service bases → `config/site.ts` (env → ports **8081–8089**).
 - Dark only: ink `#09090B`, mint accent `#00E5A8`, hairline `#2A2A2A`
 - Inter (prose) + JetBrains Mono (labels/CTAs/metrics)
 - Sharp corners, hairline mosaics — no soft purple card stacks
-- Full inventory: `docs/DESIGN_SYSTEM.md` + skill `intelliroi-theme`
+- Full inventory: `docs/DESIGN_SYSTEM.md` + skill `intelROI-theme`
 
 ---
 
@@ -306,7 +306,7 @@ Service bases → `config/site.ts` (env → ports **8081–8089**).
 
 **Still growing toward full MVP:** richer CRUD forms, full shadcn surface, real SSE streaming against gateway, PDF reports, integrations settings, comprehensive tests (rule `090-testing-quality`).
 
-When adding a screen: place the route under the correct group, put logic in the matching `features/{domain}/`, use query keys with `companySlug`, wrap gated UI in `<Can>`, match the IntelliROI theme.
+When adding a screen: place the route under the correct group, put logic in the matching `features/{domain}/`, use query keys with `companySlug`, wrap gated UI in `<Can>`, match the intelROI theme.
 
 ---
 

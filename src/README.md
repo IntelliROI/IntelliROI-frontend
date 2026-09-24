@@ -1,6 +1,6 @@
 # `src/` — Beginner map
 
-IntelliROI keeps **one app shell**. Folders mirror product domains so new developers can find code fast.
+intelROI keeps **one app shell**. Folders mirror product domains so new developers can find code fast.
 
 ```
 src/

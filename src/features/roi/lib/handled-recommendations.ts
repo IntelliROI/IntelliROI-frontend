@@ -1,5 +1,5 @@
 const storageKey = (companySlug: string) =>
-  `intelliroi_handled_recs:${companySlug}`;
+  `intelROI_handled_recs:${companySlug}`;
 
 export function readHandledRecIds(companySlug: string): Set<number> {
   if (typeof window === "undefined") return new Set();

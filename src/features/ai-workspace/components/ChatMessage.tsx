@@ -120,7 +120,7 @@ export function ChatMessageBubble({
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="text-[13px] font-medium text-text-primary">
-              IntelliROI
+              intelROI
             </span>
             {modelLabel && (
               <span className="text-[11px] text-text-secondary/70">{modelLabel}</span>
@@ -206,7 +206,7 @@ function ActionBtn({
       onClick={onClick}
       aria-label={label}
       title={label}
-        className={cn(
+      className={cn(
         "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface hover:text-text-primary",
         active && !warn && "text-accent",
         active && warn && "text-warning",

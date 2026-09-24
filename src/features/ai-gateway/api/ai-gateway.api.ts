@@ -116,12 +116,12 @@ type ConversationDto = {
 function toProvider(p: ProviderDto): Provider {
   const model_entries: ProviderModel[] = Array.isArray(p.models)
     ? p.models
-        .map((m) =>
-          typeof m === "string"
-            ? { id: 0, name: m }
-            : { id: m.id ?? 0, name: m.model_name ?? "" },
-        )
-        .filter((m) => m.name)
+      .map((m) =>
+        typeof m === "string"
+          ? { id: 0, name: m }
+          : { id: m.id ?? 0, name: m.model_name ?? "" },
+      )
+      .filter((m) => m.name)
     : [];
   return {
     id: p.id ?? 0,
@@ -178,7 +178,7 @@ function chatAuthHeaders(): Record<string, string> {
   };
   const token =
     typeof window !== "undefined"
-      ? localStorage.getItem("intelliroi_access_token")
+      ? localStorage.getItem("intelROI_access_token")
       : null;
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
@@ -416,8 +416,8 @@ export const aiGatewayApi = {
       // One refresh attempt, then retry once (mirrors axios interceptor).
       const refreshToken =
         typeof window !== "undefined"
-          ? localStorage.getItem("intelliroi_refresh_token") ||
-            useAuthStore.getState().refreshToken
+          ? localStorage.getItem("intelROI_refresh_token") ||
+          useAuthStore.getState().refreshToken
           : null;
       if (refreshToken) {
         try {

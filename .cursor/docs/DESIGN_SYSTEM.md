@@ -1,7 +1,7 @@
-# IntelliROI Landing — Design System Analysis
+# intelROI Landing — Design System Analysis
 
 > Double-pass inventory of theme, typography, color, layout patterns, and motion.
-> Source of truth for the project skill (`.cursor/skills/intelliroi-theme`) and rule (`.cursor/rules/intelliroi-frontend-theme.mdc`).
+> Source of truth for the project skill (`.cursor/skills/intelROI-theme`) and rule (`.cursor/rules/intelROI-frontend-theme.mdc`).
 >
 > Analyzed: `app/src/**`, `app/tailwind.config.js`, `app/index.html`, `app/src/index.css`
 
@@ -20,7 +20,7 @@
 | **Product visual** | Faux dashboard chrome (Recharts + tables), not photography |
 
 ### Brand test
-If you remove the nav, the first viewport must still read as IntelliROI: mint accent, mono labels, ink background, hairline grid, live-status pulse.
+If you remove the nav, the first viewport must still read as intelROI: mint accent, mono labels, ink background, hairline grid, live-status pulse.
 
 ### Page structure (`App.jsx`)
 1. Fixed `Nav` → 2. `Hero` → 3. `Marquee` → 4. `Problem` → 5. `Solution` → 6. `Features` → 7. `DashboardSection` → 8. `ROICalculator` → 9. `Architecture` → 10. `Integrations` → 11. `Security` → 12. `Pricing` → 13. `FAQ` → 14. `FinalCTA` (+ footer) → 15. `DemoModal` → Sonner toaster
@@ -58,7 +58,7 @@ Loaded via Google Fonts in `index.html` and `@import` in `index.css`.
 | CTAs | `font-mono text-xs` / `text-[11px]` · `font-semibold` · `uppercase` · `tracking-[0.2em]` |
 | Micro labels | `font-mono text-[8px]`–`text-[10px]` · tracking `0.15em`–`0.25em` |
 | Metrics / data | `font-mono` · `font-light` · `text-2xl`–`text-7xl` |
-| Logo wordmark | `font-mono text-sm font-semibold tracking-[0.2em]` → `INTELLIROI` |
+| Logo wordmark | `font-mono text-sm font-semibold tracking-[0.2em]` → `intelROI` |
 
 ### Letter-spacing tokens
 `tracking-tighter` · `tracking-tight` · `tracking-wider` · `tracking-widest` · custom `0.12em`–`0.3em`
@@ -150,7 +150,7 @@ OpenAI `#00E5A8` · Anthropic `#4F8CFF` · Google `#F59E0B` · Bedrock `#CBD5E1`
 ## 5. Component Patterns
 
 ### Logo
-`h-7 w-7` square · `border-accent/60` · `bg-accent/10` · inner `h-2 w-2 bg-accent` · + `INTELLIROI` mono wordmark
+`h-7 w-7` square · `border-accent/60` · `bg-accent/10` · inner `h-2 w-2 bg-accent` · + `intelROI` mono wordmark
 
 ### Buttons
 

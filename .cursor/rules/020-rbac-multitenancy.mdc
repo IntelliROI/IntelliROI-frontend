@@ -1,5 +1,5 @@
 ---
-description: RBAC and tenant scope rules for IntelliROI roles and permissions.
+description: RBAC and tenant scope rules for intelROI roles and permissions.
 globs: src/**/*.{ts,tsx}, **/rbac/**/*, **/middleware.ts
 alwaysApply: false
 ---

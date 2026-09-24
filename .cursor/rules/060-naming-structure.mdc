@@ -1,5 +1,5 @@
 ---
-description: Naming and folder conventions for IntelliROI Next.js frontend.
+description: Naming and folder conventions for intelROI Next.js frontend.
 globs: src/**/*.{ts,tsx}, app/**/*.{ts,tsx}
 alwaysApply: false
 ---

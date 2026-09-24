@@ -318,7 +318,7 @@ export function PromptTemplatesLibrary({
           )}
 
           <p className="mt-10 text-center text-[12px] text-text-secondary/70">
-            IntelliROI can make mistakes. Check important info.
+            intelROI can make mistakes. Check important info.
           </p>
         </div>
       </div>

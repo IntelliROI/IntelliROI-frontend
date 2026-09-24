@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { site } from "@/config/site";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   BrandMark — the IntelliROI square logo used in loaders
+   BrandMark — the intelROI square logo used in loaders
 ───────────────────────────────────────────────────────────────────────── */
 function BrandMark({ size = "md" }: { size?: "sm" | "md" | "lg" | "xl" }) {
   const box = {
@@ -473,7 +473,7 @@ export function DataTable({
                   col.align === "right" && "text-right",
                   col.align === "center" && "text-center",
                   col.sortable &&
-                    "cursor-pointer select-none hover:text-text-primary",
+                  "cursor-pointer select-none hover:text-text-primary",
                   col.width,
                 )}
                 onClick={col.sortable ? () => handleSort(col.key) : undefined}

@@ -48,7 +48,7 @@ const Solution = () => (
       </Reveal>
       <Reveal delay={0.2}>
         <p className="max-w-xl text-base leading-relaxed text-text-secondary md:text-lg lg:ml-auto">
-          IntelliROI sits between your workforce and every AI provider — an
+          intelROI sits between your workforce and every AI provider — an
           intelligent gateway that turns raw token traffic into governed,
           measurable business outcomes.
         </p>

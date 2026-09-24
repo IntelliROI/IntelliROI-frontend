@@ -89,7 +89,7 @@ export default function CompaniesPage() {
       <PageHeader
         eyebrow="Platform · Tenants"
         title="Organizations"
-        description="All companies registered on the IntelliROI platform."
+        description="All companies registered on the intelROI platform."
         actions={
           <ViewToggle view={view} onViewChange={setView} />
         }

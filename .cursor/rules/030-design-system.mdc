@@ -1,10 +1,10 @@
 ---
-description: IntelliROI visual chassis + role accents — dark ops-console, Inter + Mono.
+description: intelROI visual chassis + role accents — dark ops-console, Inter + Mono.
 globs: "**/*.{tsx,jsx,css}"
 alwaysApply: false
 ---
 
-# IntelliROI Design System
+# intelROI Design System
 
 **Aesthetic:** Terminal / Bloomberg / ops-console. Dark only. Sharp corners (≈0).
 
@@ -38,4 +38,4 @@ Hairline mosaics · role-colored glow (not soft shadows) · Lucide 1.5 · ease `
 
 Light mode · purple/cream defaults · large radius · separate full themes per role · “Actual ROI”
 
-See `.cursor/docs/ROLE_COLOR_IDENTITY.md` + skill `intelliroi-dashboard`.
+See `.cursor/docs/ROLE_COLOR_IDENTITY.md` + skill `intelROI-dashboard`.

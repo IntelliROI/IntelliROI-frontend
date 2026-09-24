@@ -1,9 +1,9 @@
 ---
-name: intelliroi-architecture
-description: IntelliROI platform architecture — hierarchy, one RBAC-driven shell, route groups, dashboards by scope, and AI intelligence flow. Use when building pages, layouts, navigation, features, dashboards, analytics, or deciding how company/department/team/employee experiences work. Read before any IntelliROI feature work.
+name: intelROI-architecture
+description: intelROI platform architecture — hierarchy, one RBAC-driven shell, route groups, dashboards by scope, and AI intelligence flow. Use when building pages, layouts, navigation, features, dashboards, analytics, or deciding how company/department/team/employee experiences work. Read before any intelROI feature work.
 ---
 
-# IntelliROI Architecture
+# intelROI Architecture
 
 ## What we build
 
@@ -73,5 +73,5 @@ Employee → Project → Task Category → AI Gateway → Provider
 
 - `.cursor/docs/Platform_Hirarchy.md`
 - `.cursor/docs/Restructure frontend architecture.md`
-- For domain entities: read [../intelliroi-domain/SKILL.md](../intelliroi-domain/SKILL.md)
-- For role UIs: read [../intelliroi-rbac/SKILL.md](../intelliroi-rbac/SKILL.md)
+- For domain entities: read [../intelROI-domain/SKILL.md](../intelROI-domain/SKILL.md)
+- For role UIs: read [../intelROI-rbac/SKILL.md](../intelROI-rbac/SKILL.md)

@@ -28,7 +28,7 @@ type ModalProps = {
 };
 
 /**
- * Shared IntelliROI dialog — ink panel over dimmed overlay.
+ * Shared intelROI dialog — ink panel over dimmed overlay.
  * Use for create / assign / edit actions instead of inline table strips.
  */
 export function Modal({

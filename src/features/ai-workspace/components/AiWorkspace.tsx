@@ -480,11 +480,11 @@ export function AiWorkspace({
           const next = prev.map((m) =>
             m.id === assistantId
               ? {
-                  ...m,
-                  content: res.content,
-                  isStreaming: false,
-                  thinking: false,
-                }
+                ...m,
+                content: res.content,
+                isStreaming: false,
+                thinking: false,
+              }
               : m,
           );
           cacheThread(threadUuid, next);
@@ -614,9 +614,8 @@ export function AiWorkspace({
   }
 
   const activeProvider = providerOptions.find((p) => p.id === provider);
-  const modelLabel = `${activeProvider?.label ?? provider} · ${
-    activeProvider?.models.find((m) => m.id === model)?.label ?? model
-  }`;
+  const modelLabel = `${activeProvider?.label ?? provider} · ${activeProvider?.models.find((m) => m.id === model)?.label ?? model
+    }`;
 
   const loadingThread =
     needsHydrate &&
@@ -672,7 +671,7 @@ export function AiWorkspace({
                 How can I help you today?
               </h1>
               <p className="mt-2 max-w-md text-center text-[13px] text-text-secondary">
-                Enterprise chat through IntelliROI Gateway. Pick project and task
+                Enterprise chat through intelROI Gateway. Pick project and task
                 once via + — they stick for follow-ups.
               </p>
               <div className="mt-8 grid w-full max-w-2xl gap-2 sm:grid-cols-2">

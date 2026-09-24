@@ -43,13 +43,13 @@ type RequestOptions = {
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("intelliroi_access_token");
+  return localStorage.getItem("intelROI_access_token");
 }
 
 function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
   return (
-    localStorage.getItem("intelliroi_refresh_token") ||
+    localStorage.getItem("intelROI_refresh_token") ||
     useAuthStore.getState().refreshToken
   );
 }
@@ -57,7 +57,7 @@ function getRefreshToken(): string | null {
 export function getStoredCompany(): { id?: number; uuid?: string } | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem("intelliroi-auth");
+    const raw = localStorage.getItem("intelROI-auth");
     if (!raw) return null;
     const parsed = JSON.parse(raw) as {
       state?: { company?: { id?: number; uuid?: string } };

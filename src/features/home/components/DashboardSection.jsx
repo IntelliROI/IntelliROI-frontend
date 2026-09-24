@@ -70,7 +70,7 @@ const DashboardSection = () => (
         <div className="flex items-center justify-between border-b border-hairline px-5 py-3">
           <div className="flex items-center gap-4">
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-primary">
-              INTELLIROI / EXECUTIVE
+              intelROI / EXECUTIVE
             </span>
             <span className="hidden font-mono text-[10px] text-text-secondary sm:block">FY-2026 · Q3</span>
           </div>

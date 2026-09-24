@@ -14,7 +14,7 @@ const FAQS = [
   },
   {
     q: "Can we keep our own AI provider contracts?",
-    a: "Yes. IntelliROI brokers your existing OpenAI, Anthropic, Azure, Bedrock, and Gemini agreements. You keep your negotiated rates — we add the intelligence layer on top.",
+    a: "Yes. intelROI brokers your existing OpenAI, Anthropic, Azure, Bedrock, and Gemini agreements. You keep your negotiated rates — we add the intelligence layer on top.",
   },
   {
     q: "Do employees need new accounts or workflows?",

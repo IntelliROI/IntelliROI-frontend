@@ -37,11 +37,10 @@ const Nav = () => {
   return (
     <header
       data-testid="main-nav"
-      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-500 ${
-        scrolled
+      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-500 ${scrolled
           ? "border-b border-hairline bg-ink/70 backdrop-blur-xl"
           : "border-b border-transparent bg-transparent"
-      }`}
+        }`}
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between gap-8 px-6 md:px-12">
         <a
@@ -54,7 +53,7 @@ const Nav = () => {
             <span className="h-2 w-2 bg-accent" />
           </span>
           <span className="font-mono text-sm font-semibold tracking-[0.2em] text-text-primary">
-            INTELLIROI
+            intelROI
           </span>
         </a>
 

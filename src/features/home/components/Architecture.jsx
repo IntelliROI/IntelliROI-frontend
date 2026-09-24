@@ -27,7 +27,7 @@ const Architecture = () => (
         </Reveal>
         <Reveal delay={0.2}>
           <p className="mt-6 max-w-lg text-base leading-relaxed text-text-secondary md:text-lg">
-            IntelliROI mirrors your org chart. Policy flows down from the company
+            intelROI mirrors your org chart. Policy flows down from the company
             level; intelligence flows back up — every layer reconciled, every
             request attributed, every dollar accounted for.
           </p>
@@ -65,11 +65,10 @@ const Architecture = () => (
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.5, delay: i * 0.05 }}
-                className={`relative flex items-center gap-5 border p-4 pl-6 transition-colors duration-500 ${
-                  l.accent
+                className={`relative flex items-center gap-5 border p-4 pl-6 transition-colors duration-500 ${l.accent
                     ? "border-accent/50 bg-accent/5"
                     : "border-hairline bg-ink hover:border-accent/40"
-                }`}
+                  }`}
                 data-testid={`arch-layer-${l.id.toLowerCase()}`}
               >
                 <span className={`absolute -left-px top-1/2 h-px w-6 ${l.accent ? "bg-accent" : "bg-hairline"}`} />

@@ -108,7 +108,7 @@ export const services = {
 export type ServiceKey = keyof typeof services;
 
 export const site = {
-  name: "IntelliROI",
+  name: "intelROI",
   tagline: "Enterprise AI Intelligence OS",
   url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
 };

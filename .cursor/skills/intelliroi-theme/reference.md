@@ -1,4 +1,4 @@
-# IntelliROI Theme — Reference
+# intelROI Theme — Reference
 
 Source: `.cursor/docs/DESIGN_SYSTEM.md`
 
@@ -28,7 +28,7 @@ Source: `.cursor/docs/DESIGN_SYSTEM.md`
 | Body | `text-base md:text-lg` · `leading-relaxed` · `text-text-secondary` |
 | Chapter / overline | `font-mono text-xs` / `text-[10px]` · `uppercase` · `tracking-[0.25em]` |
 | Metrics | `font-mono font-light` · large sizes |
-| Logo | `font-mono text-sm font-semibold tracking-[0.2em]` → `INTELLIROI` |
+| Logo | `font-mono text-sm font-semibold tracking-[0.2em]` → `intelROI` |
 
 ## Layout
 
@@ -76,4 +76,4 @@ Chassis stays fixed. Set `data-role-theme` on AppShell and bind interactive chro
 | `team-lead` | `#2DD4BF` |
 | `employee` | `#00E5A8` |
 
-Logo / landing CTAs keep `--brand-accent: #00E5A8`. Full rules: `.cursor/docs/ROLE_COLOR_IDENTITY.md`. Dashboard patterns: skill `intelliroi-dashboard`.
+Logo / landing CTAs keep `--brand-accent: #00E5A8`. Full rules: `.cursor/docs/ROLE_COLOR_IDENTITY.md`. Dashboard patterns: skill `intelROI-dashboard`.

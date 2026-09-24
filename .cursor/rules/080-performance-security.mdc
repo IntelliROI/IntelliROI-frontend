@@ -1,5 +1,5 @@
 ---
-description: Performance and security defaults for IntelliROI frontend.
+description: Performance and security defaults for intelROI frontend.
 globs: src/**/*.{ts,tsx}, next.config.mjs, middleware.ts
 alwaysApply: false
 ---

@@ -402,7 +402,7 @@ export function ChatComposer({
         </div>
 
         <p className="mt-2.5 text-center text-[12px] text-text-secondary/70">
-          IntelliROI can make mistakes. Check important info.
+          intelROI can make mistakes. Check important info.
         </p>
       </form>
     </div>

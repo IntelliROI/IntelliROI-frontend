@@ -6,14 +6,14 @@ alwaysApply: false
 
 # Role Color Identity
 
-One IntelliROI chassis. **Role accents change — fonts/surfaces do not.**
+One intelROI chassis. **Role accents change — fonts/surfaces do not.**
 
 ## Chassis (always)
 
 - Fonts: Inter + JetBrains Mono
 - Surfaces: `ink` `#09090B` · `surface` · `hairline`
 - Sharp corners ≈ 0 · Lucide 1.5 · ease `[0.22,1,0.36,1]`
-- Logo / `INTELLIROI` wordmark → always brand mint `#00E5A8`
+- Logo / `intelROI` wordmark → always brand mint `#00E5A8`
 
 ## Role accents
 
